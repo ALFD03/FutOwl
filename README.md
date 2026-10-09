@@ -56,10 +56,10 @@ FutOwl/
 │   │   ├── tournaments/         # torneos, grupos, inscripciones y documentos (PDF/Word)
 │   │   └── competition/         # jornadas, partidos, confirmaciones, ajustes, alineaciones,
 │   │       └── services/        # mesa técnica, informes, cierre, revisiones, fixture, posiciones
-│   └── requirements.txt
+│   └── requirements.txt         # → ../requirements.txt
 ├── api/index.py                 # entrada de Vercel: monta Django como función Python
 ├── vercel.json                  # build de Vite + función Django + rewrites y cabeceras
-├── requirements.txt             # → backend/requirements.txt (para la función de Vercel)
+├── requirements.txt             # dependencias Python (las lee Vercel y el backend)
 ├── frontend/                    # SPA React
 │   ├── public/brand/            # logos e isotipos
 │   └── src/
