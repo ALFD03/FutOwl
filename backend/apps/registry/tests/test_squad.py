@@ -184,3 +184,15 @@ class SquadRulesTests(TestCase):
         perms = {p["code"]: p["label"] for p in self.api(self.admin).get("/api/permissions/").data}
         self.assertEqual(perms["registry.add_team"], "Crear equipos")
         self.assertEqual(perms["competition.close_match"], "Cerrar partidos")
+
+    # ------------------------------------------------------------- usuarios
+    def test_edit_user_with_blank_password_keeps_it(self):
+        """El modal de usuario envía la contraseña en blanco al editar: no debe fallar ni cambiarla."""
+        res = self.api(self.admin).patch(f"/api/users/{self.manager.id}/", {"first_name": "Gestor", "password": ""},
+                                         format="json")
+        self.assertEqual(res.status_code, 200, res.data)
+        self.manager.refresh_from_db()
+        self.assertTrue(self.manager.check_password("FutOwl#2026!"))
+        res = self.api(self.admin).post("/api/users/", {"username": "sinclave", "password": ""}, format="json")
+        self.assertEqual(res.status_code, 400)
+        self.assertIn("password", res.data)

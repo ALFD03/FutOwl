@@ -62,7 +62,8 @@ class GroupSerializer(serializers.ModelSerializer):
 
 
 class UserSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True, required=False, style={"input_type": "password"})
+    # Vacía al editar = no cambiarla (el formulario la envía en blanco). Al crear es obligatoria.
+    password = serializers.CharField(write_only=True, required=False, allow_blank=True, style={"input_type": "password"})
     groups = serializers.PrimaryKeyRelatedField(many=True, queryset=Group.objects.all(), required=False)
     user_permissions = serializers.PrimaryKeyRelatedField(
         many=True, queryset=Permission.objects.all(), required=False
@@ -77,7 +78,8 @@ class UserSerializer(serializers.ModelSerializer):
         read_only_fields = ["is_staff", "last_login", "date_joined"]
 
     def validate_password(self, value):
-        password_validation.validate_password(value)
+        if value:
+            password_validation.validate_password(value, self.instance)
         return value
 
     def create(self, validated_data):

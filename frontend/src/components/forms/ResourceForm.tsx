@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 
 import { Alert, Spinner } from "@/components/ui";
 import { errorMessage, fieldErrors, type FieldErrors } from "@/utils/errors";
@@ -42,6 +42,26 @@ export function ResourceForm({ fields, initial, onSubmit, submitLabel = "Guardar
   const [errors, setErrors] = useState<FieldErrors>({});
   const [general, setGeneral] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  // Tras un intento fallido, lleva la vista al primer error: en formularios largos quedaba fuera de pantalla.
+  useEffect(() => {
+    if (!attempt) return;
+    formRef.current?.querySelector(".error-text, [data-form-alert]")?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [attempt]);
+
+  // Nombre visible de cada clave de error (incluye las que escriben los campos compuestos).
+  const labels = useMemo(() => {
+    const map: Record<string, string> = {};
+    fields.forEach((f) => {
+      map[f.name] = f.label;
+      if (f.type === "vat") { map.vat_id = f.label; map.vat_number = f.label; }
+      (f.emits ?? []).forEach((key) => { map[key] = f.label; });
+    });
+    return map;
+  }, [fields]);
+  const failed = [...new Set(Object.keys(errors).map((key) => labels[key] ?? key))];
 
   const setValue = (name: string, value: unknown) => setValues((v) => ({ ...v, [name]: value }));
   const sections = useMemo(() => {
@@ -80,14 +100,15 @@ export function ResourceForm({ fields, initial, onSubmit, submitLabel = "Guardar
       const known = new Set([...fields.flatMap((f) => [f.name, ...(f.emits ?? [])]), "vat_id", "vat_number"]);
       const unknown = Object.keys(errs).some((k) => !known.has(k));
       if (!Object.keys(errs).length || unknown) setGeneral(errorMessage(error));
+      setAttempt((n) => n + 1);
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <form id={formId} onSubmit={submit} className="space-y-6" noValidate>
-      {general && <Alert tone="danger">{general}</Alert>}
+    <form ref={formRef} id={formId} onSubmit={submit} className="space-y-6" noValidate>
+      {general && <div data-form-alert><Alert tone="danger">{general}</Alert></div>}
       {sections.map(([section, items]) => (
         <fieldset key={section} className="space-y-3">
           {section && <legend className="mb-2 text-sm font-bold text-navy-900 dark:text-gold-400">{section}</legend>}
@@ -99,6 +120,9 @@ export function ResourceForm({ fields, initial, onSubmit, submitLabel = "Guardar
           </div>
         </fieldset>
       ))}
+      {failed.length > 0 && !general && (
+        <Alert tone="danger">No se guardó. Revise: {failed.join(", ")}.</Alert>
+      )}
       {!formId && (
         <div className="flex justify-end gap-2 border-t border-slate-100 pt-4 dark:border-white/5">
           {onCancel && <button type="button" className="btn-ghost" onClick={onCancel}>Cancelar</button>}
