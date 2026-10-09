@@ -101,6 +101,23 @@ reset-db: ## ⚠ Borra la base SQLite local y la recrea con datos demo
 secure-db: ## Reaplica RLS y triggers de inalterabilidad (solo PostgreSQL/Supabase)
 	$(MANAGE) secure_database
 
+##@ Despliegue (Supabase: esquema qa = previews/develop, public = producción/master)
+.PHONY: remote-migrate remote-superuser remote-shell
+REMOTE_ENV  ?= preview
+REMOTE_FILE := $(abspath .env.vercel.$(REMOTE_ENV))
+REMOTE      := set -a && source $(REMOTE_FILE) && set +a && cd $(BACKEND) && $(PY) manage.py
+
+remote-migrate: ## Migra y sincroniza roles en Supabase (REMOTE_ENV=preview|production)
+	@test -f $(REMOTE_FILE) || { echo "Falta $(REMOTE_FILE)"; exit 1; }
+	$(REMOTE) migrate
+	$(REMOTE) seed_roles
+
+remote-superuser: ## Crea un superusuario en Supabase (REMOTE_ENV=preview|production)
+	$(REMOTE) createsuperuser
+
+remote-shell: ## Shell de Django contra Supabase (REMOTE_ENV=preview|production)
+	$(REMOTE) shell
+
 ##@ Pruebas y calidad
 .PHONY: test test-backend test-frontend typecheck check check-deploy ci
 test: test-backend test-frontend ## Ejecuta todas las pruebas

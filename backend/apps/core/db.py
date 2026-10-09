@@ -25,7 +25,8 @@ $$ LANGUAGE plpgsql;
 def install_append_only_triggers(apps, schema_editor):
     if schema_editor.connection.vendor != "postgresql":
         return
-    schema_editor.execute(TRIGGER_FUNCTION)
+    # params=None: el `%` de RAISE EXCEPTION no debe interpretarse como placeholder de psycopg.
+    schema_editor.execute(TRIGGER_FUNCTION, params=None)
     for table in APPEND_ONLY_TABLES:
         schema_editor.execute(f'DROP TRIGGER IF EXISTS futowl_append_only ON "{table}";')
         schema_editor.execute(
@@ -45,12 +46,13 @@ def enable_row_level_security(apps, schema_editor):
     """
     Supabase expone las tablas del esquema `public` vía su API REST (PostgREST).
     Activar RLS sin políticas bloquea ese acceso; Django se conecta como propietario
-    de las tablas y no se ve afectado.
+    de las tablas y no se ve afectado. Se aplica al esquema activo (`public` en
+    producción, `qa` en previews).
     """
     if schema_editor.connection.vendor != "postgresql":
         return
     with schema_editor.connection.cursor() as cursor:
-        cursor.execute("SELECT tablename FROM pg_tables WHERE schemaname = 'public'")
+        cursor.execute("SELECT tablename FROM pg_tables WHERE schemaname = current_schema()")
         tables = [row[0] for row in cursor.fetchall()]
     for table in tables:
         schema_editor.execute(f'ALTER TABLE "{table}" ENABLE ROW LEVEL SECURITY;')

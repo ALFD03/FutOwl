@@ -31,6 +31,13 @@ SECRET_KEY = env("DJANGO_SECRET_KEY", "dev-insecure-change-me")
 DEBUG = env_bool("DJANGO_DEBUG", False)
 ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1")
 
+# Vercel inyecta los dominios de cada despliegue (producción, rama y URL única);
+# se aceptan automáticamente para que los previews funcionen sin configuración extra.
+VERCEL_HOSTS = [
+    host for host in (env("VERCEL_PROJECT_PRODUCTION_URL"), env("VERCEL_BRANCH_URL"), env("VERCEL_URL")) if host
+]
+ALLOWED_HOSTS += VERCEL_HOSTS
+
 # ---------------------------------------------------------------------------
 # Aplicaciones
 # ---------------------------------------------------------------------------
@@ -104,6 +111,9 @@ DATABASES = {
         ssl_require=env_bool("DB_SSL_REQUIRE", False),
     )
 }
+# El pooler de Supabase en modo transacción (puerto 6543) no admite cursores del lado del servidor.
+# El esquema (public / qa) lo fija el search_path del rol de base de datos de cada entorno.
+DATABASES["default"]["DISABLE_SERVER_SIDE_CURSORS"] = True
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 AUTH_USER_MODEL = "accounts.User"
 
@@ -233,6 +243,7 @@ LOGIN_LOCKOUT_MINUTES = int(env("LOGIN_LOCKOUT_MINUTES", "15"))
 CORS_ALLOWED_ORIGINS = env_list("CORS_ALLOWED_ORIGINS", "http://localhost:5173")
 CORS_ALLOW_CREDENTIALS = True
 CSRF_TRUSTED_ORIGINS = env_list("CSRF_TRUSTED_ORIGINS", "http://localhost:5173")
+CSRF_TRUSTED_ORIGINS += [f"https://{host}" for host in VERCEL_HOSTS]
 
 # ---------------------------------------------------------------------------
 # Seguridad

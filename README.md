@@ -36,7 +36,7 @@
 | Frontend | TypeScript, React 19, Vite, Tailwind CSS 3, TanStack Query, React Router 7 |
 | Base de datos | PostgreSQL en **Supabase** (SQLite en local) |
 | Archivos | **Supabase Storage** (API S3) mediante `django-storages` |
-| Despliegue | **Vercel** (frontend estático + backend en función Python) |
+| Despliegue | **Vercel**, un solo proyecto: frontend estático + Django como función Python en `/api` |
 | Documentos | ReportLab (PDF) y python-docx (Word) |
 
 ## Estructura del proyecto
@@ -56,8 +56,10 @@ FutOwl/
 │   │   ├── tournaments/         # torneos, grupos, inscripciones y documentos (PDF/Word)
 │   │   └── competition/         # jornadas, partidos, confirmaciones, ajustes, alineaciones,
 │   │       └── services/        # mesa técnica, informes, cierre, revisiones, fixture, posiciones
-│   ├── requirements.txt
-│   └── vercel.json
+│   └── requirements.txt
+├── api/index.py                 # entrada de Vercel: monta Django como función Python
+├── vercel.json                  # build de Vite + función Django + rewrites y cabeceras
+├── requirements.txt             # → backend/requirements.txt (para la función de Vercel)
 ├── frontend/                    # SPA React
 │   ├── public/brand/            # logos e isotipos
 │   └── src/
@@ -250,45 +252,49 @@ Prefijo `/api/`. Autenticación `Authorization: Bearer <access>`.
 
 ## Despliegue: Vercel + Supabase
 
-### 1. Supabase
-1. Cree un proyecto y copie la cadena de conexión del **connection pooler** (puerto 6543).
-2. En *Storage* cree un bucket privado `futowl` y genere credenciales **S3** (*Project Settings → Storage*).
+Un único proyecto de Vercel (raíz del repo) sirve el build de Vite y Django como función
+Python (`api/index.py`). `/api/*` y `/media/*` van a Django en **el mismo dominio**, así que la
+cookie httpOnly funciona con `SameSite=Strict` y no hace falta CORS. Cada despliegue acepta
+automáticamente su propio dominio (`VERCEL_URL`, `VERCEL_BRANCH_URL`, `VERCEL_PROJECT_PRODUCTION_URL`).
 
-### 2. Backend en Vercel (proyecto con *Root Directory* = `backend`)
-Variables de entorno:
+| Rama | Entorno Vercel | Esquema Supabase | Rol de BD | Bucket |
+|------|----------------|------------------|-----------|--------|
+| `master` | Production | `public` | `futowl_prod` | `futowl` |
+| `develop` (y cualquier otra rama) | Preview | `qa` | `futowl_qa` | `futowl-qa` |
+
+Un único proyecto Supabase (`futowl`, us-east-1). El esquema lo fija el `search_path` de cada rol
+(`ALTER ROLE … SET search_path`), no la aplicación: `futowl_qa` no tiene privilegios en `public`,
+de modo que un preview **no puede** tocar datos de producción. Las tablas de ambos esquemas tienen
+RLS activo y no son visibles para los roles `anon`/`authenticated` de la API REST de Supabase.
+
+### Variables de entorno (Vercel → Settings → Environment Variables)
+
+Cada entorno (Production / Preview) tiene sus **propios** valores; están en los archivos locales
+`.env.vercel.production` y `.env.vercel.preview` (ignorados por git, permisos 600):
 
 ```
 DJANGO_SETTINGS_MODULE=config.settings.production
-DJANGO_SECRET_KEY=<clave aleatoria larga>
-FIELD_ENCRYPTION_KEY=<Fernet.generate_key()>
-BLIND_INDEX_KEY=<clave aleatoria>
-JWT_SIGNING_KEY=<clave aleatoria>
-DJANGO_ALLOWED_HOSTS=<dominio-api>.vercel.app
-DATABASE_URL=postgresql://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:6543/postgres
+DJANGO_SECRET_KEY · FIELD_ENCRYPTION_KEY · BLIND_INDEX_KEY · JWT_SIGNING_KEY
+DJANGO_ADMIN_URL=api/<ruta-secreta>/        # bajo api/ para que llegue a Django
+DATABASE_URL=postgresql://<rol>.<ref>:<password>@aws-0-us-east-1.pooler.supabase.com:6543/postgres
 DB_SSL_REQUIRE=true
-SUPABASE_S3_ENDPOINT=https://<ref>.supabase.co/storage/v1/s3
-SUPABASE_S3_ACCESS_KEY=...
-SUPABASE_S3_SECRET_KEY=...
-SUPABASE_S3_BUCKET=futowl
-CORS_ALLOWED_ORIGINS=https://<dominio-frontend>
-CSRF_TRUSTED_ORIGINS=https://<dominio-frontend>
-DJANGO_ADMIN_URL=<ruta-secreta>/
+SUPABASE_S3_ENDPOINT · SUPABASE_S3_BUCKET · SUPABASE_S3_REGION · SUPABASE_S3_ACCESS_KEY · SUPABASE_S3_SECRET_KEY
 ```
 
-Ejecute una vez (desde su equipo, con las mismas variables):
+`DB_ROLE` y `DB_PASSWORD` de esos archivos son solo de referencia (ya van dentro de `DATABASE_URL`).
+
+> ⚠️ Guarde `FIELD_ENCRYPTION_KEY` de cada entorno en un gestor de contraseñas: sin ella los datos
+> cifrados no se pueden recuperar.
+
+### Migraciones
+
+Vercel no ejecuta migraciones. Antes de desplegar cambios de modelos, desde su equipo:
 
 ```bash
-python manage.py migrate        # incluye triggers de inalterabilidad y RLS en Supabase
-python manage.py seed_roles
-python manage.py createsuperuser
+make remote-migrate REMOTE_ENV=preview      # esquema qa
+make remote-migrate REMOTE_ENV=production   # esquema public
+make remote-superuser REMOTE_ENV=production
 ```
-
-> ⚠️ Guarde `FIELD_ENCRYPTION_KEY` en un lugar seguro: sin ella los datos cifrados no se pueden recuperar.
-
-### 3. Frontend en Vercel (proyecto con *Root Directory* = `frontend`)
-Edite `frontend/vercel.json` y reemplace `REEMPLAZAR-futowl-api.vercel.app` por el dominio del backend.
-Así `/api/*` se sirve **desde el mismo dominio** del frontend (la cookie httpOnly funciona con
-`SameSite=Strict` y no se necesita CORS).
 
 ## Pruebas
 
