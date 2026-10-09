@@ -1,5 +1,5 @@
 import {
-  Activity, BadgeCheck, CalendarDays, ClipboardList, FileText, Flag, Gauge, History, KeyRound, LayoutGrid, MapPin,
+  Activity, BadgeCheck, BookOpen, CircleHelp, CalendarDays, ClipboardList, FileText, Flag, Gauge, History, KeyRound, LayoutGrid, MapPin,
   Scale, Shield, ShieldCheck, Trophy, UserCog, UserRound, Users, UsersRound, Megaphone,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -53,6 +53,13 @@ export const NAVIGATION: NavSection[] = [
       { to: "/app/roles", label: "Roles y permisos", icon: KeyRound, perm: "auth.view_group" },
       { to: "/app/auditoria", label: "Auditoría", icon: History, perm: "audit.view_auditlog" },
       { to: "/app/terminos", label: "Términos", icon: FileText, perm: "legal.add_termsversion" },
+    ],
+  },
+  {
+    title: "Ayuda",
+    items: [
+      { to: "/app/ayuda", label: "Documentación", icon: BookOpen },
+      { to: "/app/ayuda/preguntas-frecuentes", label: "Preguntas frecuentes", icon: CircleHelp },
     ],
   },
 ];

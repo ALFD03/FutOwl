@@ -66,6 +66,7 @@ LOCAL_APPS = [
     "apps.registry",
     "apps.tournaments",
     "apps.competition",
+    "apps.docs",
 ]
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 

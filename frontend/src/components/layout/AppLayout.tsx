@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
-import { ExternalLink, LogOut, Menu, X } from "lucide-react";
+import { CircleHelp, ExternalLink, LogOut, Menu, X } from "lucide-react";
 
 import { Avatar } from "@/components/ui";
 import { ACCOUNT_ITEMS, NAVIGATION } from "@/config/navigation";
@@ -91,6 +91,7 @@ export function AppLayout() {
         <div className="ml-auto flex items-center gap-2">
           <LiveClock className="hidden sm:block" />
           <NavLink to="/" className="btn-ghost hidden h-9 px-3 text-xs md:inline-flex" title="Ver sitio público"><ExternalLink className="h-4 w-4" /> Sitio público</NavLink>
+          <NavLink to="/app/ayuda" className="btn-ghost h-9 w-9 p-0" title="Ayuda y documentación" aria-label="Ayuda y documentación"><CircleHelp className="h-5 w-5" /></NavLink>
           <ThemeToggle />
           <NotificationBell />
           <NavLink to={ACCOUNT_ITEMS[0].to} className="btn-ghost h-9 w-9 p-0" title="Mi cuenta"><UserIcon /></NavLink>

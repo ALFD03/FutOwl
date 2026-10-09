@@ -22,9 +22,10 @@
 8. [Roles y permisos](#roles-y-permisos)
 9. [Hora oficial (UTC-4) y tiempo real](#hora-oficial-utc-4-y-tiempo-real)
 10. [Documentos (exportar / importar)](#documentos-exportar--importar)
-11. [API](#api)
-12. [Despliegue: Vercel + Supabase](#despliegue-vercel--supabase)
-13. [Pruebas](#pruebas)
+11. [Documentación integrada (Ayuda)](#documentación-integrada-ayuda)
+12. [API](#api)
+13. [Despliegue: Vercel + Supabase](#despliegue-vercel--supabase)
+14. [Pruebas](#pruebas)
 
 ---
 
@@ -54,8 +55,9 @@ FutOwl/
 │   │   ├── registry/            # categorías, canchas, entrenadores, representantes, jugadores,
 │   │   │                        # delegados, árbitros, equipos y nómina
 │   │   ├── tournaments/         # torneos, grupos, inscripciones y documentos (PDF/Word)
-│   │   └── competition/         # jornadas, partidos, confirmaciones, ajustes, alineaciones,
-│   │       └── services/        # mesa técnica, informes, cierre, revisiones, fixture, posiciones
+│   │   ├── competition/         # jornadas, partidos, confirmaciones, ajustes, alineaciones,
+│   │   │   └── services/        # mesa técnica, informes, cierre, revisiones, fixture, posiciones
+│   │   └── docs/                # ayuda en Markdown (manual, FAQ, permisos) + content/*.md base
 │   └── requirements.txt         # → ../requirements.txt
 ├── api/index.py                 # entrada de Vercel: monta Django como función Python
 ├── vercel.json                  # build de Vite + función Django + rewrites y cabeceras
@@ -235,6 +237,22 @@ funciones de la aplicación tienen su permiso (p. ej. `competition.operate_match
 | Tarjetas de cambio | PDF y Word | Plantilla propia del torneo (Word/PDF) |
 | Reglamento | PDF y Word desde el texto escrito en la app | Archivo Word/PDF |
 
+## Documentación integrada (Ayuda)
+
+El panel incluye un centro de ayuda en **`/app/ayuda`** (menú *Ayuda* y botón **?** del encabezado) con:
+
+- **Manual de usuario** completo, capítulo por capítulo, con ejemplos y las conexiones entre módulos.
+- **Preguntas frecuentes** con la solución a casos puntuales.
+- **Roles y permisos**: qué hace cada rol y cada permiso, con widgets en vivo (roles vigentes, catálogo con
+  buscador y los permisos de quien lee).
+- **Referencia técnica**: arquitectura, estados, API y cómo editar la ayuda.
+
+Cualquier usuario con sesión la lee; **solo el superusuario** crea, edita (Markdown con vista previa),
+publica/despublica páginas y consulta el historial de versiones (cada guardado queda como revisión inalterable).
+El contenido base vive en `backend/apps/docs/content/*.md` y se carga al migrar; `python manage.py load_docs`
+crea las páginas que falten y `load_docs --overwrite` reemplaza el contenido con el de los archivos. Las pruebas
+verifican que cada permiso del sistema esté documentado y que los enlaces internos existan.
+
 ## API
 
 Prefijo `/api/`. Autenticación `Authorization: Bearer <access>`.
@@ -247,6 +265,7 @@ Prefijo `/api/`. Autenticación `Authorization: Bearer <access>`.
 | Torneos | `tournaments/` (+ `documents/lineup-sheet/`, `documents/substitution-cards/`, `documents/regulation/`), `groups/`, `registrations/` |
 | Competición | `matchdays/` (+ `completeness`, `submit`, `close`), `matches/` (+ `generate-fixture`, `confirmations`, `respond`, `adjust`, `suspend`, `lineups`, `submit-lineup`, `import-lineup`, `events`, `record-event`, `state`, `reports`, `submit-report`, `return-report`, `close`, `notes`, `add-note`), `review-cases/`, `standings/` |
 | Administración | `users/`, `roles/`, `permissions/`, `audit-logs/` (+ `verify`) |
+| Documentación | `docs/` (+ `<slug>/`, `<slug>/revisions/`, `permission-catalog/`) |
 | Pública (sin login) | `public/tournaments/…`, `public/matches/live/`, `public/matches/<id>/` |
 | Utilidades | `time/`, `health/` |
 

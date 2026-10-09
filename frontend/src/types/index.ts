@@ -589,3 +589,37 @@ export interface PublicMatch {
   events?: MatchEvent[];
   stats?: { home: { yellow: number; red: number; substitutions: number }; away: { yellow: number; red: number; substitutions: number } };
 }
+
+// ---------------------------------------------------------------- Documentación
+export type DocSection = "manual" | "faq" | "permissions" | "reference";
+
+export interface DocPageSummary {
+  id: ID;
+  slug: string;
+  title: string;
+  summary: string;
+  section: DocSection;
+  section_display: string;
+  order: number;
+  /** Publicada (visible para todos). Las no publicadas solo las ve el superusuario. */
+  is_active: boolean;
+  updated_at: string;
+}
+
+export interface DocPage extends DocPageSummary {
+  content: string;
+  updated_by_name: string | null;
+}
+
+export interface DocRevision {
+  id: ID;
+  title: string;
+  content: string;
+  created_at: string;
+  edited_by_name: string;
+}
+
+export interface PermissionCatalog {
+  permissions: Permission[];
+  roles: { id: ID; name: string; user_count: number; permissions: string[] }[];
+}

@@ -1,7 +1,7 @@
 import { api } from "@/api/client";
 import type {
-  Adjustment, AuditLog, Category, Coach, Confirmation, Field, Group, Guardian, ID, Lineup, LiveState, Match,
-  Matchday, MatchEvent, MatchNote, MatchReport, Me, Notification, Official, Paginated, PartyStatus, Permission,
+  Adjustment, AuditLog, Category, Coach, Confirmation, DocPage, DocPageSummary, DocRevision, Field, Group, Guardian, ID, Lineup, LiveState, Match,
+  Matchday, MatchEvent, MatchNote, MatchReport, Me, Notification, Official, Paginated, PartyStatus, Permission, PermissionCatalog,
   Player, PlayerStat, PublicMatch, PublicTournament, Registration, ReportComparison, ReviewCase, Role,
   StandingRow, Team, TeamPlayer, Terms, Tournament, User,
 } from "@/types";
@@ -115,6 +115,16 @@ export const notifications = {
   unreadCount: async () => (await api.get<{ count: number }>("/notifications/unread_count/")).data.count,
   read: (id: ID) => api.post(`/notifications/${id}/read/`),
   readAll: () => api.post("/notifications/read_all/"),
+};
+
+// ---------------------------------------------------------------- Documentación
+export const docs = {
+  list: async (params?: { search?: string; section?: string }) => (await api.get<DocPageSummary[]>("/docs/", { params })).data,
+  get: async (slug: string) => (await api.get<DocPage>(`/docs/${slug}/`)).data,
+  create: async (data: Partial<DocPage>) => (await api.post<DocPage>("/docs/", data)).data,
+  update: async (slug: string, data: Partial<DocPage>) => (await api.patch<DocPage>(`/docs/${slug}/`, data)).data,
+  revisions: async (slug: string) => (await api.get<DocRevision[]>(`/docs/${slug}/revisions/`)).data,
+  permissionCatalog: async () => (await api.get<PermissionCatalog>("/docs/permission-catalog/")).data,
 };
 
 export const serverTime = async () =>

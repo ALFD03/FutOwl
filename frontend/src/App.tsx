@@ -49,6 +49,11 @@ const UsersPage = page(() => import("@/pages/app/admin/UsersPage"), "UsersPage")
 const RolesPage = page(() => import("@/pages/app/admin/RolesPage"), "RolesPage");
 const AuditPage = page(() => import("@/pages/app/admin/AuditPage"), "AuditPage");
 const TermsAdminPage = page(() => import("@/pages/app/admin/TermsAdminPage"), "TermsAdminPage");
+const docsPages = () => import("@/pages/app/docs/DocsPage");
+const DocsLayout = page(docsPages, "DocsLayout");
+const DocsHome = page(docsPages, "DocsHome");
+const DocView = page(docsPages, "DocView");
+const DocEditor = page(() => import("@/pages/app/docs/DocEditor"), "DocEditor");
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -102,6 +107,13 @@ export default function App() {
                       <Route path="roles" element={guarded("auth.view_group", <RolesPage />)} />
                       <Route path="auditoria" element={guarded("audit.view_auditlog", <AuditPage />)} />
                       <Route path="terminos" element={guarded("legal.add_termsversion", <TermsAdminPage />)} />
+                      {/* Ayuda: la leen todos los usuarios; solo el superusuario la edita */}
+                      <Route path="ayuda" element={<DocsLayout />}>
+                        <Route index element={<DocsHome />} />
+                        <Route path="nueva" element={<DocEditor />} />
+                        <Route path=":slug" element={<DocView />} />
+                        <Route path=":slug/editar" element={<DocEditor />} />
+                      </Route>
                     </Route>
                     <Route path="*" element={<Navigate to="/" replace />} />
                   </Routes>

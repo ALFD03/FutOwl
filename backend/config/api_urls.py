@@ -7,6 +7,7 @@ from apps.audit.views import AuditLogViewSet
 from apps.competition import public_views as public
 from apps.competition import views as competition
 from apps.core import views as core
+from apps.docs.views import DocPageViewSet
 from apps.legal import views as legal
 from apps.notifications.views import NotificationViewSet
 from apps.registry import views as registry
@@ -39,6 +40,8 @@ router.register("standings", competition.StandingsViewSet, basename="standings")
 # Transversales
 router.register("notifications", NotificationViewSet, basename="notification")
 router.register("audit-logs", AuditLogViewSet)
+# Documentación (manual, preguntas frecuentes y permisos)
+router.register("docs", DocPageViewSet, basename="doc")
 
 auth_urls = [
     path("login/", accounts.login_view, name="login"),
