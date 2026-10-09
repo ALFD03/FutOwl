@@ -82,7 +82,28 @@ Cada módulo tiene una responsabilidad única: las **vistas** solo validan entra
 
 ## Puesta en marcha local
 
-Requisitos: Python 3.12+ y Node 22+.
+Requisitos: Python 3.12+, Node 22+ y `make` (Linux/macOS; en Windows use WSL o Git Bash).
+
+### Con Makefile (recomendado)
+
+```bash
+make setup   # instala dependencias, crea .env con claves nuevas, migra y carga datos demo
+make dev     # backend :8000 + frontend :5173 a la vez (Ctrl+C detiene ambos)
+make         # lista todos los comandos
+```
+
+| Comando | Qué hace |
+|---------|----------|
+| `make dev` / `make backend` / `make frontend` | Levanta ambos servicios o solo uno |
+| `make migrate` · `make migrations` · `make roles` | Migraciones y roles con permisos |
+| `make demo` · `make superuser` · `make reset-db` | Datos demo, superusuario, recrear la base local |
+| `make test` · `make test-backend T=apps.core` · `make test-frontend` | Pruebas (todas, filtradas o solo frontend) |
+| `make typecheck` · `make check` · `make ci` | Tipos, chequeos de Django y el mismo pipeline de CI |
+| `make build` · `make preview` | Build de producción del frontend y vista previa |
+| `make keys` | Genera claves seguras para producción |
+| `make shell` · `make secure-db` · `make clean` | Shell de Django, protecciones de Supabase, limpieza |
+
+### Manual
 
 ```bash
 # Backend
