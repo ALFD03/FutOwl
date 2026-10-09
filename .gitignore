@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.sqlite3
+backend/media/
+backend/staticfiles/
+backend/test_media/
+.env
+.env.*
+!.env.example
+
+# Node
+node_modules/
+frontend/dist/
+*.tsbuildinfo
+
+# Editores / SO
+.DS_Store
+.idea/
+.vscode/
+*.log
+.vercel
