@@ -4,7 +4,7 @@ import { Crown, Download, FileUp, Lock, Save, Upload } from "lucide-react";
 
 import { api, downloadFile } from "@/api/client";
 import { FileInput } from "@/components/forms";
-import { Alert, Avatar, Badge, Card, CardHeader, Spinner, StatusBadge } from "@/components/ui";
+import { Alert, Avatar, Badge, Card, CardHeader, SelectMenu, Spinner, StatusBadge, Toggle } from "@/components/ui";
 import { useAuth, useToast } from "@/hooks";
 import { coaches, matches, roster } from "@/services";
 import type { Lineup, Match } from "@/types";
@@ -32,8 +32,9 @@ export function LineupEditor({ match, side, lineup, maxPlayers, starters }: {
   const editable = manages && can("competition.submit_lineup") && ["pending", "confirmed"].includes(match.status)
     && match.phase === "not_started" && lineup?.status !== "verified";
 
-  const rosterQ = useQuery({ queryKey: ["roster", teamId, match.category], queryFn: () => roster.all({ team: teamId, category: match.category, is_active: true }), enabled: editable });
-  const coachesQ = useQuery({ queryKey: ["coaches", "team", teamId], queryFn: () => coaches.all({ teams: teamId, is_active: true }), enabled: editable });
+  // Nómina del equipo en este torneo (la inscripción del partido)
+  const rosterQ = useQuery({ queryKey: ["roster", registration], queryFn: () => roster.all({ registration, is_active: true }), enabled: editable });
+  const coachesQ = useQuery({ queryKey: ["coaches", "team", teamId], queryFn: () => coaches.all({ team: teamId, is_active: true }), enabled: editable });
   const [rows, setRows] = useState<Record<number, Row>>({});
   const [coach, setCoach] = useState<number | "">(lineup?.coach ?? "");
   const [sheet, setSheet] = useState<File | null>(null);
@@ -143,11 +144,18 @@ export function LineupEditor({ match, side, lineup, maxPlayers, starters }: {
                     if (!r) return null;
                     return (
                       <tr key={tp.id} className={cn(!r.selected && "opacity-60")}>
-                        <td><input type="checkbox" className="h-4 w-4 accent-navy-900" checked={r.selected} onChange={(e) => update(tp.id, { selected: e.target.checked })} /></td>
+                        <td><Toggle checked={r.selected} onChange={(v) => update(tp.id, { selected: v })} label="Convocado" /></td>
                         <td><span className="flex items-center gap-2"><Avatar src={tp.player_detail.photo} name={tp.player_detail.full_name} size="sm" />{tp.player_detail.full_name}</span></td>
                         <td><input type="number" min={0} max={99} className="input w-20 py-1" value={r.shirt_number} disabled={!r.selected} onChange={(e) => update(tp.id, { shirt_number: e.target.value === "" ? "" : Number(e.target.value) })} /></td>
-                        <td><input type="checkbox" className="h-4 w-4 accent-navy-900" checked={r.is_starter} disabled={!r.selected} onChange={(e) => update(tp.id, { is_starter: e.target.checked })} /></td>
-                        <td><input type="radio" name={`captain-${side}`} className="h-4 w-4 accent-gold-500" checked={r.is_captain} disabled={!r.selected} onChange={() => update(tp.id, { is_captain: true })} /></td>
+                        <td><Toggle checked={r.is_starter} disabled={!r.selected} onChange={(v) => update(tp.id, { is_starter: v })} label="Titular" /></td>
+                        <td>
+                          <button type="button" disabled={!r.selected} title={r.is_captain ? "Capitán" : "Marcar como capitán"} aria-pressed={r.is_captain}
+                            onClick={() => update(tp.id, { is_captain: !r.is_captain })}
+                            className={cn("grid h-8 w-8 place-items-center rounded-lg border transition-all disabled:opacity-30",
+                              r.is_captain ? "border-gold-400 bg-gold-400/20 text-gold-600 shadow-gold dark:text-gold-300" : "border-slate-200 text-slate-300 hover:text-gold-500 dark:border-white/10")}>
+                            <Crown className="h-4 w-4" />
+                          </button>
+                        </td>
                       </tr>
                     );
                   })}
@@ -158,10 +166,8 @@ export function LineupEditor({ match, side, lineup, maxPlayers, starters }: {
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className="label">Entrenador en banco</label>
-              <select className="input" value={coach} onChange={(e) => setCoach(e.target.value ? Number(e.target.value) : "")}>
-                <option value="">—</option>
-                {(coachesQ.data ?? []).map((c) => <option key={c.id} value={c.id}>{c.full_name}</option>)}
-              </select>
+              <SelectMenu value={coach === "" ? null : coach} onChange={(v) => setCoach(v == null ? "" : Number(v))} clearable placeholder="Sin entrenador"
+                options={(coachesQ.data ?? []).map((c) => ({ value: c.id, label: c.full_name, hint: `Licencia ${c.license_number}` }))} />
             </div>
             <div>
               <label className="label">Planilla firmada (opcional)</label>

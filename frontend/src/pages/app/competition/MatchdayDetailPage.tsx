@@ -5,7 +5,7 @@ import { AlertTriangle, ArrowLeft, CheckCircle2, Lock, Plus, Send, Trash2, X } f
 
 import { DateTimeInput } from "@/components/forms";
 import { Can } from "@/components/layout/Guards";
-import { Alert, Badge, ConfirmDialog, EmptyState, Modal, PageHeader, PageLoader, Spinner, StatusBadge } from "@/components/ui";
+import { Alert, Badge, ConfirmDialog, EmptyState, Modal, PageHeader, PageLoader, SelectMenu, Spinner, StatusBadge, Toggle } from "@/components/ui";
 import { useCan, useToast } from "@/hooks";
 import { delegates, fields as fieldsService, matchdays, matches, referees, tournaments } from "@/services";
 import type { Match } from "@/types";
@@ -110,10 +110,8 @@ function ReadOnlyRow({ match }: { match: Match }) {
 
 function OfficialSelect({ value, onChange, options, placeholder }: { value: number | null; onChange: (v: number | null) => void; options: { id: number; full_name: string }[]; placeholder: string }) {
   return (
-    <select className="input py-1.5 text-xs" value={value ?? ""} onChange={(e) => onChange(e.target.value ? Number(e.target.value) : null)}>
-      <option value="">{placeholder}</option>
-      {options.map((o) => <option key={o.id} value={o.id}>{o.full_name}</option>)}
-    </select>
+    <SelectMenu value={value} onChange={(v) => onChange(v == null ? null : Number(v))} clearable placeholder={placeholder} className="py-1.5 text-xs"
+      options={options.map((o) => ({ value: o.id, label: o.full_name }))} />
   );
 }
 
@@ -170,10 +168,8 @@ function ScheduleRow({ match, referees_required, incomplete, onSaved }: { match:
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div>
           <label className="label">Cancha</label>
-          <select className="input py-1.5 text-xs" value={form.field ?? ""} onChange={(e) => set("field", e.target.value ? Number(e.target.value) : null)}>
-            <option value="">Seleccione…</option>
-            {(fieldsQ.data ?? []).map((f) => <option key={f.id} value={f.id}>{f.name} (cap. {f.capacity})</option>)}
-          </select>
+          <SelectMenu value={form.field ?? null} onChange={(v) => set("field", v == null ? null : Number(v))} clearable className="py-1.5 text-xs" invalid={Boolean(errors.field)}
+            options={(fieldsQ.data ?? []).map((f) => ({ value: f.id, label: f.name, hint: `Capacidad: ${f.capacity} partido(s) simultáneo(s)` }))} />
           {errors.field && <p className="error-text">{errors.field}</p>}
         </div>
         <div>
@@ -243,8 +239,8 @@ function AddMatchesModal({ open, onClose, tournament, matchday, onAdded }: { ope
           {data.map((m) => (
             <li key={m.id}>
               <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-slate-200 px-3 py-2 text-sm transition hover:border-gold-400 dark:border-white/10">
-                <input type="checkbox" className="accent-navy-900" checked={selected.includes(m.id)}
-                  onChange={(e) => setSelected((s) => e.target.checked ? [...s, m.id] : s.filter((x) => x !== m.id))} />
+                <Toggle checked={selected.includes(m.id)} label="Agregar a la jornada"
+                  onChange={(on) => setSelected((s) => on ? [...s, m.id] : s.filter((x) => x !== m.id))} />
                 <span className="flex-1"><b>{m.home_name}</b> vs <b>{m.away_name}</b></span>
                 <Badge tone="gold">{m.category_name}</Badge><Badge>Fecha {m.round_number}</Badge>
               </label>

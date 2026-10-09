@@ -79,6 +79,7 @@ class MatchViewSet(viewsets.ModelViewSet):
             qs = qs.filter(
                 Q(delegate__user=user) | Q(referee__user=user) | Q(assistant_referee_1__user=user)
                 | Q(assistant_referee_2__user=user) | Q(home__team__managers=user) | Q(away__team__managers=user)
+                | Q(home__team__coaches__user=user) | Q(away__team__coaches__user=user)
             ).distinct()
         if params.get("unscheduled") == "1":
             qs = qs.filter(matchday__isnull=True)

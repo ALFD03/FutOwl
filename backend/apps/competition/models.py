@@ -13,8 +13,8 @@ from django.utils import timezone
 from apps.core.models import ImmutableModel, ImmutableRecordError, TimeStampedModel
 from apps.core.uploads import UploadTo
 from apps.core.validators import validate_document_upload
-from apps.registry.models import Coach, Delegate, Field, Referee, TeamPlayer
-from apps.tournaments.models import Group, Tournament, TournamentTeam
+from apps.registry.models import Coach, Delegate, Field, Referee
+from apps.tournaments.models import Group, TeamPlayer, Tournament, TournamentTeam
 
 User = settings.AUTH_USER_MODEL
 
@@ -266,6 +266,8 @@ class LineupPlayer(models.Model):
 
     class Meta:
         ordering = ["-is_starter", "shirt_number"]
+        verbose_name = "jugador en alineación"
+        verbose_name_plural = "jugadores en alineación"
         constraints = [
             models.UniqueConstraint(fields=["lineup", "team_player"], name="unique_lineup_player"),
             models.UniqueConstraint(fields=["lineup", "shirt_number"], name="unique_lineup_shirt"),

@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download, FileDown, FileText, Save } from "lucide-react";
 
 import { downloadFile } from "@/api/client";
-import { Card, CardHeader, Spinner } from "@/components/ui";
+import { Card, CardHeader, SelectMenu, Spinner } from "@/components/ui";
 import { useCan, useToast } from "@/hooks";
 import { registrations, tournaments } from "@/services";
 import type { Tournament } from "@/types";
@@ -58,10 +58,8 @@ export function DocumentsTab({ tournament }: { tournament: Tournament }) {
         <div className="card-body space-y-5">
           <div>
             <label className="label">Equipo / categoría</label>
-            <select className="input" value={reg} onChange={(e) => setReg(e.target.value ? Number(e.target.value) : "")}>
-              <option value="">Seleccione…</option>
-              {(regs.data ?? []).map((r) => <option key={r.id} value={r.id}>{r.team_name} · {r.category_name}</option>)}
-            </select>
+            <SelectMenu value={reg === "" ? null : reg} onChange={(v) => setReg(v == null ? "" : Number(v))} placeholder="Seleccione el equipo…"
+              options={(regs.data ?? []).map((r) => ({ value: r.id, label: `${r.team_name} · ${r.category_name}` }))} />
           </div>
           {DOCS.map((doc) => {
             const imported = tournament[doc.file];

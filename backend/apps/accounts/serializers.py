@@ -5,17 +5,51 @@ from rest_framework import serializers
 from .models import User
 
 
+DEFAULT_ACTIONS = {"add": "Crear", "change": "Editar", "delete": "Eliminar", "view": "Ver"}
+# En FutOwl los grupos de Django son los roles.
+MODEL_NAMES = {("auth", "group"): "roles"}
+
+
+def model_name_plural(permission: Permission) -> str | None:
+    ct = permission.content_type
+    model = ct.model_class()
+    if (ct.app_label, ct.model) in MODEL_NAMES:
+        return MODEL_NAMES[(ct.app_label, ct.model)]
+    return str(model._meta.verbose_name_plural) if model else None
+
+
+def permission_label(permission: Permission) -> str:
+    """
+    Nombre en español. Los permisos estándar de Django se guardan en inglés ("Can add equipo"),
+    así que se arman con el verbo y el nombre del modelo; los propios ya vienen en español.
+    """
+    action, _, model_name = permission.codename.partition("_")
+    plural = model_name_plural(permission)
+    if action in DEFAULT_ACTIONS and plural and model_name == permission.content_type.model:
+        return f"{DEFAULT_ACTIONS[action]} {plural}"
+    name = permission.name
+    return name[len("Puede "):].capitalize() if name.startswith("Puede ") else name
+
+
 class PermissionSerializer(serializers.ModelSerializer):
     code = serializers.SerializerMethodField()
+    label = serializers.SerializerMethodField()
     app_label = serializers.CharField(source="content_type.app_label", read_only=True)
     model = serializers.CharField(source="content_type.model", read_only=True)
+    model_label = serializers.SerializerMethodField()
 
     class Meta:
         model = Permission
-        fields = ["id", "name", "codename", "code", "app_label", "model"]
+        fields = ["id", "name", "label", "codename", "code", "app_label", "model", "model_label"]
 
     def get_code(self, obj):
         return f"{obj.content_type.app_label}.{obj.codename}"
+
+    def get_label(self, obj):
+        return permission_label(obj)
+
+    def get_model_label(self, obj):
+        return (model_name_plural(obj) or obj.content_type.model).capitalize()
 
 
 class GroupSerializer(serializers.ModelSerializer):
@@ -87,10 +121,15 @@ class MeSerializer(serializers.ModelSerializer):
     def get_profiles(self, obj):
         delegate = getattr(obj, "delegate_profile", None)
         referee = getattr(obj, "referee_profile", None)
+        coach = getattr(obj, "coach_profile", None)
+        team_ids = set(obj.managed_teams.values_list("id", flat=True))
+        if coach and coach.is_active and coach.team_id:
+            team_ids.add(coach.team_id)
         return {
             "delegate_id": delegate.id if delegate else None,
             "referee_id": referee.id if referee else None,
-            "team_ids": list(obj.managed_teams.values_list("id", flat=True)),
+            "coach_id": coach.id if coach else None,
+            "team_ids": sorted(team_ids),
         }
 
     def get_terms_accepted(self, obj):

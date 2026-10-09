@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ShieldCheck } from "lucide-react";
 
 import { Logo } from "@/components/layout/Logo";
-import { Card, Spinner } from "@/components/ui";
+import { Card, Spinner, Toggle } from "@/components/ui";
 import { useAuth, useToast } from "@/hooks";
 import { legal } from "@/services";
 import { errorMessage } from "@/utils/errors";
@@ -39,7 +39,7 @@ export function AcceptTermsPage() {
         <div className="max-h-[55vh] overflow-y-auto px-6 py-5"><TermsContent /></div>
         <div className="flex flex-col gap-4 border-t border-slate-100 px-6 py-4 sm:flex-row sm:items-center sm:justify-between dark:border-white/5">
           <label className="flex cursor-pointer items-start gap-3 text-sm">
-            <input type="checkbox" className="mt-1 h-4 w-4 accent-navy-900 dark:accent-gold-500" checked={checked} onChange={(e) => setChecked(e.target.checked)} />
+            <span className="mt-0.5"><Toggle checked={checked} onChange={setChecked} label="Acepto los términos" /></span>
             He leído y acepto los términos y condiciones, y exonero al desarrollador de responsabilidad.
           </label>
           <div className="flex gap-2">

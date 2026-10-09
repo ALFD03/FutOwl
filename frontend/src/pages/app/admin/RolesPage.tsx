@@ -1,51 +1,35 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { KeyRound, Plus, Save } from "lucide-react";
 
+import { PermissionPicker } from "@/components/forms";
 import { Can } from "@/components/layout/Guards";
-import { Badge, Card, CardHeader, EmptyState, PageHeader, SearchInput, Spinner } from "@/components/ui";
+import { Card, CardHeader, EmptyState, PageHeader, Spinner } from "@/components/ui";
 import { useCan, useToast } from "@/hooks";
-import { permissions as permissionsService, roles } from "@/services";
-import type { Permission, Role } from "@/types";
+import { roles } from "@/services";
+import type { Role } from "@/types";
 import { cn } from "@/utils/cn";
 import { errorMessage } from "@/utils/errors";
-
-const APP_LABELS: Record<string, string> = {
-  accounts: "Cuentas", auth: "Roles", audit: "Auditoría", legal: "Términos", notifications: "Notificaciones",
-  registry: "Registro", tournaments: "Torneos", competition: "Competición",
-};
 
 export function RolesPage() {
   const toast = useToast();
   const queryClient = useQueryClient();
   const canChange = useCan("auth.change_group");
   const rolesQ = useQuery({ queryKey: ["roles", "all"], queryFn: () => roles.all() });
-  const permsQ = useQuery({ queryKey: ["permissions"], queryFn: permissionsService.all, staleTime: 300_000 });
   const [selected, setSelected] = useState<Role | null>(null);
-  const [checked, setChecked] = useState<Set<number>>(new Set());
+  const [checked, setChecked] = useState<number[]>([]);
   const [name, setName] = useState("");
-  const [search, setSearch] = useState("");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    setChecked(new Set(selected?.permissions ?? []));
+    setChecked(selected?.permissions ?? []);
     setName(selected?.name ?? "");
   }, [selected]);
-
-  const grouped = useMemo(() => {
-    const map = new Map<string, Permission[]>();
-    (permsQ.data ?? []).filter((p) => !search || p.name.toLowerCase().includes(search.toLowerCase()) || p.code.includes(search))
-      .forEach((p) => map.set(p.app_label, [...(map.get(p.app_label) ?? []), p]));
-    return [...map.entries()];
-  }, [permsQ.data, search]);
-
-  const toggle = (id: number) => setChecked((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
-  const toggleGroup = (items: Permission[], on: boolean) => setChecked((s) => { const n = new Set(s); items.forEach((p) => (on ? n.add(p.id) : n.delete(p.id))); return n; });
 
   const save = async () => {
     setBusy(true);
     try {
-      const payload = { name, permissions: [...checked] };
+      const payload = { name, permissions: checked };
       const saved = selected?.id ? await roles.update(selected.id, payload) : await roles.create(payload);
       toast.success("Rol guardado. El cambio quedó auditado.");
       await queryClient.invalidateQueries({ queryKey: ["roles"] });
@@ -78,32 +62,14 @@ export function RolesPage() {
         {!selected ? <Card><EmptyState title="Seleccione un rol" message="Elija un rol para ver y editar sus permisos." /></Card> : (
           <Card>
             <div className="flex flex-col gap-3 border-b border-slate-100 px-5 py-4 sm:flex-row sm:items-center dark:border-white/5">
-              <input className="input sm:w-64" value={name} onChange={(e) => setName(e.target.value)} placeholder="Nombre del rol" disabled={!canChange} />
-              <SearchInput value={search} onChange={setSearch} placeholder="Filtrar permisos…" />
-              <Badge tone="gold">{checked.size} permisos</Badge>
-              {canChange && <button className="btn-primary sm:ml-auto" onClick={save} disabled={busy || !name.trim()}>{busy ? <Spinner className="h-4 w-4" /> : <Save className="h-4 w-4" />}Guardar</button>}
+              <div className="flex-1">
+                <label className="label" htmlFor="role-name">Nombre del rol</label>
+                <input id="role-name" className="input sm:w-80" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ej.: Jefe de árbitros" disabled={!canChange} />
+              </div>
+              {canChange && <button className="btn-primary sm:self-end" onClick={save} disabled={busy || !name.trim()}>{busy ? <Spinner className="h-4 w-4" /> : <Save className="h-4 w-4" />}Guardar</button>}
             </div>
-            <div className="max-h-[65vh] space-y-6 overflow-y-auto p-5">
-              {grouped.map(([app, items]) => {
-                const all = items.every((p) => checked.has(p.id));
-                return (
-                  <section key={app}>
-                    <div className="mb-2 flex items-center justify-between">
-                      <h3 className="text-sm font-bold text-navy-900 dark:text-gold-400">{APP_LABELS[app] ?? app}</h3>
-                      {canChange && <button className="text-xs font-semibold text-navy-700 hover:underline dark:text-gold-400" onClick={() => toggleGroup(items, !all)}>{all ? "Quitar todos" : "Marcar todos"}</button>}
-                    </div>
-                    <div className="grid gap-1.5 sm:grid-cols-2 xl:grid-cols-3">
-                      {items.map((p) => (
-                        <label key={p.id} className={cn("flex cursor-pointer items-start gap-2 rounded-lg border px-3 py-2 text-xs transition",
-                          checked.has(p.id) ? "border-navy-300 bg-navy-50 dark:border-gold-500/40 dark:bg-gold-500/10" : "border-slate-100 dark:border-white/5")}>
-                          <input type="checkbox" className="mt-0.5 accent-navy-900" checked={checked.has(p.id)} onChange={() => toggle(p.id)} disabled={!canChange} />
-                          <span>{p.name}<span className="block font-mono text-[10px] text-slate-400">{p.code}</span></span>
-                        </label>
-                      ))}
-                    </div>
-                  </section>
-                );
-              })}
+            <div className="max-h-[68vh] overflow-y-auto p-5">
+              <PermissionPicker value={checked} onChange={setChecked} disabled={!canChange} />
             </div>
           </Card>
         )}

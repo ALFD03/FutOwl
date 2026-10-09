@@ -1,14 +1,25 @@
 /** Páginas de registros maestros, construidas sobre ResourcePage + definiciones de campos. */
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ClipboardList, Flag, LayoutGrid, MapPin, Megaphone, Shield, UserRound, UsersRound } from "lucide-react";
 
 import { ResourcePage } from "@/components/crud/ResourcePage";
-import { DOCUMENT_ACCEPT, IMAGE_ACCEPT, LICENSE_OPTIONS, type FieldDef } from "@/components/forms";
+import { accountField, DOCUMENT_ACCEPT, guardianField, IMAGE_ACCEPT, LICENSE_OPTIONS, type FieldDef } from "@/components/forms";
 import { TeamCrest } from "@/components/match/TeamCrest";
 import { Avatar, Badge, StatusBadge } from "@/components/ui";
-import { categories, coaches, delegates, fields as fieldsService, guardians, players, referees, teams, users } from "@/services";
-import type { Category, Coach, Field, Guardian, Official, Player, Team, User } from "@/types";
+import { categories, coaches, delegates, fields as fieldsService, guardians, players, referees, teams } from "@/services";
+import type { Category, Coach, Field, Guardian, Official, Player, Team, WithAccount } from "@/types";
 import { formatDate } from "@/utils/datetime";
+
+import { PlayerProfile, teamsOf } from "./PlayerProfile";
+
+const BY_NAME_OR_ID = "Buscar por nombre o cédula…";
+
+const userColumn = <T extends WithAccount>() => ({
+  key: "user",
+  header: "Usuario",
+  render: (r: T) => r.username ? <Badge tone="navy">@{r.username}</Badge> : <span className="text-slate-400">Sin usuario</span>,
+});
 
 const ADDRESS: FieldDef[] = [
   { name: "country", label: "País", type: "text", required: true, defaultValue: "Venezuela", section: "Ubicación" },
@@ -44,13 +55,15 @@ export function CategoriesPage() {
       service={categories} model="registry.category" createLabel="Nueva categoría" formSize="sm"
       fields={[
         { name: "name", label: "Nombre", type: "text", required: true, placeholder: "Sub 12", wide: true },
-        { name: "max_age", label: "Tope de edad", type: "number", required: true, min: 1, max: 99, placeholder: "11" },
-        { name: "birth_year_limit", label: "Tope de año de nacimiento", type: "year", required: true, min: 1900, max: 2100, placeholder: "2015", help: "Nacidos en este año o después" },
+        { name: "max_age", label: "Tope de edad", type: "number", required: true, min: 1, max: 99, placeholder: "11", wide: true,
+          help: (v) => typeof v.max_age === "number" && v.max_age > 0
+            ? `Este año (${new Date().getFullYear()}) admite nacidos desde ${new Date().getFullYear() - v.max_age}. El año tope se recalcula solo cada año.`
+            : "El año de nacimiento tope se calcula contra el año en curso." },
       ]}
       columns={[
         { key: "name", header: "Nombre", render: (r) => <b>{r.name}</b> },
         { key: "max_age", header: "Tope de edad", render: (r) => `${r.max_age} años` },
-        { key: "birth_year_limit", header: "Nacidos desde", render: (r) => r.birth_year_limit },
+        { key: "birth_year_limit", header: `Nacidos desde (${new Date().getFullYear()})`, render: (r) => <Badge tone="gold">{r.birth_year_limit}</Badge> },
       ]} />
   );
 }
@@ -67,8 +80,8 @@ export function FieldsPage() {
         { name: "manager_phone", label: "Teléfono del responsable", type: "phone", required: true, section: "Responsable" },
         { name: "length_m", label: "Largo / alto (m)", type: "number", step: "0.01", required: true, section: "Medidas y capacidad" },
         { name: "width_m", label: "Ancho (m)", type: "number", step: "0.01", required: true, section: "Medidas y capacidad" },
-        { name: "is_divisible", label: "Divisible", type: "checkbox", placeholder: "La cancha es divisible en mini canchas", section: "Medidas y capacidad" },
-        { name: "mini_fields_count", label: "Cantidad de mini canchas", type: "number", min: 2, max: 16, defaultValue: 1, section: "Medidas y capacidad",
+        { name: "is_divisible", label: "Cancha divisible", type: "checkbox", placeholder: "Se puede dividir en mini canchas para jugar partidos en simultáneo", section: "Medidas y capacidad", wide: true },
+        { name: "mini_fields_count", label: "Cantidad de mini canchas", type: "number", min: 2, max: 16, defaultValue: 2, section: "Medidas y capacidad",
           hidden: (v) => !v.is_divisible, help: "Determina cuántos partidos simultáneos soporta" },
       ]}
       columns={[
@@ -85,17 +98,19 @@ export function CoachesPage() {
   const year = new Date().getFullYear();
   return (
     <ResourcePage<Coach> title="Entrenadores" subtitle="Cuerpo técnico y licencias" icon={<ClipboardList className="h-6 w-6" />}
-      service={coaches} model="registry.coach" createLabel="Nuevo entrenador"
+      service={coaches} model="registry.coach" createLabel="Nuevo entrenador" searchPlaceholder={BY_NAME_OR_ID}
       fields={[
         ...PERSON,
         { name: "license_number", label: "N.º de licencia", type: "text", required: true, section: "Licencia" },
         { name: "license_expiry_year", label: "Año de vencimiento", type: "year", required: true, min: 2000, max: 2100, defaultValue: year + 1, section: "Licencia" },
         { name: "license_photo", label: "Foto de la licencia", type: "file", accept: DOCUMENT_ACCEPT, section: "Licencia" },
+        accountField({ roleLabel: "Entrenador" }),
       ]}
       columns={[
         personColumn<Coach>(),
-        { key: "phone", header: "Teléfono", render: (r) => r.phone || "—" },
+        { key: "team", header: "Equipo", render: (r) => r.team_name ? <Badge tone="navy">{r.team_name}</Badge> : <span className="text-slate-400">Libre</span> },
         { key: "license", header: "Licencia", render: (r) => <span>{r.license_number} <StatusBadge status={r.license_valid ? "confirmed" : "rejected"} label={r.license_valid ? `Vigente ${r.license_expiry_year}` : `Vencida ${r.license_expiry_year}`} /></span> },
+        userColumn<Coach>(),
       ]} />
   );
 }
@@ -104,7 +119,7 @@ export function CoachesPage() {
 export function GuardiansPage() {
   return (
     <ResourcePage<Guardian> title="Representantes" subtitle="Responsables legales de jugadores menores de edad" icon={<UserRound className="h-6 w-6" />}
-      service={guardians} model="registry.guardian" createLabel="Nuevo representante"
+      service={guardians} model="registry.guardian" createLabel="Nuevo representante" searchPlaceholder={BY_NAME_OR_ID}
       fields={[
         { name: "first_name", label: "Nombres", type: "text", required: true },
         { name: "last_name", label: "Apellidos", type: "text", required: true },
@@ -132,73 +147,83 @@ export const PLAYER_FIELDS: FieldDef[] = [
   { name: "phone", label: "Teléfono (propio o del representante)", type: "phone" },
   { name: "photo", label: "Foto", type: "image", accept: IMAGE_ACCEPT },
   { name: "document_photo", label: "Foto de cédula o partida", type: "file", accept: DOCUMENT_ACCEPT },
-  { name: "guardian", label: "Representante", type: "select", wide: true, section: "Representante (obligatorio para menores de 18 años)",
-    source: { service: guardians, label: (g: Guardian) => `${g.first_name} ${g.last_name} · ${g.vat_display}` } },
+  guardianField,
 ];
 
 export function PlayersPage() {
+  const [profile, setProfile] = useState<number | null>(null);
   return (
-    <ResourcePage<Player> title="Jugadores" subtitle="Fichas de jugadores con edad calculada automáticamente" icon={<UsersRound className="h-6 w-6" />}
-      service={players} model="registry.player" createLabel="Nuevo jugador" fields={PLAYER_FIELDS}
-      columns={[
-        personColumn<Player>(),
-        { key: "age", header: "Edad", render: (r) => <span>{r.age} años <span className="block text-xs text-slate-500">{formatDate(r.birth_date)}</span></span> },
-        { key: "guardian", header: "Representante", render: (r) => r.guardian_detail ? `${r.guardian_detail.first_name} ${r.guardian_detail.last_name}` : r.is_minor ? <Badge tone="crimson">Falta</Badge> : "No aplica" },
-        { key: "teams", header: "Equipos", render: (r) => r.memberships.length ? r.memberships.map((m) => <Badge key={m.id} tone="navy" className="mr-1">{m.team_name} · {m.category_name}</Badge>) : <span className="text-slate-400">Libre</span> },
-      ]} />
+    <>
+      <ResourcePage<Player> title="Jugadores" subtitle="Fichas únicas: un jugador se crea una vez y se inscribe en cada torneo con su equipo"
+        icon={<UsersRound className="h-6 w-6" />} service={players} model="registry.player" createLabel="Nuevo jugador"
+        fields={PLAYER_FIELDS} formSize="lg" searchPlaceholder={BY_NAME_OR_ID} onRowClick={(r) => setProfile(r.id)}
+        columns={[
+          personColumn<Player>(),
+          { key: "age", header: "Edad", render: (r) => <span>{r.age} años <span className="block text-xs text-slate-500">{formatDate(r.birth_date)}</span></span> },
+          { key: "team", header: "Equipo actual", render: (r) => r.current_team_name ? <Badge tone="navy">{r.current_team_name}</Badge> : <span className="text-slate-400">Libre</span> },
+          { key: "history", header: "Ha jugado en", render: (r) => {
+            const past = teamsOf(r).filter((t) => t.id !== r.current_team);
+            return past.length ? past.map((t) => <Badge key={t.id} className="mr-1">{t.name}</Badge>) : <span className="text-slate-400">—</span>;
+          } },
+          { key: "stats", header: "G · PJ · TA · TR", render: (r) => (
+            <span className="whitespace-nowrap font-mono text-xs">
+              <b className="text-gold-600 dark:text-gold-400">{r.stats.goals}</b> · {r.stats.matches} · <span className="text-gold-600">{r.stats.yellow_cards}</span> · <span className="text-crimson-600">{r.stats.red_cards}</span>
+            </span>
+          ) },
+          { key: "guardian", header: "Representante", render: (r) => r.guardian_detail ? `${r.guardian_detail.first_name} ${r.guardian_detail.last_name}` : r.is_minor ? <Badge tone="crimson">Falta</Badge> : "No aplica" },
+        ]} />
+      <PlayerProfile playerId={profile} onClose={() => setProfile(null)} />
+    </>
   );
 }
 
 // ------------------------------------------------------------------- Delegados y árbitros
-const officialFields = (label: string): FieldDef[] => [
+const officialFields = (roleLabel: string): FieldDef[] => [
   ...PERSON,
   { name: "license_status", label: "Licencia", type: "select", required: true, options: LICENSE_OPTIONS, defaultValue: "not_endorsed" },
-  { name: "user", label: `Usuario vinculado (${label})`, type: "select", help: "Permite confirmar asignaciones y operar en la app",
-    source: { service: users, label: (u: User) => `${u.username} · ${u.first_name} ${u.last_name}` } },
+  accountField({ roleLabel }),
 ];
 
 const officialColumns = [
   personColumn<Official>(),
   { key: "phone", header: "Teléfono", render: (r: Official) => r.phone || "—" },
   { key: "license", header: "Licencia", render: (r: Official) => <StatusBadge status={r.license_status} label={r.license_status === "endorsed" ? "Avalado" : "No avalado"} /> },
-  { key: "user", header: "Usuario", render: (r: Official) => r.username ? <Badge tone="navy">@{r.username}</Badge> : <span className="text-slate-400">Sin usuario</span> },
+  userColumn<Official>(),
 ];
 
 export function DelegatesPage() {
-  return <ResourcePage<Official> title="Delegados" subtitle="Responsables de mesa técnica" icon={<Flag className="h-6 w-6" />}
-    service={delegates} model="registry.delegate" createLabel="Nuevo delegado" fields={officialFields("delegado")} columns={officialColumns} />;
+  return <ResourcePage<Official> title="Delegados" subtitle="Responsables de mesa técnica" icon={<Flag className="h-6 w-6" />} searchPlaceholder={BY_NAME_OR_ID}
+    service={delegates} model="registry.delegate" createLabel="Nuevo delegado" fields={officialFields("Delegado")} columns={officialColumns} />;
 }
 
 export function RefereesPage() {
-  return <ResourcePage<Official> title="Árbitros" subtitle="Ternas arbitrales" icon={<Megaphone className="h-6 w-6" />}
-    service={referees} model="registry.referee" createLabel="Nuevo árbitro" fields={officialFields("árbitro")} columns={officialColumns} />;
+  return <ResourcePage<Official> title="Árbitros" subtitle="Ternas arbitrales" icon={<Megaphone className="h-6 w-6" />} searchPlaceholder={BY_NAME_OR_ID}
+    service={referees} model="registry.referee" createLabel="Nuevo árbitro" fields={officialFields("Árbitro")} columns={officialColumns} />;
 }
 
 // ------------------------------------------------------------------- Equipos
+/** Al crear: datos del club y su usuario de acceso. Categorías, entrenadores y nómina se gestionan en la ficha del equipo. */
 export const TEAM_FIELDS: FieldDef[] = [
   { name: "name", label: "Nombre", type: "text", required: true },
   { name: "vat", label: "RIF", type: "vat", required: true },
   { name: "logo", label: "Logo", type: "image", accept: IMAGE_ACCEPT },
   { name: "document_photo", label: "Documento RIF", type: "file", accept: DOCUMENT_ACCEPT },
   ...ADDRESS,
-  { name: "categories", label: "Categorías", type: "multiselect", wide: true, section: "Deportivo", source: { service: categories, label: (c: Category) => c.name } },
-  { name: "home_field", label: "Cancha", type: "select", section: "Deportivo", source: { service: fieldsService, label: (f: Field) => f.name } },
-  { name: "coaches", label: "Entrenadores", type: "multiselect", wide: true, section: "Deportivo", source: { service: coaches, label: (c: Coach) => c.full_name } },
-  { name: "managers", label: "Gestores (usuarios)", type: "multiselect", wide: true, section: "Deportivo",
-    help: "Usuarios que cargan alineaciones y confirman asistencia", source: { service: users, label: (u: User) => u.username } },
+  accountField({ roleLabel: "Gestor de equipo", required: true, multiple: true }),
 ];
 
 export function TeamsPage() {
   const navigate = useNavigate();
   return (
-    <ResourcePage<Team> title="Equipos" subtitle="Clubes, categorías, cuerpo técnico y nómina" icon={<Shield className="h-6 w-6" />}
-      service={teams} model="registry.team" createLabel="Nuevo equipo" fields={TEAM_FIELDS} formSize="lg"
+    <ResourcePage<Team> title="Equipos" subtitle="Clubes, categorías, cuerpo técnico, jugadores y nómina por torneo" icon={<Shield className="h-6 w-6" />}
+      service={teams} model="registry.team" createLabel="Nuevo equipo" fields={TEAM_FIELDS} formSize="lg" searchPlaceholder="Buscar por nombre o RIF…"
       onRowClick={(r) => navigate(`/app/equipos/${r.id}`)}
       columns={[
         { key: "name", header: "Equipo", render: (r) => <span className="flex items-center gap-3"><TeamCrest src={r.logo} name={r.name} size="sm" /><span><b>{r.name}</b><span className="block text-xs text-slate-500">RIF {r.vat_display}</span></span></span> },
-        { key: "categories", header: "Categorías", render: (r) => r.category_names.map((c) => <Badge key={c} tone="gold" className="mr-1">{c}</Badge>) },
+        { key: "categories", header: "Categorías", render: (r) => r.category_names.length ? r.category_names.map((c) => <Badge key={c} tone="gold" className="mr-1">{c}</Badge>) : <span className="text-slate-400">—</span> },
         { key: "location", header: "Ubicación", render: (r) => `${r.municipality}, ${r.state}` },
-        { key: "roster", header: "Nómina", render: (r) => `${r.roster_count} jugadores` },
+        { key: "players", header: "Jugadores", render: (r) => `${r.player_count}` },
+        { key: "access", header: "Acceso", render: (r) => r.manager_usernames.map((u) => <Badge key={u} tone="navy" className="mr-1">@{u}</Badge>) },
       ]} />
   );
 }

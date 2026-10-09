@@ -4,7 +4,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Activity } from "lucide-react";
 
 import { TeamCrest } from "@/components/match/TeamCrest";
-import { Badge, Card, DataTable, PageHeader, Pagination, SearchInput, StatusBadge, type Column } from "@/components/ui";
+import { Badge, Card, type Column, DataTable, PageHeader, Pagination, SearchInput, SelectMenu, StatusBadge } from "@/components/ui";
 import { useLiveInterval } from "@/hooks";
 import { matches, tournaments } from "@/services";
 import type { Match } from "@/types";
@@ -40,14 +40,11 @@ export function MatchesPage() {
       <Card>
         <div className="flex flex-col gap-3 border-b border-slate-100 px-5 py-4 md:flex-row md:items-center dark:border-white/5">
           <SearchInput value={search} onChange={(v) => { setSearch(v); setPage(1); }} placeholder="Buscar equipo…" />
-          <select className="input md:w-56" value={tournament} onChange={(e) => { setTournament(e.target.value); setPage(1); }}>
-            <option value="">Todos los torneos</option>{(ts.data ?? []).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-          </select>
-          <select className="input md:w-56" value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }}>
-            <option value="">Todos los estados</option>
-            {[["draft", "Borrador"], ["pending", "Pendiente"], ["confirmed", "Confirmado"], ["in_progress", "En juego"], ["finished", "Finalizado"], ["closed", "Cerrado"], ["suspended", "Suspendido"]]
-              .map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-          </select>
+          <div className="md:w-56"><SelectMenu value={tournament || null} clearable placeholder="Todos los torneos" onChange={(v) => { setTournament(v == null ? "" : String(v)); setPage(1); }}
+            options={(ts.data ?? []).map((t) => ({ value: String(t.id), label: t.name }))} /></div>
+          <div className="md:w-56"><SelectMenu value={status || null} clearable placeholder="Todos los estados" onChange={(v) => { setStatus(v == null ? "" : String(v)); setPage(1); }}
+            options={[["draft", "Borrador"], ["pending", "Pendiente"], ["confirmed", "Confirmado"], ["in_progress", "En juego"], ["finished", "Finalizado"], ["closed", "Cerrado"], ["suspended", "Suspendido"]]
+              .map(([v, l]) => ({ value: v, label: l }))} /></div>
         </div>
         <DataTable<Match> columns={MATCH_COLUMNS} rows={data?.results ?? []} loading={isLoading} onRowClick={(m) => navigate(`/app/partidos/${m.id}`)} />
         <Pagination page={page} count={data?.count ?? 0} onChange={setPage} />

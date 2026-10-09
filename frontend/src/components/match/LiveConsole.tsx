@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Flag, Pause, Play, Square, StickyNote } from "lucide-react";
 
-import { Alert, Card, CardHeader, ConfirmDialog, Modal, Spinner } from "@/components/ui";
+import { Alert, Card, CardHeader, ConfirmDialog, Modal, SelectMenu, Spinner } from "@/components/ui";
 import { useLiveInterval, useToast } from "@/hooks";
 import { matches } from "@/services";
 import type { EventType, LiveState, Match, MatchEvent, TeamLiveState } from "@/types";
@@ -187,18 +187,14 @@ function EventModal({ pending, state, players, finished, busy, onClose, onSubmit
       <div className="space-y-4">
         <div>
           <label className="label">{isSub ? "Sale" : pending.type === "own_goal" ? "Jugador (autogol)" : "Jugador"}</label>
-          <select className="input" value={player} onChange={(e) => setPlayer(e.target.value ? Number(e.target.value) : "")} autoFocus>
-            <option value="">Seleccione…</option>
-            {options(pool).map((id) => <option key={id} value={id}>{label(id)}</option>)}
-          </select>
+          <SelectMenu value={player === "" ? null : player} onChange={(v) => setPlayer(v == null ? "" : Number(v))} placeholder="Seleccione el jugador…"
+            options={options(pool).map((id) => ({ value: id, label: label(id) }))} />
         </div>
         {isSub && (
           <div>
             <label className="label">Entra</label>
-            <select className="input" value={playerIn} onChange={(e) => setPlayerIn(e.target.value ? Number(e.target.value) : "")}>
-              <option value="">Seleccione…</option>
-              {options(st.bench).map((id) => <option key={id} value={id}>{label(id)}</option>)}
-            </select>
+            <SelectMenu value={playerIn === "" ? null : playerIn} onChange={(v) => setPlayerIn(v == null ? "" : Number(v))} placeholder="Seleccione el jugador…"
+              options={options(st.bench).map((id) => ({ value: id, label: label(id) }))} />
           </div>
         )}
         <div>

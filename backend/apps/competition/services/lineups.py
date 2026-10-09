@@ -8,7 +8,7 @@ from django.db import transaction
 from docx import Document
 
 from apps.audit.services import record
-from apps.registry.models import TeamPlayer
+from apps.tournaments.models import TeamPlayer
 
 from ..models import Lineup, LineupPlayer, Match
 
@@ -18,7 +18,7 @@ EDITABLE_MATCH_STATUSES = (Match.Status.PENDING, Match.Status.CONFIRMED)
 def can_manage_team(user, tournament_team) -> bool:
     if user.is_superuser or user.has_perm("competition.operate_any_match"):
         return True
-    return tournament_team.team.managers.filter(pk=user.pk).exists()
+    return tournament_team.team.is_staff_user(user)
 
 
 def _team_for(match: Match, team_id: int):
@@ -48,13 +48,12 @@ def _validate_players(match: Match, tournament_team, players: list[dict]) -> lis
         raise ValidationError({"players": "Hay jugadores repetidos."})
     valid = set(
         TeamPlayer.objects.filter(
-            pk__in=ids, team_id=tournament_team.team_id, category_id=tournament_team.category_id, is_active=True,
-            player__is_active=True,
+            pk__in=ids, registration=tournament_team, is_active=True, player__is_active=True,
         ).values_list("id", flat=True)
     )
     invalid = [i for i in ids if i not in valid]
     if invalid:
-        raise ValidationError({"players": f"Jugadores no inscritos en la nómina de la categoría: {invalid}"})
+        raise ValidationError({"players": f"Jugadores no inscritos en la nómina del equipo en este torneo: {invalid}"})
     return players
 
 
@@ -63,10 +62,10 @@ def submit_lineup(match: Match, team_id: int, user, players: list[dict], coach=N
     match = Match.objects.select_for_update().get(pk=match.pk)
     tournament_team = _team_for(match, team_id)
     if not can_manage_team(user, tournament_team):
-        raise PermissionDenied("Solo los gestores del equipo pueden cargar su alineación.")
+        raise PermissionDenied("Solo los gestores o entrenadores del equipo pueden cargar su alineación.")
     if match.status not in EDITABLE_MATCH_STATUSES or match.phase != Match.Phase.NOT_STARTED:
         raise ValidationError("La alineación solo puede cargarse antes del inicio del partido.")
-    if coach is not None and not tournament_team.team.coaches.filter(pk=coach.pk).exists():
+    if coach is not None and coach.team_id != tournament_team.team_id:
         raise ValidationError({"coach": "El entrenador no pertenece al equipo."})
     players = _validate_players(match, tournament_team, players)
 

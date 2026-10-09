@@ -2,10 +2,10 @@ import { useQuery } from "@tanstack/react-query";
 import { Unlock, Users } from "lucide-react";
 
 import { ResourcePage } from "@/components/crud/ResourcePage";
-import type { FieldDef } from "@/components/forms";
+import { PermissionPicker, type FieldDef } from "@/components/forms";
 import { Avatar, Badge } from "@/components/ui";
 import { useCan, useToast } from "@/hooks";
-import { permissions, roles, users, usersExtra } from "@/services";
+import { roles, users, usersExtra } from "@/services";
 import type { Role, User } from "@/types";
 import { formatDateTime } from "@/utils/datetime";
 import { errorMessage } from "@/utils/errors";
@@ -13,7 +13,6 @@ import { errorMessage } from "@/utils/errors";
 export function UsersPage() {
   const toast = useToast();
   const canChange = useCan("accounts.change_user");
-  const perms = useQuery({ queryKey: ["permissions"], queryFn: permissions.all, staleTime: 300_000 });
   const rolesQ = useQuery({ queryKey: ["roles", "all"], queryFn: () => roles.all() });
   const roleName = (id: number) => rolesQ.data?.find((r) => r.id === id)?.name ?? id;
 
@@ -25,14 +24,26 @@ export function UsersPage() {
     { name: "phone", label: "Teléfono", type: "phone" },
     { name: "password", label: "Contraseña", type: "password", help: "Obligatoria al crear. Al editar, déjela vacía para no cambiarla." },
     { name: "must_change_password", label: "Cambio obligatorio", type: "checkbox", placeholder: "Exigir cambio de contraseña" },
-    { name: "groups", label: "Roles", type: "multiselect", wide: true, section: "Permisos", source: { service: roles, label: (r: Role) => r.name } },
-    { name: "user_permissions", label: "Permisos personalizados (adicionales al rol)", type: "multiselect", wide: true, section: "Permisos",
-      options: (perms.data ?? []).map((p) => ({ value: p.id, label: p.name })) },
+    { name: "groups", label: "Roles", type: "multiselect", wide: true, section: "Roles y permisos",
+      source: { service: roles, label: (r: Role) => r.name, hint: (r: Role) => `${r.permissions.length} permisos` } },
+    { name: "user_permissions", label: "Permisos", type: "custom", section: "Roles y permisos", emits: ["user_permissions"],
+      initial: (source) => ({ user_permissions: (source?.user_permissions as number[] | undefined) ?? [] }),
+      render: ({ values, setValue }) => {
+        // Lo que dan los roles elegidos se ve encendido y bloqueado; lo demás es personalización del usuario.
+        const fromRoles = new Set((rolesQ.data ?? []).filter((r) => ((values.groups as number[]) ?? []).includes(r.id)).flatMap((r) => r.permissions));
+        const custom = ((values.user_permissions as number[]) ?? []).filter((id) => !fromRoles.has(id));
+        return (
+          <div>
+            <p className="mb-3 text-xs text-slate-500 dark:text-slate-400">Los permisos marcados «Por rol» vienen de los roles elegidos. Encienda otros para personalizar este usuario.</p>
+            <PermissionPicker value={custom} locked={fromRoles} onChange={(ids) => setValue("user_permissions", ids)} disabled={!canChange} />
+          </div>
+        );
+      } },
   ];
 
   return (
     <ResourcePage<User & { is_active: boolean }> title="Usuarios" subtitle="Cuentas, roles y permisos personalizados" icon={<Users className="h-6 w-6" />}
-      service={users} model="accounts.user" createLabel="Nuevo usuario" fields={fields} formSize="lg"
+      service={users} model="accounts.user" createLabel="Nuevo usuario" fields={fields} formSize="xl"
       toForm={(u) => ({ ...u, password: "" })}
       rowActions={(u) => canChange && (
         <button className="btn-ghost btn-sm" title="Desbloquear (intentos fallidos)" onClick={async () => {

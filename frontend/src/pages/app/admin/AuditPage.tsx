@@ -2,7 +2,7 @@ import { useState } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { History, ShieldCheck, ShieldX } from "lucide-react";
 
-import { Alert, Badge, Card, DataTable, Modal, PageHeader, Pagination, SearchInput, Spinner } from "@/components/ui";
+import { Alert, Badge, Card, DataTable, Modal, PageHeader, Pagination, SearchInput, SelectMenu, Spinner } from "@/components/ui";
 import { useCan, useToast } from "@/hooks";
 import { auditLogs } from "@/services";
 import type { AuditLog } from "@/types";
@@ -44,11 +44,8 @@ export function AuditPage() {
       <Card>
         <div className="flex flex-col gap-3 border-b border-slate-100 px-5 py-4 sm:flex-row dark:border-white/5">
           <SearchInput value={search} onChange={(v) => { setSearch(v); setPage(1); }} placeholder="Usuario, objeto, acción…" />
-          <select className="input sm:w-56" value={action} onChange={(e) => { setAction(e.target.value); setPage(1); }}>
-            <option value="">Todas las acciones</option>
-            {["create", "update", "deactivate", "activate", "login", "login_failed", "login_blocked", "logout", "submit_matchday", "confirmation_accepted", "confirmation_rejected", "match_event", "submit_lineup", "close_match", "close_matchday", "suspend_match", "update_permissions", "accept_terms", "export_document"]
-              .map((a) => <option key={a} value={a}>{a}</option>)}
-          </select>
+          <div className="sm:w-56"><SelectMenu value={action || null} clearable placeholder="Todas las acciones" onChange={(v) => { setAction(v == null ? "" : String(v)); setPage(1); }}
+            options={["create", "update", "deactivate", "activate", "login", "login_failed", "login_blocked", "logout", "submit_matchday", "confirmation_accepted", "confirmation_rejected", "match_event", "submit_lineup", "close_match", "close_matchday", "suspend_match", "update_permissions", "accept_terms", "export_document"].map((a) => ({ value: a, label: a }))} /></div>
         </div>
         <DataTable<AuditLog> loading={isLoading} rows={data?.results ?? []} onRowClick={setSelected} columns={[
           { key: "id", header: "#", render: (r) => <span className="font-mono text-xs">{r.id}</span> },

@@ -1,11 +1,12 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 
 import { ResourceForm, type FieldDef } from "@/components/forms";
 import { Can } from "@/components/layout/Guards";
 import { TeamCrest } from "@/components/match/TeamCrest";
-import { Badge, Card, CardHeader, DataTable, Modal } from "@/components/ui";
+import { Badge, Card, CardHeader, DataTable, Modal, SelectMenu } from "@/components/ui";
 import { useToast } from "@/hooks";
 import { groups, registrations, teams } from "@/services";
 import type { Group, Registration, Team, Tournament } from "@/types";
@@ -47,11 +48,10 @@ export function TeamsTab({ tournament }: { tournament: Tournament }) {
         <DataTable<Registration> loading={regs.isLoading} rows={regs.data ?? []} columns={[
           { key: "team", header: "Equipo", render: (r) => <span className="flex items-center gap-2"><TeamCrest src={r.team_logo} name={r.team_name} size="sm" /><b>{r.team_name}</b></span> },
           { key: "cat", header: "Categoría", render: (r) => <Badge tone="gold">{r.category_name}</Badge> },
+          { key: "roster", header: "Nómina", render: (r) => <Link to={`/app/equipos/${r.team}`} className="text-sm font-semibold text-navy-700 hover:underline dark:text-gold-400">{r.roster_count} jugadores</Link> },
           { key: "group", header: "Grupo", render: (r) => (
-            <select className="input w-40 py-1" value={r.group ?? ""} onChange={(e) => changeGroup(r, e.target.value)}>
-              <option value="">Sin grupo</option>
-              {(grps.data ?? []).filter((g) => g.category === r.category).map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
-            </select>
+            <div className="w-40"><SelectMenu value={r.group ?? null} clearable placeholder="Sin grupo" className="py-1" onChange={(v) => changeGroup(r, v == null ? "" : String(v))}
+              options={(grps.data ?? []).filter((g) => g.category === r.category).map((g) => ({ value: g.id, label: g.name }))} /></div>
           ) },
         ]} />
       </Card>

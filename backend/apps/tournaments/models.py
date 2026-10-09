@@ -5,7 +5,7 @@ from django.db import models
 from apps.core.models import BaseEntity
 from apps.core.uploads import UploadTo
 from apps.core.validators import validate_document_upload, validate_image_upload
-from apps.registry.models import Category, Field, Team
+from apps.registry.models import Category, Field, Player, Team
 
 
 class Tournament(BaseEntity):
@@ -124,5 +124,78 @@ class TournamentTeam(BaseEntity):
         if self.group_id and (self.group.tournament_id != self.tournament_id or
                               self.group.category_id != self.category_id):
             errors["group"] = "El grupo no corresponde al torneo/categoría."
+        if errors:
+            raise ValidationError(errors)
+
+
+class TeamPlayer(BaseEntity):
+    """
+    Nómina: jugador inscrito con un equipo en un torneo (para la categoría de esa inscripción).
+
+    Un jugador solo puede estar activo en un equipo por torneo; en torneos distintos puede
+    jugar con equipos distintos. El historial de cada equipo y de cada jugador sale de aquí.
+    """
+
+    registration = models.ForeignKey(TournamentTeam, verbose_name="inscripción", on_delete=models.PROTECT,
+                                     related_name="roster")
+    # Copia de registration.tournament para que la base de datos garantice la unicidad por torneo.
+    tournament = models.ForeignKey(Tournament, verbose_name="torneo", on_delete=models.PROTECT,
+                                   related_name="roster", editable=False)
+    player = models.ForeignKey(Player, verbose_name="jugador", on_delete=models.PROTECT, related_name="entries")
+    shirt_number = models.PositiveSmallIntegerField("dorsal", null=True, blank=True,
+                                                    validators=[MaxValueValidator(99)])
+
+    class Meta:
+        ordering = ["registration", "shirt_number"]
+        verbose_name = "jugador en nómina"
+        verbose_name_plural = "nómina de jugadores"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["tournament", "player"], condition=models.Q(is_active=True),
+                name="unique_active_player_per_tournament",
+            ),
+            models.UniqueConstraint(
+                fields=["registration", "shirt_number"], condition=models.Q(is_active=True),
+                name="unique_active_shirt_per_registration",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.player} · {self.registration}"
+
+    @property
+    def team(self):
+        return self.registration.team
+
+    def save(self, *args, **kwargs):
+        self.tournament_id = self.registration.tournament_id
+        super().save(*args, **kwargs)
+
+    def clean(self):
+        errors = {}
+        registration = self.registration if self.registration_id else None
+        player = self.player if self.player_id else None
+        if registration and not registration.is_active:
+            errors["registration"] = "La inscripción del equipo en el torneo está inactiva."
+        if registration and registration.tournament.status == Tournament.Status.FINISHED:
+            errors["registration"] = "El torneo ya finalizó: su nómina no se modifica."
+        if player and not player.is_active:
+            errors["player"] = "El jugador está inactivo."
+        elif registration and player:
+            if not registration.category.is_player_eligible(player):
+                errors["player"] = (
+                    f"El jugador nació en {player.birth_date.year} y no es elegible para {registration.category} "
+                    f"(nacidos desde {registration.category.birth_year_limit})."
+                )
+            other = (TeamPlayer.objects.filter(tournament_id=registration.tournament_id, player=player, is_active=True)
+                     .exclude(pk=self.pk).select_related("registration__team").first())
+            if other:
+                where = ("este equipo" if other.registration.team_id == registration.team_id
+                         else f"«{other.registration.team.name}»")
+                errors["player"] = f"El jugador ya está inscrito con {where} en este torneo."
+        if registration and self.shirt_number is not None and TeamPlayer.objects.filter(
+            registration=registration, shirt_number=self.shirt_number, is_active=True
+        ).exclude(pk=self.pk).exists():
+            errors["shirt_number"] = "Ese dorsal ya está asignado en la nómina."
         if errors:
             raise ValidationError(errors)

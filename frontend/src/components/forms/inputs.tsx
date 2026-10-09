@@ -1,45 +1,20 @@
-import { useEffect, useMemo, useState } from "react";
-import { FileText, ImagePlus, Search, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { FileText, ImagePlus, X } from "lucide-react";
 
+import { MultiSelectMenu, SelectMenu } from "@/components/ui/SelectMenu";
 import { cn } from "@/utils/cn";
 import { fromCaracasInput, toCaracasInput } from "@/utils/datetime";
 
 import { VAT_TYPES, VENEZUELA_STATES } from "./constants";
 import type { Option } from "./types";
 
-export function MultiSelect({ options, value, onChange, disabled }: {
-  options: Option[]; value: (string | number)[]; onChange: (v: (string | number)[]) => void; disabled?: boolean;
+const STATE_OPTIONS: Option[] = VENEZUELA_STATES.map((state) => ({ value: state, label: state }));
+
+/** Selección múltiple con desplegable propio (fichas + búsqueda). */
+export function MultiSelect({ options, value, onChange, disabled, invalid }: {
+  options: Option[]; value: (string | number)[]; onChange: (v: (string | number)[]) => void; disabled?: boolean; invalid?: boolean;
 }) {
-  const [query, setQuery] = useState("");
-  const filtered = useMemo(
-    () => options.filter((o) => o.label.toLowerCase().includes(query.toLowerCase())),
-    [options, query],
-  );
-  const toggle = (v: string | number) => onChange(value.includes(v) ? value.filter((x) => x !== v) : [...value, v]);
-  return (
-    <div className={cn("rounded-xl border border-slate-300 bg-white p-2 dark:border-white/10 dark:bg-ink-700", disabled && "opacity-60")}>
-      {options.length > 8 && (
-        <div className="relative mb-2">
-          <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-          <input className="input py-1.5 pl-8 text-xs" placeholder="Filtrar…" value={query} onChange={(e) => setQuery(e.target.value)} />
-        </div>
-      )}
-      <div className="flex max-h-40 flex-wrap gap-1.5 overflow-y-auto">
-        {filtered.map((o) => {
-          const active = value.includes(o.value);
-          return (
-            <button type="button" key={o.value} disabled={disabled} onClick={() => toggle(o.value)}
-              className={cn("rounded-full border px-3 py-1 text-xs font-medium transition-all",
-                active ? "border-navy-800 bg-navy-900 text-white dark:border-gold-500 dark:bg-gold-500 dark:text-navy-950"
-                  : "border-slate-200 text-slate-600 hover:border-navy-300 dark:border-white/10 dark:text-slate-300")}>
-              {o.label}
-            </button>
-          );
-        })}
-        {filtered.length === 0 && <span className="px-1 text-xs text-slate-400">Sin opciones</span>}
-      </div>
-    </div>
-  );
+  return <MultiSelectMenu options={options} value={value} onChange={onChange} disabled={disabled} invalid={invalid} />;
 }
 
 export function FileInput({ value, onChange, accept, image, disabled }: {
@@ -83,9 +58,10 @@ export function VatInput({ type, number, onType, onNumber, invalid, disabled }: 
 }) {
   return (
     <div className="flex gap-2">
-      <select className="input w-20" value={type} onChange={(e) => onType(e.target.value)} disabled={disabled} aria-label="Tipo de documento">
-        {VAT_TYPES.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-      </select>
+      <div className="w-[4.5rem] shrink-0">
+        <SelectMenu value={type} options={VAT_TYPES} onChange={(v) => onType(String(v ?? "V"))} disabled={disabled}
+          aria-label="Tipo de documento" panelWidth={200} searchable={false} />
+      </div>
       <input className={cn("input flex-1", invalid && "input-error")} inputMode="numeric" maxLength={9} placeholder="#########"
         value={number} disabled={disabled} onChange={(e) => onNumber(e.target.value.replace(/\D/g, ""))} aria-label="Número de documento" />
     </div>
@@ -104,9 +80,7 @@ export function DateTimeInput({ value, onChange, disabled, invalid }: { value: s
 
 export function StateSelect({ value, onChange, invalid, disabled }: { value: string; onChange: (v: string) => void; invalid?: boolean; disabled?: boolean }) {
   return (
-    <select className={cn("input", invalid && "input-error")} value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)}>
-      <option value="">Seleccione…</option>
-      {VENEZUELA_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
-    </select>
+    <SelectMenu value={value || null} options={STATE_OPTIONS} invalid={invalid} disabled={disabled}
+      onChange={(v) => onChange(v == null ? "" : String(v))} placeholder="Seleccione el estado…" />
   );
 }

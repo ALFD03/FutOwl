@@ -103,7 +103,7 @@ class MatchdayFlowTests(TestCase):
 
         # Alineaciones de ambos equipos
         for manager, reg in [(self.home_manager, self.reg_home), (self.away_manager, self.reg_away)]:
-            roster = list(reg.team.roster.all())
+            roster = list(reg.roster.all())
             players = [{"team_player": tp.id, "shirt_number": tp.shirt_number, "is_starter": i < 7,
                         "is_captain": i == 0} for i, tp in enumerate(roster)]
             res = self.client_for(manager).post(f"/api/matches/{match.id}/submit-lineup/",
@@ -208,10 +208,9 @@ class MatchdayFlowTests(TestCase):
         self.assertEqual(Match.objects.get(pk=res.data["id"]).sub_field, 2)
 
     def test_permissions_are_enforced(self):
-        viewer = f.user("consulta", role=roles.VIEWER)
-        api = self.client_for(viewer)
+        referee = self.ref_users[0]
+        api = self.client_for(referee)
         self.assertEqual(api.get("/api/teams/").status_code, 200)
-        self.assertEqual(api.post("/api/categories/", {"name": "Sub 15", "max_age": 14,
-                                                       "birth_year_limit": 2012}).status_code, 403)
+        self.assertEqual(api.post("/api/categories/", {"name": "Sub 15", "max_age": 14}).status_code, 403)
         self.assertEqual(api.post("/api/matches/generate-fixture/", {}).status_code, 403)
         self.assertEqual(APIClient().get("/api/teams/").status_code, 401)

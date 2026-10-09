@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { StandingsTable } from "@/components/match/StandingsTable";
-import { Card, CardHeader } from "@/components/ui";
+import { Card, CardHeader, SelectMenu, Toggle } from "@/components/ui";
 import { useLiveInterval } from "@/hooks";
 import { groups, standingsService } from "@/services";
 import type { Tournament } from "@/types";
@@ -24,10 +24,8 @@ export function StandingsTab({ tournament }: { tournament: Tournament }) {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-3">
-        <select className="input w-48" value={category} onChange={(e) => setCategory(Number(e.target.value))}>
-          {tournament.categories.map((id, i) => <option key={id} value={id}>{tournament.category_names[i]}</option>)}
-        </select>
-        <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="accent-navy-900" checked={live} onChange={(e) => setLive(e.target.checked)} /> Incluir partidos en curso / sin cerrar</label>
+        <div className="w-48"><SelectMenu value={category} onChange={(v) => setCategory(Number(v))} options={tournament.categories.map((id, i) => ({ value: id, label: tournament.category_names[i] }))} /></div>
+        <label className="flex cursor-pointer items-center gap-2 text-sm"><Toggle checked={live} onChange={setLive} label="Incluir partidos en curso" /> Incluir partidos en curso / sin cerrar</label>
       </div>
       {(tables.data ?? []).map((t) => <Card key={t.name}><CardHeader title={t.name} subtitle={live ? "Incluye resultados no oficiales" : "Solo partidos cerrados (oficial)"} /><StandingsTable rows={t.rows} /></Card>)}
     </div>

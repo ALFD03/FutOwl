@@ -35,11 +35,10 @@ def user(username: str, *, role: str | None = None, superuser: bool = False, pas
     return obj
 
 
-def category(name="Sub 12", max_age=11, birth_year_limit=2015):
+def category(name="Sub 12", max_age=11):
     from apps.registry.models import Category
 
-    return Category.objects.get_or_create(name=name, defaults={"max_age": max_age,
-                                                               "birth_year_limit": birth_year_limit})[0]
+    return Category.objects.get_or_create(name=name, defaults={"max_age": max_age})[0]
 
 
 def field(name="Cancha Principal", divisible=False, mini=1):
@@ -52,11 +51,12 @@ def field(name="Cancha Principal", divisible=False, mini=1):
     ))[0]
 
 
-def coach(first="Carlos", last="Rodríguez"):
+def coach(first="Carlos", last="Rodríguez", *, team=None, user=None):
     from apps.registry.models import Coach
 
     return Coach.objects.create(first_name=first, last_name=last, vat_number=next_vat(), phone="+58 414-5550000",
-                                license_number=f"LIC-{next_vat()}", license_expiry_year=date.today().year + 1)
+                                license_number=f"LIC-{next_vat()}", license_expiry_year=date.today().year + 1,
+                                team=team, user=user)
 
 
 def guardian(first="María", last="González"):
@@ -66,13 +66,13 @@ def guardian(first="María", last="González"):
                                    phone="+58 424-5551111", relationship="Madre")
 
 
-def player(first, last, birth_date, *, with_guardian=None):
+def player(first, last, birth_date, *, with_guardian=None, team=None):
     from apps.registry.models import Player
 
     minor = (date.today() - birth_date).days < 18 * 365
     return Player.objects.create(
         first_name=first, last_name=last, birth_date=birth_date, vat_number=next_vat(),
-        guardian=(with_guardian or guardian()) if minor else None, phone="+58 412-0000000",
+        guardian=(with_guardian or guardian()) if minor else None, phone="+58 412-0000000", current_team=team,
     )
 
 
@@ -85,19 +85,18 @@ def official(model_name: str, first: str, last: str, user_obj=None):
 
 
 def team(name, cat, *, manager=None, home=None, players=11, birth_year=None):
-    from apps.registry.models import Team, TeamPlayer
+    """Equipo con su entrenador y `players` jugadores (equipo actual = este). La nómina se arma en `register`."""
+    from apps.registry.models import Team
 
     obj = Team.objects.create(name=name, vat_id="J", vat_number=next_vat(), state="Carabobo",
                               municipality="Valencia", address="Calle 1", home_field=home)
     obj.categories.add(cat)
-    c = coach(f"DT {name}", "Entrenador")
-    obj.coaches.add(c)
+    coach(f"DT {name}", "Entrenador", team=obj)
     if manager:
         obj.managers.add(manager)
     year = birth_year or cat.birth_year_limit
     for i in range(1, players + 1):
-        p = player(f"Jugador{i}", name.split()[0], date(year, (i % 12) + 1, (i % 27) + 1))
-        TeamPlayer.objects.create(team=obj, player=p, category=cat, shirt_number=i)
+        player(f"Jugador{i}", name.split()[0], date(year, (i % 12) + 1, (i % 27) + 1), team=obj)
     return obj
 
 
@@ -111,7 +110,12 @@ def tournament(name="Copa FutOwl", categories=(), fields=(), **kwargs):
     return obj
 
 
-def register(tournament_obj, team_obj, cat, group=None):
-    from apps.tournaments.models import TournamentTeam
+def register(tournament_obj, team_obj, cat, group=None, *, with_roster=True):
+    """Inscribe el equipo y, por defecto, a sus jugadores actuales en la nómina del torneo (dorsal = orden)."""
+    from apps.tournaments.models import TeamPlayer, TournamentTeam
 
-    return TournamentTeam.objects.create(tournament=tournament_obj, team=team_obj, category=cat, group=group)
+    registration = TournamentTeam.objects.create(tournament=tournament_obj, team=team_obj, category=cat, group=group)
+    if with_roster:
+        for number, p in enumerate(team_obj.current_players.order_by("id"), start=1):
+            TeamPlayer.objects.create(registration=registration, player=p, shirt_number=number)
+    return registration

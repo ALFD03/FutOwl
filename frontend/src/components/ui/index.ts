@@ -5,3 +5,6 @@ export * from "./DataTable";
 export * from "./misc";
 export * from "./Modal";
 export * from "./Spinner";
+export * from "./SelectMenu";
+export * from "./Switch";
+export * from "./Segmented";

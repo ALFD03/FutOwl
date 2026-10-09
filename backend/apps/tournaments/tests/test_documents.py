@@ -18,6 +18,7 @@ class DocumentTests(TestCase):
         cls.cat = f.category()
         cls.team = f.team("Águilas & Co", cls.cat, players=5)
         cls.tournament = f.tournament(categories=[cls.cat], regulation_text="# Capítulo 1\n- Regla uno")
+        f.register(cls.tournament, cls.team, cls.cat)  # la planilla sale de la nómina del torneo
 
     def setUp(self):
         self.api = APIClient()

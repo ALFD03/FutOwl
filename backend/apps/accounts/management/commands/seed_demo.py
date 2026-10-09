@@ -32,10 +32,11 @@ class Command(BaseCommand):
         call_command("seed_roles", verbosity=0)
         admin = f.user("admin", superuser=True, password=pwd)
         authority = f.user("autoridad", role=roles.AUTHORITY, password=pwd)
-        f.user("consulta", role=roles.VIEWER, password=pwd)
+        f.user("jefearbitros", role=roles.HEAD_REFEREE, password=pwd)
+        f.user("jefedelegados", role=roles.HEAD_DELEGATE, password=pwd)
 
-        sub12 = f.category("Sub 12", 11, 2015)
-        f.category("Sub 14", 13, 2013)
+        sub12 = f.category("Sub 12", 11)
+        f.category("Sub 14", 13)
         main = f.field("Estadio Misael Delgado")
         f.field("Complejo Los Guayos", divisible=True, mini=3)
 
@@ -78,7 +79,7 @@ class Command(BaseCommand):
             official = match.party_official(party)
             confirmations.respond(match, official.user, party, "accepted")
         for reg in (match.home, match.away):
-            roster = list(reg.team.roster.order_by("shirt_number"))
+            roster = list(reg.roster.order_by("shirt_number"))
             players = [{"team_player": tp.id, "shirt_number": tp.shirt_number, "is_starter": i < 7,
                         "is_captain": i == 0} for i, tp in enumerate(roster)]
             lineups.submit_lineup(match, reg.id, reg.team.managers.first(), players)
@@ -93,6 +94,7 @@ class Command(BaseCommand):
         live.record_event(match, dele, {"type": T.GOAL, "team_id": match.home_id, "player_id": scorer, "minute": 7})
 
         self.stdout.write(self.style.SUCCESS(
-            "Datos demo listos. Usuarios: admin, autoridad, consulta, delegado1-2, arbitro1-6, gestor1-6 "
+            "Datos demo listos. Usuarios: admin, autoridad, jefearbitros, jefedelegados, delegado1-2, arbitro1-6, "
+            "gestor1-6 "
             f"(contraseña: {pwd})."
         ))

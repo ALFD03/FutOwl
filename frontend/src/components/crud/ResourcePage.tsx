@@ -3,7 +3,7 @@ import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-quer
 import { Pencil, Plus, Power, PowerOff } from "lucide-react";
 
 import { ResourceForm, type FieldDef, type Values } from "@/components/forms";
-import { Card, DataTable, Modal, PageHeader, Pagination, SearchInput, StatusBadge, type Column } from "@/components/ui";
+import { Card, DataTable, Modal, PageHeader, Pagination, SearchInput, StatusBadge, Toggle, type Column } from "@/components/ui";
 import { useCan, useToast } from "@/hooks";
 import type { Query, ResourceService } from "@/services/resource";
 import { errorMessage } from "@/utils/errors";
@@ -23,9 +23,10 @@ interface Props<T> {
   rowActions?: (row: T) => ReactNode;
   headerActions?: ReactNode;
   createLabel?: string;
-  formSize?: "sm" | "md" | "lg";
+  formSize?: "sm" | "md" | "lg" | "xl";
   embedded?: boolean;
   defaults?: Values;
+  searchPlaceholder?: string;
 }
 
 /** Página CRUD genérica: listado con búsqueda, alta/edición y activación (nunca borrado). */
@@ -109,10 +110,10 @@ export function ResourcePage<T extends { id: number; is_active?: boolean }>(prop
       )}
       <Card>
         <div className="flex flex-col gap-3 border-b border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between dark:border-white/5">
-          <SearchInput value={search} onChange={(v) => { setSearch(v); setPage(1); }} />
+          <SearchInput value={search} onChange={(v) => { setSearch(v); setPage(1); }} placeholder={props.searchPlaceholder} />
           <div className="flex items-center gap-3">
             <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-500">
-              <input type="checkbox" className="accent-navy-900 dark:accent-gold-500" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
+              <Toggle checked={showInactive} onChange={setShowInactive} label="Mostrar inactivos" />
               Mostrar inactivos
             </label>
             {props.embedded && canAdd && <button className="btn-gold btn-sm" onClick={() => setEditing(null)}><Plus className="h-4 w-4" />{props.createLabel ?? "Nuevo"}</button>}

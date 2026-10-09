@@ -26,11 +26,11 @@ router.register("players", registry.PlayerViewSet)
 router.register("delegates", registry.DelegateViewSet)
 router.register("referees", registry.RefereeViewSet)
 router.register("teams", registry.TeamViewSet)
-router.register("roster", registry.TeamPlayerViewSet)
 # Torneos
 router.register("tournaments", tournaments.TournamentViewSet)
 router.register("groups", tournaments.GroupViewSet)
 router.register("registrations", tournaments.TournamentTeamViewSet)
+router.register("roster", tournaments.RosterViewSet)
 # Competición
 router.register("matchdays", competition.MatchdayViewSet)
 router.register("matches", competition.MatchViewSet)

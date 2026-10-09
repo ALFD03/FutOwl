@@ -2,7 +2,7 @@ from rest_framework import serializers
 
 from apps.core.serializers import CleanModelSerializer
 
-from .models import Group, Tournament, TournamentTeam
+from .models import Group, TeamPlayer, Tournament, TournamentTeam
 
 BASE_READONLY = ["id", "is_active", "created_at", "updated_at"]
 
@@ -43,6 +43,9 @@ class GroupSerializer(CleanModelSerializer):
 
 
 class TournamentTeamSerializer(CleanModelSerializer):
+    tournament_name = serializers.CharField(source="tournament.name", read_only=True)
+    tournament_status = serializers.CharField(source="tournament.status", read_only=True)
+    roster_count = serializers.SerializerMethodField()
     team_name = serializers.CharField(source="team.name", read_only=True)
     team_logo = serializers.ImageField(source="team.logo", read_only=True)
     category_name = serializers.CharField(source="category.name", read_only=True)
@@ -51,6 +54,44 @@ class TournamentTeamSerializer(CleanModelSerializer):
     class Meta:
         model = TournamentTeam
         fields = BASE_READONLY + [
-            "tournament", "team", "team_name", "team_logo", "category", "category_name", "group", "group_name",
+            "tournament", "tournament_name", "tournament_status", "team", "team_name", "team_logo", "category",
+            "category_name", "group", "group_name", "roster_count",
         ]
         read_only_fields = BASE_READONLY
+
+    def get_roster_count(self, obj):
+        return sum(1 for entry in obj.roster.all() if entry.is_active)
+
+
+class RosterPlayerSerializer(serializers.Serializer):
+    """Datos del jugador que muestra la nómina (sin estadísticas ni historial)."""
+
+    id = serializers.IntegerField()
+    full_name = serializers.CharField()
+    photo = serializers.ImageField()
+    vat_display = serializers.CharField()
+    birth_date = serializers.DateField()
+    age = serializers.IntegerField()
+    is_minor = serializers.BooleanField()
+    guardian_name = serializers.SerializerMethodField()
+
+    def get_guardian_name(self, obj):
+        return str(obj.guardian) if obj.guardian_id else None
+
+
+class TeamPlayerSerializer(CleanModelSerializer):
+    tournament_name = serializers.CharField(source="tournament.name", read_only=True)
+    team = serializers.IntegerField(source="registration.team_id", read_only=True)
+    team_name = serializers.CharField(source="registration.team.name", read_only=True)
+    category = serializers.IntegerField(source="registration.category_id", read_only=True)
+    category_name = serializers.CharField(source="registration.category.name", read_only=True)
+    player_detail = RosterPlayerSerializer(source="player", read_only=True)
+
+    class Meta:
+        model = TeamPlayer
+        fields = BASE_READONLY + [
+            "registration", "tournament", "tournament_name", "team", "team_name", "category", "category_name",
+            "player", "player_detail", "shirt_number",
+        ]
+        read_only_fields = BASE_READONLY + ["tournament"]
+

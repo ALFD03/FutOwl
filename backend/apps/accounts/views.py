@@ -220,7 +220,9 @@ class PermissionViewSet(viewsets.ReadOnlyModelViewSet):
         content_type__app_label__in=[
             "accounts", "auth", "audit", "legal", "notifications", "registry", "tournaments", "competition",
         ]
-    ).order_by("content_type__app_label", "codename")
+    ).exclude(content_type__app_label="auth", content_type__model="permission").order_by(
+        "content_type__app_label", "content_type__model", "codename"
+    )
     serializer_class = PermissionSerializer
     permission_classes = [IsAuthenticated, ModelActionPermission]
     pagination_class = None

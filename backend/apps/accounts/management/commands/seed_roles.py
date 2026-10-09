@@ -3,7 +3,7 @@ from fnmatch import fnmatch
 from django.contrib.auth.models import Group, Permission
 from django.core.management.base import BaseCommand
 
-from apps.accounts.roles import ROLE_PERMISSIONS
+from apps.accounts.roles import RETIRED_ROLES, ROLE_PERMISSIONS
 
 
 class Command(BaseCommand):
@@ -20,3 +20,10 @@ class Command(BaseCommand):
             group.permissions.set(selected)
             if options["verbosity"]:
                 self.stdout.write(self.style.SUCCESS(f"Rol '{role}': {len(selected)} permisos"))
+        # Los roles retirados se eliminan solo si nadie los usa; si tienen usuarios se conservan.
+        for name in RETIRED_ROLES:
+            group = Group.objects.filter(name=name).first()
+            if group and not group.user_set.exists():
+                group.delete()
+                if options["verbosity"]:
+                    self.stdout.write(f"Rol retirado eliminado: '{name}'")

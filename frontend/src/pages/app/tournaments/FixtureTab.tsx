@@ -5,7 +5,7 @@ import { Plus, Shuffle } from "lucide-react";
 
 import { ResourceForm, type FieldDef } from "@/components/forms";
 import { Can } from "@/components/layout/Guards";
-import { Badge, Card, CardHeader, EmptyState, Modal, StatusBadge } from "@/components/ui";
+import { Badge, Card, CardHeader, EmptyState, Modal, SelectMenu, StatusBadge } from "@/components/ui";
 import { useToast } from "@/hooks";
 import { groups, matches, registrations } from "@/services";
 import type { Match, Registration, Tournament } from "@/types";
@@ -47,9 +47,7 @@ export function FixtureTab({ tournament }: { tournament: Tournament }) {
     <Card>
       <CardHeader title="Partidos" subtitle="Generados automáticamente (todos contra todos) o creados manualmente"
         actions={<>
-          <select className="input w-40" value={category} onChange={(e) => setCategory(Number(e.target.value))}>
-            {catOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-          </select>
+          <div className="w-40"><SelectMenu value={category} onChange={(v) => setCategory(Number(v))} options={catOptions} /></div>
           <Can perm="competition.add_match"><button className="btn-outline btn-sm" onClick={() => setModal("manual")}><Plus className="h-4 w-4" /> Partido</button></Can>
           <Can perm="competition.generate_fixture"><button className="btn-gold btn-sm" onClick={() => setModal("generate")}><Shuffle className="h-4 w-4" /> Generar fixture</button></Can>
         </>} />

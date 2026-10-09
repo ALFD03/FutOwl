@@ -68,7 +68,7 @@ def player_stats(tournament: Tournament, category_id: int | None = None, limit: 
     if category_id:
         events = events.filter(match__category_id=category_id)
     rows = (
-        events.values("player", "player__player__first_name", "player__player__last_name", "player__team__name")
+        events.values("player", "player__player__first_name", "player__player__last_name", "player__registration__team__name")
         .annotate(
             goals=Count("id", filter=Q(type__in=[T.GOAL, T.PENALTY_GOAL])),
             yellow=Count("id", filter=Q(type=T.YELLOW_CARD)),
@@ -77,7 +77,7 @@ def player_stats(tournament: Tournament, category_id: int | None = None, limit: 
     )
     data = [
         {"team_player": r["player"], "name": f"{r['player__player__first_name']} {r['player__player__last_name']}",
-         "team": r["player__team__name"], "goals": r["goals"], "yellow": r["yellow"], "red": r["red"]}
+         "team": r["player__registration__team__name"], "goals": r["goals"], "yellow": r["yellow"], "red": r["red"]}
         for r in rows
     ]
     scorers = sorted([d for d in data if d["goals"]], key=lambda d: (-d["goals"], d["name"]))[:limit]

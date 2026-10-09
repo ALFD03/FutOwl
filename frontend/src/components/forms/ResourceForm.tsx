@@ -11,6 +11,7 @@ const TEXT_TYPES = new Set(["text", "email", "password", "textarea", "phone", "s
 /** Valor vacío por tipo: texto → "", listas → [], casillas → false, resto → null. */
 function emptyValue(field: FieldDef): unknown {
   if (field.type === "multiselect") return [];
+  if (field.type === "custom") return undefined;
   if (field.type === "checkbox") return false;
   return TEXT_TYPES.has(field.type) ? "" : null;
 }
@@ -21,6 +22,10 @@ export function initialValues(fields: FieldDef[], source?: Values | null): Value
     if (f.type === "vat") {
       values.vat_id = source?.vat_id ?? "V";
       values.vat_number = source?.vat_number ?? "";
+      return;
+    }
+    if (f.type === "custom") {
+      Object.assign(values, f.initial?.(source) ?? {});
       return;
     }
     values[f.name] = source?.[f.name] ?? f.defaultValue ?? emptyValue(f);
@@ -60,6 +65,8 @@ export function ResourceForm({ fields, initial, onSubmit, submitLabel = "Guardar
         if (f.type === "vat") {
           payload.vat_id = values.vat_id;
           payload.vat_number = values.vat_number;
+        } else if (f.type === "custom") {
+          (f.emits ?? []).forEach((key) => { if (values[key] !== undefined) payload[key] = values[key]; });
         } else if ((f.type === "image" || f.type === "file") && !(values[f.name] instanceof File)) {
           return; // sin cambios en el archivo
         } else {
@@ -70,7 +77,7 @@ export function ResourceForm({ fields, initial, onSubmit, submitLabel = "Guardar
     } catch (error) {
       const errs = fieldErrors(error);
       setErrors(errs);
-      const known = new Set([...fields.map((f) => f.name), "vat_id", "vat_number"]);
+      const known = new Set([...fields.flatMap((f) => [f.name, ...(f.emits ?? [])]), "vat_id", "vat_number"]);
       const unknown = Object.keys(errs).some((k) => !known.has(k));
       if (!Object.keys(errs).length || unknown) setGeneral(errorMessage(error));
     } finally {
@@ -86,7 +93,7 @@ export function ResourceForm({ fields, initial, onSubmit, submitLabel = "Guardar
           {section && <legend className="mb-2 text-sm font-bold text-navy-900 dark:text-gold-400">{section}</legend>}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {items.filter((f) => !f.hidden?.(values)).map((f) => (
-              <FormField key={f.name} field={f} values={values} setValue={setValue}
+              <FormField key={f.name} field={f} values={values} setValue={setValue} errors={errors}
                 error={errors[f.name] ?? (f.type === "vat" ? errors.vat_number ?? errors.vat_id : undefined)} />
             ))}
           </div>

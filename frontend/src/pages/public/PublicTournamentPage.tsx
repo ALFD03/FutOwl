@@ -5,7 +5,7 @@ import { Trophy } from "lucide-react";
 
 import { MatchCard } from "@/components/match/MatchCard";
 import { StandingsTable } from "@/components/match/StandingsTable";
-import { Card, CardHeader, EmptyState, PageHeader, PageLoader, Tabs } from "@/components/ui";
+import { Card, CardHeader, EmptyState, PageHeader, PageLoader, SelectMenu, Tabs } from "@/components/ui";
 import { useLiveInterval } from "@/hooks";
 import { publicApi } from "@/services";
 import { formatDate } from "@/utils/datetime";
@@ -42,9 +42,7 @@ export function PublicTournamentPage() {
       <PageHeader icon={<Trophy className="h-6 w-6" />} title={tournament.name}
         subtitle={`${tournament.modality_display} · ${formatDate(tournament.start_date)} — ${formatDate(tournament.end_date)}`}
         actions={tournament.categories.length > 1 && (
-          <select className="input w-48" value={cat ?? ""} onChange={(e) => setCategory(Number(e.target.value))}>
-            {tournament.categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
+          <div className="w-48"><SelectMenu value={cat ?? null} onChange={(v) => setCategory(Number(v))} options={tournament.categories.map((c) => ({ value: c.id, label: c.name }))} /></div>
         )} />
       <Tabs<Tab> value={tab} onChange={setTab} tabs={[
         { id: "standings", label: "Posiciones" }, { id: "matches", label: "Calendario y resultados" },

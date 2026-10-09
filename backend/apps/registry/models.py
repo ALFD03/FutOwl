@@ -1,6 +1,9 @@
 """
 Registros maestros: categorías, canchas, entrenadores, representantes,
-jugadores, delegados, árbitros y equipos (con su nómina por categoría).
+jugadores, delegados, árbitros y equipos.
+
+La nómina de jugadores no vive aquí: es por torneo (`tournaments.TeamPlayer`), de modo
+que un jugador se crea una sola vez y se inscribe en cada torneo con el equipo de turno.
 """
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -26,20 +29,20 @@ class LicenseStatus(models.TextChoices):
 
 class Category(BaseEntity):
     name = models.CharField("nombre", max_length=60, unique=True, help_text="Ej.: Sub 12")
-    max_age = models.PositiveSmallIntegerField("tope de edad", validators=[MaxValueValidator(99)])
-    birth_year_limit = models.PositiveSmallIntegerField(
-        "tope de año de nacimiento",
-        validators=[MinValueValidator(1900), MaxValueValidator(2100)],
-        help_text="Año de nacimiento mínimo permitido (nacidos en este año o después).",
-    )
+    max_age = models.PositiveSmallIntegerField("tope de edad", validators=[MinValueValidator(1), MaxValueValidator(99)])
 
     class Meta:
-        ordering = ["birth_year_limit", "name"]
+        ordering = ["max_age", "name"]
         verbose_name = "categoría"
         verbose_name_plural = "categorías"
 
     def __str__(self):
         return self.name
+
+    @property
+    def birth_year_limit(self) -> int:
+        """Año de nacimiento mínimo: se calcula contra el año en curso (tope 11 → 2015 en 2026, 2019 en 2030)."""
+        return today().year - self.max_age
 
     def is_player_eligible(self, player: "Player") -> bool:
         return player.birth_date.year >= self.birth_year_limit
@@ -80,6 +83,15 @@ class Field(BaseEntity, AddressMixin):
 
 
 class Coach(BaseEntity, PersonMixin, IdentityDocumentMixin):
+    """Entrenador. Pertenece a un solo equipo a la vez y puede tener usuario para ayudar al gestor."""
+
+    team = models.ForeignKey(
+        "Team", verbose_name="equipo", on_delete=models.SET_NULL, null=True, blank=True, related_name="coaches"
+    )
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL, verbose_name="usuario", on_delete=models.PROTECT, null=True, blank=True,
+        related_name="coach_profile",
+    )
     license_number = models.CharField("licencia", max_length=60)
     license_photo = models.FileField(
         "foto de licencia", upload_to=UploadTo("documents/licenses"),
@@ -97,6 +109,28 @@ class Coach(BaseEntity, PersonMixin, IdentityDocumentMixin):
     @property
     def license_valid(self) -> bool:
         return self.license_expiry_year >= today().year
+
+    def clean(self):
+        """Un entrenador no puede dirigir a dos equipos distintos dentro del mismo torneo."""
+        if not (self.pk and self.team_id):
+            return
+        previous = Coach.objects.filter(pk=self.pk).values_list("team_id", flat=True).first()
+        if not previous or previous == self.team_id:
+            return
+        from apps.tournaments.models import Tournament
+
+        shared = (
+            Tournament.objects.exclude(status=Tournament.Status.FINISHED)
+            .filter(registrations__team_id=previous, registrations__is_active=True)
+            .filter(registrations__team_id=self.team_id)
+            .distinct()
+            .first()
+        )
+        if shared:
+            raise ValidationError({"team": (
+                f"El entrenador dirige a otro equipo en el torneo «{shared}». "
+                "No puede estar en dos equipos del mismo torneo."
+            )})
 
 
 class Guardian(BaseEntity, IdentityDocumentMixin):
@@ -132,6 +166,11 @@ class Player(BaseEntity, PersonMixin, IdentityDocumentMixin):
         Guardian, verbose_name="representante", on_delete=models.PROTECT, null=True, blank=True,
         related_name="players",
     )
+    # Equipo que hoy administra la ficha (fotos, documento…). Cambia al inscribirlo en un torneo con otro equipo.
+    current_team = models.ForeignKey(
+        "Team", verbose_name="equipo actual", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="current_players",
+    )
 
     class Meta:
         ordering = ["last_name", "first_name"]
@@ -150,7 +189,7 @@ class Player(BaseEntity, PersonMixin, IdentityDocumentMixin):
         errors = {}
         if self.birth_date and self.birth_date > today():
             errors["birth_date"] = "La fecha de nacimiento no puede ser futura."
-        elif self.birth_date and self.is_minor and not self.guardian_id:
+        elif self.birth_date and self.is_minor and not (self.guardian_id or self.guardian):
             errors["guardian"] = "El representante es obligatorio para jugadores menores de 18 años."
         if self.document_kind == self.DocumentKind.ID_CARD and not self.vat_number:
             errors["vat_number"] = "La cédula es obligatoria cuando el soporte es cédula de identidad."
@@ -202,7 +241,6 @@ class Team(BaseEntity, AddressMixin, IdentityDocumentMixin):
     home_field = models.ForeignKey(
         Field, verbose_name="cancha", on_delete=models.PROTECT, null=True, blank=True, related_name="teams"
     )
-    coaches = models.ManyToManyField(Coach, verbose_name="entrenadores", related_name="teams", blank=True)
     managers = models.ManyToManyField(
         settings.AUTH_USER_MODEL, verbose_name="gestores", related_name="managed_teams", blank=True
     )
@@ -215,41 +253,8 @@ class Team(BaseEntity, AddressMixin, IdentityDocumentMixin):
     def __str__(self):
         return self.name
 
-
-class TeamPlayer(BaseEntity):
-    """Nómina: jugador inscrito en un equipo para una categoría."""
-
-    team = models.ForeignKey(Team, on_delete=models.PROTECT, related_name="roster")
-    player = models.ForeignKey(Player, on_delete=models.PROTECT, related_name="memberships")
-    category = models.ForeignKey(Category, on_delete=models.PROTECT, related_name="memberships")
-    shirt_number = models.PositiveSmallIntegerField("dorsal", null=True, blank=True,
-                                                    validators=[MaxValueValidator(99)])
-
-    class Meta:
-        ordering = ["team", "category", "shirt_number"]
-        verbose_name = "jugador en nómina"
-        verbose_name_plural = "nómina de jugadores"
-        constraints = [
-            models.UniqueConstraint(
-                fields=["player", "category"], condition=models.Q(is_active=True), name="unique_active_player_category"
-            ),
-        ]
-
-    def __str__(self):
-        return f"{self.player} · {self.team} ({self.category})"
-
-    def clean(self):
-        errors = {}
-        if self.category_id and self.player_id and not self.category.is_player_eligible(self.player):
-            errors["player"] = (
-                f"El jugador nació en {self.player.birth_date.year} y no es elegible para {self.category} "
-                f"(nacidos desde {self.category.birth_year_limit})."
-            )
-        if self.team_id and self.category_id and not self.team.categories.filter(pk=self.category_id).exists():
-            errors["category"] = "El equipo no participa en esta categoría."
-        if self.shirt_number and TeamPlayer.objects.filter(
-            team_id=self.team_id, category_id=self.category_id, shirt_number=self.shirt_number, is_active=True
-        ).exclude(pk=self.pk).exists():
-            errors["shirt_number"] = "Ese dorsal ya está asignado en la categoría."
-        if errors:
-            raise ValidationError(errors)
+    def is_staff_user(self, user) -> bool:
+        """Gestores del equipo y entrenadores con usuario: pueden administrar su plantilla."""
+        if not (user and user.is_authenticated):
+            return False
+        return self.managers.filter(pk=user.pk).exists() or self.coaches.filter(user=user, is_active=True).exists()

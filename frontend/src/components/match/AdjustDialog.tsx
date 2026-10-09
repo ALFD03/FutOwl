@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { DateTimeInput } from "@/components/forms";
-import { Alert, Modal, Spinner } from "@/components/ui";
+import { Alert, Modal, SelectMenu, Spinner } from "@/components/ui";
 import { useToast } from "@/hooks";
 import { delegates, fields as fieldsService, matches, referees } from "@/services";
 import type { Match } from "@/types";
@@ -38,10 +38,8 @@ export function AdjustDialog({ match, open, onClose }: { match: Match; open: boo
   };
 
   const select = (key: keyof typeof form, options: { id: number; label: string }[]) => (
-    <select className="input" value={(form[key] as number | null) ?? ""} onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value ? Number(e.target.value) : null }))}>
-      <option value="">—</option>
-      {options.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
-    </select>
+    <SelectMenu value={(form[key] as number | null) ?? null} clearable placeholder="Sin cambio"
+      onChange={(v) => setForm((f) => ({ ...f, [key]: v == null ? null : Number(v) }))} options={options.map((o) => ({ value: o.id, label: o.label }))} />
   );
   const refs = (refereesQ.data ?? []).map((r) => ({ id: r.id, label: r.full_name }));
 

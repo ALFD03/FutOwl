@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bell, CheckCheck } from "lucide-react";
 
-import { Card, EmptyState, PageHeader, Pagination } from "@/components/ui";
+import { Card, EmptyState, PageHeader, Pagination, Toggle } from "@/components/ui";
 import { notifications } from "@/services";
 import { cn } from "@/utils/cn";
 import { formatDateTime } from "@/utils/datetime";
@@ -20,7 +20,7 @@ export function NotificationsPage() {
   return (
     <div>
       <PageHeader title="Notificaciones" icon={<Bell className="h-6 w-6" />} actions={<>
-        <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="accent-navy-900" checked={unread} onChange={(e) => setUnread(e.target.checked)} /> Solo no leídas</label>
+        <label className="flex cursor-pointer items-center gap-2 text-sm"><Toggle checked={unread} onChange={setUnread} label="Solo no leídas" /> Solo no leídas</label>
         <button className="btn-outline" onClick={async () => { await notifications.readAll(); await refresh(); }}><CheckCheck className="h-4 w-4" /> Marcar todas</button>
       </>} />
       <Card>

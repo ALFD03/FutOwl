@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Scale } from "lucide-react";
 
-import { Badge, Card, DataTable, Modal, PageHeader, Spinner, StatusBadge } from "@/components/ui";
+import { Badge, Card, DataTable, Modal, PageHeader, SelectMenu, Spinner, StatusBadge } from "@/components/ui";
 import { useCan, useToast } from "@/hooks";
 import { reviewCases } from "@/services";
 import type { ReviewCase } from "@/types";
@@ -39,9 +39,8 @@ export function ReviewsPage() {
   return (
     <div>
       <PageHeader title="Revisiones" subtitle="Rechazos de asignación y apelaciones bajo revisión de las autoridades" icon={<Scale className="h-6 w-6" />}
-        actions={<select className="input w-44" value={status} onChange={(e) => setStatus(e.target.value)}>
-          <option value="open">Abiertos</option><option value="resolved">Resueltos</option><option value="dismissed">Desestimados</option><option value="">Todos</option>
-        </select>} />
+        actions={<div className="w-44"><SelectMenu value={status} onChange={(v) => setStatus(String(v ?? ""))}
+          options={[{ value: "open", label: "Abiertos" }, { value: "resolved", label: "Resueltos" }, { value: "dismissed", label: "Desestimados" }, { value: "", label: "Todos" }]} /></div>} />
       <Card>
         <DataTable<ReviewCase> loading={isLoading} rows={data?.results ?? []} onRowClick={(r) => setSelected(r)} columns={[
           { key: "k", header: "Tipo", render: (r) => <Badge tone={r.kind === "appeal" ? "crimson" : "amber"}>{r.kind_display}</Badge> },

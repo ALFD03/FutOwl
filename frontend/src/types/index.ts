@@ -50,7 +50,7 @@ export interface Me {
   is_superuser: boolean;
   groups: string[];
   permissions: string[];
-  profiles: { delegate_id: ID | null; referee_id: ID | null; team_ids: ID[] };
+  profiles: { delegate_id: ID | null; referee_id: ID | null; coach_id: ID | null; team_ids: ID[] };
   terms_accepted: boolean;
   must_change_password: boolean;
 }
@@ -72,28 +72,49 @@ export interface Field extends BaseEntity, Omit<Address, never> {
   capacity: number;
 }
 
-export interface Coach extends BaseEntity, Person, Identity {
+/** Ficha con usuario de acceso (delegado, árbitro, entrenador). */
+export interface WithAccount {
+  user: ID | null;
+  username: string | null;
+}
+
+export interface Coach extends BaseEntity, Person, Identity, WithAccount {
   license_number: string;
   license_photo: string | null;
   license_expiry_year: number;
   license_valid: boolean;
+  team: ID | null;
+  team_name: string | null;
 }
 
 export interface Guardian extends BaseEntity, Identity {
   first_name: string;
   last_name: string;
+  full_name: string;
   phone: string;
   relationship: string;
 }
 
-export interface Membership {
+/** Paso del jugador por un equipo en un torneo. */
+export interface PlayerHistory {
   id: ID;
+  tournament: ID;
+  tournament_name: string;
   team: ID;
   team_name: string;
-  category: ID;
   category_name: string;
   shirt_number: number | null;
   is_active: boolean;
+  created_at: string;
+}
+
+export interface PlayerStats {
+  goals: number;
+  yellow_cards: number;
+  red_cards: number;
+  matches: number;
+  tournaments: number;
+  teams: number;
 }
 
 export interface Player extends BaseEntity, Person, Identity {
@@ -103,15 +124,16 @@ export interface Player extends BaseEntity, Person, Identity {
   is_minor: boolean;
   guardian: ID | null;
   guardian_detail: Guardian | null;
-  memberships: Membership[];
+  current_team: ID | null;
+  current_team_name: string | null;
+  history: PlayerHistory[];
+  stats: PlayerStats;
 }
 
 export type LicenseStatus = "endorsed" | "not_endorsed";
 
-export interface Official extends BaseEntity, Person, Identity {
+export interface Official extends BaseEntity, Person, Identity, WithAccount {
   license_status: LicenseStatus;
-  user: ID | null;
-  username: string | null;
 }
 
 export interface Team extends BaseEntity, Identity, Address {
@@ -119,21 +141,27 @@ export interface Team extends BaseEntity, Identity, Address {
   logo: string | null;
   categories: ID[];
   category_names: string[];
-  home_field: ID | null;
-  home_field_name: string | null;
-  coaches: ID[];
   coach_names: string[];
   managers: ID[];
-  roster_count: number;
+  manager_usernames: string[];
+  manager_details: { id: ID; username: string; full_name: string }[];
+  player_count: number;
 }
 
+/** Jugador inscrito en la nómina de un equipo para un torneo. */
 export interface TeamPlayer extends BaseEntity {
+  registration: ID;
+  tournament: ID;
+  tournament_name: string;
   team: ID;
   team_name: string;
-  player: ID;
-  player_detail: Player;
   category: ID;
   category_name: string;
+  player: ID;
+  player_detail: {
+    id: ID; full_name: string; photo: string | null; vat_display: string; birth_date: string; age: number;
+    is_minor: boolean; guardian_name: string | null;
+  };
   shirt_number: number | null;
 }
 
@@ -179,6 +207,9 @@ export interface Group extends BaseEntity {
 
 export interface Registration extends BaseEntity {
   tournament: ID;
+  tournament_name: string;
+  tournament_status: TournamentStatus;
+  roster_count: number;
   team: ID;
   team_name: string;
   team_logo: string | null;
@@ -483,10 +514,13 @@ export interface Role {
 export interface Permission {
   id: ID;
   name: string;
+  /** Nombre en español ("Crear equipos", "Cerrar partidos"). */
+  label: string;
   codename: string;
   code: string;
   app_label: string;
   model: string;
+  model_label: string;
 }
 
 export interface AuditLog {

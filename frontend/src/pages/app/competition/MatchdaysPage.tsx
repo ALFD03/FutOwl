@@ -5,7 +5,7 @@ import { CalendarDays, Plus } from "lucide-react";
 
 import { ResourceForm, type FieldDef } from "@/components/forms";
 import { Can } from "@/components/layout/Guards";
-import { Card, CardHeader, DataTable, Modal, PageHeader, StatusBadge } from "@/components/ui";
+import { Card, CardHeader, DataTable, Modal, PageHeader, SelectMenu, StatusBadge } from "@/components/ui";
 import { useToast } from "@/hooks";
 import { matchdays, tournaments } from "@/services";
 import type { Matchday, Tournament } from "@/types";
@@ -32,10 +32,8 @@ export function MatchdaysList({ tournamentId }: { tournamentId?: number }) {
     <Card>
       <CardHeader title="Jornadas" subtitle="Borrador → enviada → válida (confirmada) → cerrada" icon={<CalendarDays className="h-5 w-5" />}
         actions={<>
-          <select className="input w-44" value={status} onChange={(e) => setStatus(e.target.value)}>
-            <option value="">Todos los estados</option><option value="draft">Borrador</option><option value="submitted">Enviada</option>
-            <option value="confirmed">Válida</option><option value="closed">Cerrada</option>
-          </select>
+          <div className="w-44"><SelectMenu value={status || null} clearable placeholder="Todos los estados" onChange={(v) => setStatus(v == null ? "" : String(v))}
+            options={[{ value: "draft", label: "Borrador" }, { value: "submitted", label: "Enviada" }, { value: "confirmed", label: "Válida" }, { value: "closed", label: "Cerrada" }]} /></div>
           <Can perm="competition.add_matchday"><button className="btn-gold btn-sm" onClick={() => setCreating(true)}><Plus className="h-4 w-4" /> Jornada</button></Can>
         </>} />
       <DataTable<Matchday> loading={isLoading} rows={data ?? []} onRowClick={(r) => navigate(`/app/jornadas/${r.id}`)} columns={[
