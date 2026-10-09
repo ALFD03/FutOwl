@@ -50,7 +50,10 @@ env: ## Crea los .env a partir de los ejemplos (no sobrescribe) y genera claves
 		cp $(BACKEND)/.env.example $(BACKEND)/.env; \
 		KEY=$$($(PY) -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"); \
 		SECRET=$$($(PY) -c "import secrets; print(secrets.token_urlsafe(50))"); \
-		sed -i.bak "s|^FIELD_ENCRYPTION_KEY=.*|FIELD_ENCRYPTION_KEY=$$KEY|; s|^DJANGO_SECRET_KEY=.*|DJANGO_SECRET_KEY=$$SECRET|" $(BACKEND)/.env && rm -f $(BACKEND)/.env.bak; \
+		BLIND=$$($(PY) -c "import secrets; print(secrets.token_urlsafe(40))"); \
+		JWT=$$($(PY) -c "import secrets; print(secrets.token_urlsafe(40))"); \
+		sed -i.bak -e "s|^FIELD_ENCRYPTION_KEY=.*|FIELD_ENCRYPTION_KEY=$$KEY|" -e "s|^DJANGO_SECRET_KEY=.*|DJANGO_SECRET_KEY=$$SECRET|" \
+			-e "s|^BLIND_INDEX_KEY=.*|BLIND_INDEX_KEY=$$BLIND|" -e "s|^JWT_SIGNING_KEY=.*|JWT_SIGNING_KEY=$$JWT|" $(BACKEND)/.env && rm -f $(BACKEND)/.env.bak; \
 		echo "✔ $(BACKEND)/.env creado con claves nuevas"; \
 	else echo "• $(BACKEND)/.env ya existe"; fi
 	@if [ ! -f $(FRONTEND)/.env ]; then cp $(FRONTEND)/.env.example $(FRONTEND)/.env && echo "✔ $(FRONTEND)/.env creado"; \

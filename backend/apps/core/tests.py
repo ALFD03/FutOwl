@@ -99,3 +99,17 @@ class SecurityTests(TestCase):
         fake = SimpleUploadedFile("planilla.pdf", b"MZ\x90\x00 malicious", content_type="application/pdf")
         with self.assertRaises(ValidationError):
             validate_document_upload(fake)
+
+
+class SettingsEnvTests(TestCase):
+    def test_empty_env_values_fall_back_to_default(self):
+        """`CLAVE=` vacía en .env no debe anular el valor por defecto (p. ej. la firma JWT)."""
+        import os
+        from unittest import mock
+
+        from config.settings.base import env
+
+        with mock.patch.dict(os.environ, {"FUTOWL_TEST_KEY": ""}):
+            self.assertEqual(env("FUTOWL_TEST_KEY", "por-defecto"), "por-defecto")
+        with mock.patch.dict(os.environ, {"FUTOWL_TEST_KEY": "valor"}):
+            self.assertEqual(env("FUTOWL_TEST_KEY", "por-defecto"), "valor")
