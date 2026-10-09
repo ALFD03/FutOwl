@@ -12,11 +12,11 @@
   },
   "rewrites": [
     {
-      "source": "/api/:path*",
+      "source": "/api/(.*)",
       "destination": "/api/index"
     },
     {
-      "source": "/media/:path*",
+      "source": "/media/(.*)",
       "destination": "/api/index"
     },
     {
