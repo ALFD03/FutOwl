@@ -167,6 +167,17 @@ class MatchViewSet(viewsets.ModelViewSet):
         adjustment = scheduling.adjust_match(self.get_object(), data, reason, request.user)
         return Response(s.MatchAdjustmentSerializer(adjustment).data, status=status.HTTP_201_CREATED)
 
+    @action(detail=True, methods=["post"], url_path="assign-officials")
+    @require_perms("competition.change_match", *OFFICIAL_FIELDS, any_of=True)
+    def assign_officials(self, request, pk=None):
+        """Asignación de oficiales en partidos enviados (la hacen los jefes de delegados y de árbitros)."""
+        serializer = s.AssignOfficialsSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = dict(serializer.validated_data)
+        assert_official_scope(request.user, "competition.change_match", set(data))
+        match = scheduling.assign_officials(self.get_object(), data, request.user)
+        return Response(s.MatchSerializer(match, context={"request": request}).data)
+
     @action(detail=True, methods=["get"])
     def adjustments(self, request, pk=None):
         match = self.get_object()

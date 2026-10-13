@@ -47,4 +47,6 @@ export const FIELD_LABELS: Record<string, string> = {
   assistant_referee_1: "Asistente 1",
   assistant_referee_2: "Asistente 2",
   sub_field: "Mini cancha",
+  home: "Local",
+  away: "Visitante",
 };

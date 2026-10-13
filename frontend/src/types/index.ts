@@ -298,6 +298,8 @@ export interface Match {
   rules: GameRules;
   is_locked: boolean;
   missing_fields: string[];
+  /** Posiciones de oficiales sin asignar (borrador o pendiente). */
+  missing_officials: string[];
 }
 
 export type Party = "delegate" | "referee" | "assistant_1" | "assistant_2" | "home" | "away";

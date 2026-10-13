@@ -50,23 +50,29 @@ Pulse **Guardar** en la tarjeta. FutOwl valida al instante:
 El error aparece debajo del campo correspondiente. Cada tarjeta indica **Completo** o **Falta: …**.
 
 > [!TIP]
-> Un aviso arriba indica si la jornada está completa. Mientras falte algún dato en algún partido, el botón **Enviar jornada** permanece deshabilitado.
+> Para enviar la jornada basta con **cancha y horario** en cada partido. Delegado y árbitros son opcionales en borrador: normalmente los asignan los jefes después del envío. Mientras a algún partido le falte cancha u horario, **Enviar jornada** permanece deshabilitado.
 
 ## 4. Enviar la jornada
 
-**Enviar jornada** (con confirmación). FutOwl vuelve a validar todos los solapamientos y que cada partido sea del día de la jornada. Si todo está bien:
+**Enviar jornada** (lo hacen las autoridades, siempre con confirmación). FutOwl vuelve a validar los solapamientos y que cada partido sea del día de la jornada. Si todo está bien:
 
-- Cada partido pasa a **Pendiente de confirmación** y su asignación queda **bloqueada** (versión 1).
-- Se **notifica** a delegado, árbitros y gestores de ambos equipos con fecha, hora y cancha.
-- La jornada pasa a **Enviada**.
+- Cada partido pasa a **Pendiente de confirmación**; su **cancha y horario quedan bloqueados**.
+- Se **notifica a los jefes de delegados y de árbitros** para que asignen a los oficiales. Si algún oficial ya estaba asignado, recibe la solicitud de confirmación.
+- La jornada pasa a **Enviada** y ya no puede eliminarse.
 
-A partir de aquí, cualquier cambio de cancha, horario u oficiales se hace con un **ajuste** desde la ficha del partido. Vea [Confirmaciones y ajustes](/app/ayuda/confirmaciones-y-ajustes).
+A partir de aquí, cambiar cancha u horario requiere un **ajuste** con exposición de motivos desde la ficha del partido. Vea [Confirmaciones y ajustes](/app/ayuda/confirmaciones-y-ajustes).
 
-## 5. Jornada válida
+## 5. Asignar los oficiales (jefes)
+
+En la jornada enviada, el **jefe de delegados** (*Asignar delegados*) y el **jefe de árbitros** (*Asignar árbitros*) ven cada partido pendiente con cancha y horario bloqueados y eligen **solo** a sus oficiales; la tarjeta indica *Falta: …* hasta completar. Al pulsar **Asignar**, cada oficial recibe la solicitud de confirmación. Un oficial que ya confirmó solo se cambia con un ajuste.
+
+Cuando el delegado y la terna exigida **confirman**, el partido queda **Confirmado y bloqueado**, y recién entonces se **avisa a los equipos**, que confirman su asistencia de forma informativa.
+
+## 6. Jornada válida
 
 Cuando **todos** los partidos de la jornada están confirmados (o más avanzados), la jornada pasa automáticamente a **Válida** y se notifica a todos los involucrados. Si luego un ajuste vuelve a dejar un partido pendiente, la jornada regresa a **Enviada**.
 
-## 6. Cerrar la jornada
+## 7. Cerrar la jornada
 
 **Cerrar jornada** solo funciona si **todos los partidos están cerrados o suspendidos**; si no, el mensaje indica los partidos abiertos. Tras el cierre solo se admiten notas o apelaciones.
 

@@ -50,7 +50,7 @@ export function MatchdayDetailPage() {
         window.history.back();
         return;
       }
-      toast.success(action === "submit" ? "Jornada enviada: se notificó a delegados, árbitros y equipos." : "Jornada cerrada.");
+      toast.success(action === "submit" ? "Jornada enviada: se avisó a los jefes de delegados y de árbitros para asignar oficiales." : "Jornada cerrada.");
       await refresh();
     } catch (e) {
       toast.error(errorMessage(e));
@@ -73,23 +73,25 @@ export function MatchdayDetailPage() {
       {draft && completeness.data && (
         <div className="mb-6">
           {completeness.data.ready
-            ? <Alert tone="success" title="Jornada completa">Todos los campos están llenos. Al enviarla se bloquean las asignaciones y se solicita confirmación.</Alert>
-            : <Alert tone="warning" title="La jornada permanece en borrador">Complete cancha, horario, delegado y terna arbitral de cada partido para poder enviarla.</Alert>}
+            ? <Alert tone="success" title="Lista para enviar">Todos los partidos tienen cancha y horario. Al enviarla quedan bloqueados y se avisa a los jefes de delegados y de árbitros para que asignen a los oficiales.</Alert>
+            : <Alert tone="warning" title="La jornada permanece en borrador">Complete cancha y horario de cada partido para poder enviarla. Delegado y árbitros los asignan los jefes después del envío (también pueden adelantarse aquí).</Alert>}
         </div>
       )}
-      {matchday.status === "submitted" && <div className="mb-6"><Alert tone="info" title="Esperando confirmaciones">La jornada será válida cuando el delegado y los árbitros de cada partido confirmen su asistencia.</Alert></div>}
+      {matchday.status === "submitted" && <div className="mb-6"><Alert tone="info" title="Asignación y confirmación de oficiales">Los jefes asignan delegado y terna arbitral de cada partido. Cada partido queda bloqueado cuando sus oficiales confirman, y entonces se avisa a los equipos. La jornada es válida cuando todos sus partidos están confirmados.</Alert></div>}
 
       {!list.data?.length && !list.isLoading ? <div className="card"><EmptyState title="Sin partidos" message="Agregue partidos del fixture a esta jornada." /></div> : (
         <div className="space-y-4">
           {(list.data ?? []).map((m) => draft && canEditRows
             ? <ScheduleRow key={m.id} match={m} scope={scope} referees_required={m.rules.referees_required} incomplete={completeness.data?.incomplete[m.id]} onSaved={refresh} />
-            : <ReadOnlyRow key={m.id} match={m} />)}
+            : m.status === "pending" && (scope.delegate || scope.referees)
+              ? <AssignRow key={m.id} match={m} scope={scope} onSaved={refresh} />
+              : <ReadOnlyRow key={m.id} match={m} />)}
         </div>
       )}
 
       <AddMatchesModal open={adding} onClose={() => setAdding(false)} tournament={matchday.tournament} matchday={id} onAdded={refresh} />
       <ConfirmDialog open={confirm === "submit"} onClose={() => setConfirm(null)} onConfirm={() => doAction("submit")} title="Enviar jornada"
-        message="Las asignaciones quedarán bloqueadas. Cualquier cambio posterior requerirá un ajuste con exposición de motivos y conservará el registro anterior." confirmLabel="Enviar" />
+        message="Cancha y horario quedarán bloqueados (cambiarlos después requerirá un ajuste con exposición de motivos). Se avisará a los jefes de delegados y de árbitros para que asignen a los oficiales. La jornada ya no podrá eliminarse." confirmLabel="Enviar" />
       <ConfirmDialog open={confirm === "close"} onClose={() => setConfirm(null)} onConfirm={() => doAction("close")} title="Cerrar jornada"
         message="Solo es posible si todos los partidos están cerrados o suspendidos. Después solo se admitirán notas o apelaciones." confirmLabel="Cerrar jornada" />
       <ConfirmDialog open={confirm === "delete"} onClose={() => setConfirm(null)} onConfirm={() => doAction("delete")} title="Eliminar borrador" danger
@@ -105,7 +107,7 @@ function ReadOnlyRow({ match }: { match: Match }) {
         <div className="w-28 whitespace-nowrap font-display text-lg font-bold text-navy-900 dark:text-gold-400">{formatTime(match.scheduled_start)}</div>
         <div className="flex-1">
           <p className="font-semibold">{match.home_name} <span className="text-slate-400">vs</span> {match.away_name}</p>
-          <p className="text-xs text-slate-500">{match.field_name}{match.sub_field ? ` · mini ${match.sub_field}` : ""} · Delegado: {match.delegate_name} · Árbitro: {match.referee_name}</p>
+          <p className="text-xs text-slate-500">{match.field_name}{match.sub_field ? ` · mini ${match.sub_field}` : ""} · Delegado: {match.delegate_name ?? "sin asignar"} · Árbitro: {match.referee_name ?? "sin asignar"}</p>
         </div>
         {match.home_score != null && <Badge tone="navy">{match.home_score} - {match.away_score}</Badge>}
         <StatusBadge status={match.status} label={match.status_display} />
@@ -220,6 +222,63 @@ function ScheduleRow({ match, scope, referees_required, incomplete, onSaved }: {
         </div>
       </div>
       {match.scheduled_start && <p className="mt-2 text-xs text-slate-400">Programado: {formatDateTime(match.scheduled_start)}{match.sub_field ? ` · mini cancha ${match.sub_field}` : ""}</p>}
+    </div>
+  );
+}
+
+/** Partido enviado y pendiente: cancha y horario bloqueados; los jefes eligen solo a sus oficiales. */
+function AssignRow({ match, scope, onSaved }: { match: Match; scope: AssignScope; onSaved: () => Promise<void> }) {
+  const toast = useToast();
+  const [form, setForm] = useState({
+    delegate: match.delegate, referee: match.referee, assistant_referee_1: match.assistant_referee_1, assistant_referee_2: match.assistant_referee_2,
+  });
+  const [busy, setBusy] = useState(false);
+  const delegatesQ = useQuery({ queryKey: ["options", "delegates"], queryFn: () => delegates.all({ is_active: true }), staleTime: 60_000 });
+  const refereesQ = useQuery({ queryKey: ["options", "referees"], queryFn: () => referees.all({ is_active: true }), staleTime: 60_000 });
+  const refsNeeded = match.rules.referees_required;
+  const editable = (key: keyof typeof form) => (key === "delegate" ? scope.delegate : scope.referees);
+  // Solo se envían los campos que este usuario puede asignar y que cambiaron.
+  const changes = Object.fromEntries(Object.entries(form).filter(([k, v]) => editable(k as keyof typeof form) && v !== match[k as keyof Match]));
+
+  const save = async () => {
+    setBusy(true);
+    try {
+      await matches.assignOfficials(match.id, changes);
+      toast.success("Oficiales asignados: se les pidió confirmar su asistencia.");
+      await onSaved();
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const select = (key: keyof typeof form, label: string, options: { id: number; full_name: string }[]) => (
+    <div>
+      <label className="label">{label}</label>
+      <OfficialSelect value={form[key]} onChange={(v) => setForm((f) => ({ ...f, [key]: v }))} options={options} placeholder="Seleccione…" disabled={!editable(key)} />
+    </div>
+  );
+  const refs = refereesQ.data ?? [];
+
+  return (
+    <div className="card p-4">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <Link to={`/app/partidos/${match.id}`} className="font-semibold hover:underline">{match.home_name} <span className="text-slate-400">vs</span> {match.away_name}
+          <span className="ml-2 text-xs font-normal text-slate-500"><Lock className="mr-1 inline h-3 w-3" />{formatDateTime(match.scheduled_start)} · {match.field_name}</span></Link>
+        {match.missing_officials.length
+          ? <Badge tone="amber"><AlertTriangle className="h-3 w-3" /> Falta: {match.missing_officials.map((f) => FIELD_LABELS[f] ?? f).join(", ")}</Badge>
+          : <Badge tone="sky">Esperando confirmaciones</Badge>}
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {select("delegate", "Delegado", delegatesQ.data ?? [])}
+        {select("referee", "Árbitro principal", refs)}
+        {refsNeeded >= 2 && select("assistant_referee_1", "Asistente 1", refs)}
+        {refsNeeded >= 3 && select("assistant_referee_2", "Asistente 2", refs)}
+      </div>
+      <div className="mt-3 flex justify-end">
+        <button className="btn-primary" onClick={save} disabled={busy || !Object.keys(changes).length}>{busy && <Spinner className="h-4 w-4" />}Asignar</button>
+      </div>
     </div>
   );
 }

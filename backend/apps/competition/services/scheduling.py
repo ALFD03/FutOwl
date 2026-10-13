@@ -5,10 +5,10 @@ from django.db.models import Q
 from django.utils import timezone
 
 from apps.audit.services import record
-from apps.notifications.services import notify
+from apps.notifications.services import notify, notify_permission
 
-from ..models import Match, MatchAdjustment, Matchday, Party
-from .parties import involved_users, required_official_parties
+from ..models import Match, MatchAdjustment, MatchConfirmation, Matchday, Party
+from .parties import involved_users, party_status, party_user_ids, required_official_parties
 
 ACTIVE_STATUSES = [s for s in Match.Status.values if s != Match.Status.SUSPENDED]
 
@@ -79,10 +79,15 @@ def validate_schedule(match: Match) -> None:
 
 
 def missing_fields(match: Match) -> list[str]:
-    required = ["matchday", "field", "scheduled_start", "scheduled_end"]
-    official_fields = {v: k for k, v in OFFICIAL_FIELDS.items()}
-    required += [official_fields[p] for p in required_official_parties(match)]
+    """Lo que falta para enviar el partido: cancha y horario (los oficiales se asignan después del envío)."""
+    required = ["matchday", "field", "scheduled_start", "scheduled_end", "home", "away"]
     return [f for f in required if not getattr(match, f"{f}_id", None) and not getattr(match, f, None)]
+
+
+def missing_officials(match: Match) -> list[str]:
+    official_fields = {v: k for k, v in OFFICIAL_FIELDS.items()}
+    return [official_fields[p] for p in required_official_parties(match)
+            if not getattr(match, f"{official_fields[p]}_id")]
 
 
 def matchday_completeness(matchday: Matchday) -> dict:
@@ -94,7 +99,11 @@ def matchday_completeness(matchday: Matchday) -> dict:
 
 @transaction.atomic
 def submit_matchday(matchday: Matchday, user) -> Matchday:
-    """Envía la jornada: bloquea las asignaciones y solicita confirmación a los involucrados."""
+    """
+    Envía la jornada: cancha y horario quedan bloqueados. Se avisa a los jefes de delegados y de árbitros
+    para que asignen a los oficiales; los ya asignados reciben la solicitud de confirmación. Los equipos
+    se enteran cuando los oficiales confirman (ver confirmations.evaluate_match).
+    """
     matchday = Matchday.objects.select_for_update().get(pk=matchday.pk)
     if matchday.status != Matchday.Status.DRAFT:
         raise ValidationError("Solo se pueden enviar jornadas en borrador.")
@@ -110,20 +119,67 @@ def submit_matchday(matchday: Matchday, user) -> Matchday:
             raise ValidationError({"matches": f"El partido {match} no está programado el día de la jornada."})
         match.status = Match.Status.PENDING
         match.save(update_fields=["status", "sub_field", "updated_at"])
+        _request_official_confirmations(match, required_official_parties(match))
+    matchday.status = Matchday.Status.SUBMITTED
+    matchday.submitted_at = timezone.now()
+    matchday.submitted_by = user
+    matchday.save()
+    record("submit_matchday", matchday, user=user)
+    link = f"/app/jornadas/{matchday.id}"
+    text = f"{matchday} ({matchday.tournament}): cancha y horario confirmados. Asigne a los oficiales de cada partido."
+    notify_permission("competition.assign_delegate", "Jornada lista para asignar delegados", text, level="warning", link=link)
+    notify_permission("competition.assign_referees", "Jornada lista para asignar árbitros", text, level="warning", link=link)
+    return matchday
+
+
+def _request_official_confirmations(match: Match, parties) -> None:
+    """Pide confirmación a los oficiales asignados en esas posiciones (los equipos se avisan al confirmar)."""
+    users = set()
+    for party in parties:
+        users |= party_user_ids(match, party)
+    if users:
+        from django.contrib.auth import get_user_model
+
         notify(
-            involved_users(match),
+            get_user_model().objects.filter(pk__in=users, is_active=True),
             "Nueva asignación pendiente de confirmación",
             f"{match} · {timezone.localtime(match.scheduled_start):%d/%m/%Y %H:%M} · {match.field}. "
             "Confirme o rechace su asistencia.",
             level="warning",
             link=f"/app/partidos/{match.id}",
         )
-    matchday.status = Matchday.Status.SUBMITTED
-    matchday.submitted_at = timezone.now()
-    matchday.submitted_by = user
-    matchday.save()
-    record("submit_matchday", matchday, user=user)
-    return matchday
+
+
+@transaction.atomic
+def assign_officials(match: Match, changes: dict, user) -> Match:
+    """
+    Asigna delegado y árbitros a un partido enviado (pendiente de confirmación), sin exposición de motivos.
+    Una posición cuyo oficial ya confirmó solo se cambia con un ajuste (adjust_match).
+    """
+    match = Match.objects.select_for_update().get(pk=match.pk)
+    if match.status != Match.Status.PENDING:
+        raise ValidationError("Solo se asignan oficiales a partidos enviados pendientes de confirmación; "
+                              "si ya está confirmado, use un ajuste con exposición de motivos.")
+    invalid = set(changes) - set(OFFICIAL_FIELDS)
+    if invalid:
+        raise ValidationError({"changes": f"Solo se asignan oficiales: {', '.join(sorted(invalid))} no se cambia aquí."})
+    changed = {}
+    for field, value in changes.items():
+        if getattr(match, field) == value:
+            continue
+        party = OFFICIAL_FIELDS[field]
+        if party_status(match, party)["response"] == MatchConfirmation.Response.ACCEPTED:
+            raise ValidationError({field: f"{Party(party).label} ya confirmó: para cambiarlo use un ajuste."})
+        changed[field] = {"antes": _serialize(getattr(match, field)), "despues": _serialize(value)}
+        setattr(match, field, value)
+    if not changed:
+        raise ValidationError("No hay cambios que asignar.")
+    match.full_clean(exclude=["created_by"])
+    validate_schedule(match)
+    match.save()
+    record("assign_officials", match, user=user, changes=changed)
+    _request_official_confirmations(match, [OFFICIAL_FIELDS[f] for f in changed])
+    return match
 
 
 ADJUSTABLE_FIELDS = ["field", "sub_field", "scheduled_start", "scheduled_end", *OFFICIAL_FIELDS]

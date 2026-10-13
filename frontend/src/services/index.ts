@@ -49,6 +49,8 @@ export const matches = {
   respond: async (id: ID, data: { party: string; response: "accepted" | "rejected"; reason?: string }) =>
     (await api.post<Confirmation>(`/matches/${id}/respond/`, data)).data,
   adjust: async (id: ID, data: Record<string, unknown>) => (await api.post<Adjustment>(`/matches/${id}/adjust/`, data)).data,
+  /** Asignación de oficiales en partidos enviados y pendientes (jefes de delegados / árbitros). */
+  assignOfficials: async (id: ID, data: Record<string, unknown>) => (await api.post<Match>(`/matches/${id}/assign-officials/`, data)).data,
   adjustments: async (id: ID) => (await api.get<Adjustment[]>(`/matches/${id}/adjustments/`)).data,
   suspend: async (id: ID, reason: string) => (await api.post<Match>(`/matches/${id}/suspend/`, { reason })).data,
   lineups: async (id: ID) => (await api.get<Lineup[]>(`/matches/${id}/lineups/`)).data,

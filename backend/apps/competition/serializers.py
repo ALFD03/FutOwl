@@ -72,6 +72,7 @@ class MatchSerializer(serializers.ModelSerializer):
     phase_display = serializers.CharField(source="get_phase_display", read_only=True)
     is_locked = serializers.BooleanField(read_only=True)
     missing_fields = serializers.SerializerMethodField()
+    missing_officials = serializers.SerializerMethodField()
     rules = serializers.SerializerMethodField()
 
     class Meta:
@@ -84,7 +85,7 @@ class MatchSerializer(serializers.ModelSerializer):
             "delegate_name", "referee", "referee_name", "assistant_referee_1", "assistant_referee_1_name",
             "assistant_referee_2", "assistant_referee_2_name", "status", "status_display", "phase",
             "phase_display", "current_period", "period_started_at", "assignment_version", "home_score",
-            "away_score", "is_locked", "missing_fields", "rules", "created_at", "updated_at",
+            "away_score", "is_locked", "missing_fields", "missing_officials", "rules", "created_at", "updated_at",
         ]
         read_only_fields = fields
 
@@ -109,6 +110,10 @@ class MatchSerializer(serializers.ModelSerializer):
 
     def get_missing_fields(self, obj):
         return scheduling.missing_fields(obj) if obj.status == Match.Status.DRAFT else []
+
+    def get_missing_officials(self, obj):
+        """Posiciones de oficiales sin asignar (lo que deben completar los jefes)."""
+        return scheduling.missing_officials(obj) if obj.status in (Match.Status.DRAFT, Match.Status.PENDING) else []
 
 
 class MatchWriteSerializer(CleanModelSerializer):
@@ -163,6 +168,17 @@ class MatchAdjustSerializer(serializers.Serializer):
     scheduled_end = serializers.DateTimeField(required=False)
     delegate = serializers.PrimaryKeyRelatedField(queryset=Delegate.objects.filter(is_active=True), required=False)
     referee = serializers.PrimaryKeyRelatedField(queryset=Referee.objects.filter(is_active=True), required=False)
+    assistant_referee_1 = serializers.PrimaryKeyRelatedField(
+        queryset=Referee.objects.filter(is_active=True), required=False, allow_null=True)
+    assistant_referee_2 = serializers.PrimaryKeyRelatedField(
+        queryset=Referee.objects.filter(is_active=True), required=False, allow_null=True)
+
+
+class AssignOfficialsSerializer(serializers.Serializer):
+    delegate = serializers.PrimaryKeyRelatedField(queryset=Delegate.objects.filter(is_active=True), required=False,
+                                                  allow_null=True)
+    referee = serializers.PrimaryKeyRelatedField(queryset=Referee.objects.filter(is_active=True), required=False,
+                                                 allow_null=True)
     assistant_referee_1 = serializers.PrimaryKeyRelatedField(
         queryset=Referee.objects.filter(is_active=True), required=False, allow_null=True)
     assistant_referee_2 = serializers.PrimaryKeyRelatedField(

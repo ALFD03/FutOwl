@@ -15,14 +15,14 @@ El panel lista cada parte con su estado (*Pendiente*, *Confirmado*, *Rechazado*,
 |-------|---------------|
 | Delegado | Sí |
 | Árbitro principal / Asistente 1 / Asistente 2 | Sí, según los árbitros exigidos por el torneo |
-| Equipo local / Equipo visitante | **Opcional** (deseable) |
+| Equipo local / Equipo visitante | **Informativa**: se les pide cuando el partido ya está confirmado y no condiciona su validez |
 
 En su fila verá los botones:
 
 - **Confirmar**: su asistencia queda registrada y **bloqueada** (no puede cambiarla).
 - **Rechazar**: debe escribir el **motivo** (mínimo 5 caracteres). El rechazo crea un **caso en revisión** y se notifica a las autoridades.
 
-Cuando el delegado y toda la terna exigida confirman, el partido pasa a **Confirmado**, se notifica a todos que *se llevará a cabo* y se publica en el sitio. Al desplegar *Historial completo* verá todas las respuestas con fecha, usuario y versión.
+Cuando el delegado y toda la terna exigida confirman, el partido pasa a **Confirmado** (queda bloqueado), se avisa a los oficiales que *se llevará a cabo* y a los **equipos** que el partido está programado y que confirmen su asistencia; se publica en el sitio. Al desplegar *Historial completo* verá todas las respuestas con fecha, usuario y versión.
 
 > [!NOTE]
 > Solo se puede responder mientras el partido está *Pendiente* o *Confirmado*. Si su rechazo está en revisión, debe esperar la resolución.

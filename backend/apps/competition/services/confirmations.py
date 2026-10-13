@@ -7,7 +7,7 @@ from apps.audit.services import record
 from apps.notifications.services import notify, notify_permission
 
 from ..models import Match, MatchConfirmation, Matchday, Party, ReviewCase
-from .parties import involved_users, officials_confirmed, parties_for_user, party_status
+from .parties import involved_users, officials_confirmed, parties_for_user, party_status, party_user_ids
 
 
 @transaction.atomic
@@ -57,18 +57,23 @@ def respond(match: Match, user, party: str, response: str, reason: str = "") -> 
 
 
 def evaluate_match(match: Match) -> None:
-    """Si delegado y terna arbitral confirmaron, el partido queda válido."""
+    """
+    Si el delegado y la terna arbitral confirmaron, el partido queda válido y bloqueado. Recién entonces se
+    avisa a los equipos, que confirman su asistencia de forma informativa (no condiciona la validez).
+    """
     if match.status == Match.Status.PENDING and officials_confirmed(match):
         match.status = Match.Status.CONFIRMED
         match.save(update_fields=["status", "updated_at"])
-        notify(
-            involved_users(match),
-            "Partido confirmado",
-            f"El partido {match} se llevará a cabo el {timezone.localtime(match.scheduled_start):%d/%m/%Y a las %H:%M}"
-            f" en {match.field}.",
-            level="success",
-            link=f"/app/partidos/{match.id}",
-        )
+        when = f"{timezone.localtime(match.scheduled_start):%d/%m/%Y a las %H:%M} en {match.field}"
+        teams = set()
+        for party in (Party.HOME, Party.AWAY):
+            teams |= party_user_ids(match, party)
+        users = list(involved_users(match))
+        notify([u for u in users if u.pk not in teams], "Partido confirmado",
+               f"El partido {match} se llevará a cabo el {when}.", level="success", link=f"/app/partidos/{match.id}")
+        notify([u for u in users if u.pk in teams], "Partido programado",
+               f"{match} se jugará el {when}. Confirme la asistencia de su equipo.", level="success",
+               link=f"/app/partidos/{match.id}")
         if match.matchday_id:
             evaluate_matchday(match.matchday)
 
