@@ -14,6 +14,15 @@ def is_registry_admin(user) -> bool:
     return user.is_superuser or user.has_perm("registry.change_team")
 
 
+def own_team_ids(user) -> set[int]:
+    """Equipos que el usuario administra como gestor o a los que pertenece como entrenador."""
+    ids = set(user.managed_teams.values_list("id", flat=True))
+    coach = getattr(user, "coach_profile", None)
+    if coach and coach.is_active and coach.team_id:
+        ids.add(coach.team_id)
+    return ids
+
+
 def assert_team_owned(user, team, obj, what: str):
     """
     Gestores y entrenadores solo modifican lo de su equipo. Un registro sin equipo solo lo modifica
@@ -205,9 +214,9 @@ class TeamViewSet(NoDeleteModelViewSet):
         user = self.request.user
         if self.request.query_params.get("mine") == "1":
             qs = qs.filter(Q(managers=user) | Q(coaches__user=user)).distinct()
-        # El equipo actual del entrenador encabeza el listado (salvo que se pida otro orden).
-        coach = getattr(user, "coach_profile", None)
-        if coach and coach.is_active and coach.team_id and not self.request.query_params.get("ordering"):
-            qs = qs.annotate(is_coach_team=Case(When(pk=coach.team_id, then=1), default=0, output_field=IntegerField()))
-            qs = qs.order_by("-is_coach_team", *Team._meta.ordering)
+        # Los equipos propios (como gestor o entrenador) encabezan el listado, salvo que se pida otro orden.
+        own = own_team_ids(user)
+        if own and not self.request.query_params.get("ordering"):
+            qs = qs.annotate(is_own_team=Case(When(pk__in=own, then=1), default=0, output_field=IntegerField()))
+            qs = qs.order_by("-is_own_team", *Team._meta.ordering)
         return qs

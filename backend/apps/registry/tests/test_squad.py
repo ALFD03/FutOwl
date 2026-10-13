@@ -286,6 +286,13 @@ class TeamOwnershipTests(TestCase):
         api = APIClient()
         api.force_authenticate(coach_user)
         me = api.get("/api/auth/me/").data
-        self.assertEqual(me["profiles"]["coach_team"]["name"], "Pumas FC")
+        self.assertEqual([t["name"] for t in me["profiles"]["my_teams"]], ["Pumas FC"])
         names = [t["name"] for t in api.get("/api/teams/").data["results"]]
         self.assertEqual(names[0], "Pumas FC")  # alfabéticamente iría último
+
+    def test_manager_teams_shown_in_profile_and_listed_first(self):
+        self.third.managers.add(self.manager)  # gestiona Halcones y Pumas
+        me = self.api.get("/api/auth/me/").data
+        self.assertEqual([t["name"] for t in me["profiles"]["my_teams"]], ["Halcones FC", "Pumas FC"])
+        names = [t["name"] for t in self.api.get("/api/teams/").data["results"]]
+        self.assertEqual(names, ["Halcones FC", "Pumas FC", "Lobos FC"])

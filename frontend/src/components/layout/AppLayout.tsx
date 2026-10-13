@@ -81,7 +81,7 @@ function Sidebar({ onNavigate, collapsed = false }: { onNavigate?: () => void; c
 
 export function AppLayout() {
   const { user } = useAuth();
-  const coachTeam = user?.profiles.coach_team;
+  const myTeams = user?.profiles.my_teams ?? [];
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(readCollapsed);
   const location = useLocation();
@@ -119,11 +119,16 @@ export function AppLayout() {
           <NavLink to="/app/ayuda" className="btn-ghost h-9 w-9 p-0" title="Ayuda y documentación" aria-label="Ayuda y documentación"><CircleHelp className="h-5 w-5" /></NavLink>
           <ThemeToggle />
           <NotificationBell />
-          {coachTeam && (
-            <NavLink to={`/app/equipos/${coachTeam.id}`} title={`Equipo actual: ${coachTeam.name}`}
-              className="flex h-9 max-w-[14rem] items-center gap-2 rounded-xl border border-gold-300/60 bg-gold-50 px-2 text-sm font-semibold text-navy-900 transition hover:bg-gold-100 dark:border-gold-500/30 dark:bg-gold-500/10 dark:text-gold-300 dark:hover:bg-gold-500/20">
-              <TeamCrest src={coachTeam.logo} name={coachTeam.name} size="sm" />
-              <span className="hidden truncate sm:inline">{coachTeam.name}</span>
+          {myTeams.length > 0 && (
+            // Un equipo → su ficha; varios (gestor de más de un club) → el listado, donde aparecen primero.
+            <NavLink to={myTeams.length === 1 ? `/app/equipos/${myTeams[0].id}` : "/app/equipos"}
+              title={myTeams.length === 1 ? `Mi equipo: ${myTeams[0].name}` : `Mis equipos: ${myTeams.map((t) => t.name).join(", ")}`}
+              className="flex h-9 max-w-[16rem] items-center gap-2 rounded-xl border border-gold-300/60 bg-gold-50 px-2 text-sm font-semibold text-navy-900 transition hover:bg-gold-100 dark:border-gold-500/30 dark:bg-gold-500/10 dark:text-gold-300 dark:hover:bg-gold-500/20">
+              <span className="flex -space-x-2">
+                {myTeams.slice(0, 3).map((t) => <TeamCrest key={t.id} src={t.logo} name={t.name} size="sm" />)}
+              </span>
+              <span className="hidden truncate sm:inline">{myTeams[0].name}</span>
+              {myTeams.length > 1 && <span className="hidden shrink-0 text-xs text-slate-500 sm:inline dark:text-gold-300/70">+{myTeams.length - 1}</span>}
             </NavLink>
           )}
           <NavLink to={ACCOUNT_ITEMS[0].to} className="btn-ghost h-9 w-9 p-0" title="Mi cuenta"><UserIcon /></NavLink>

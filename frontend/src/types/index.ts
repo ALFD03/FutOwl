@@ -52,8 +52,8 @@ export interface Me {
   permissions: string[];
   profiles: {
     delegate_id: ID | null; referee_id: ID | null; coach_id: ID | null; team_ids: ID[];
-    /** Equipo actual del entrenador vinculado a este usuario. */
-    coach_team: { id: ID; name: string; logo: string | null } | null;
+    /** Equipos propios: los que gestiona y el del entrenador vinculado a este usuario. */
+    my_teams: { id: ID; name: string; logo: string | null }[];
   };
   terms_accepted: boolean;
   must_change_password: boolean;

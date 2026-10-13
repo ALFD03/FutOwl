@@ -121,22 +121,24 @@ class MeSerializer(serializers.ModelSerializer):
         return sorted(obj.get_all_permissions())
 
     def get_profiles(self, obj):
+        from apps.registry.models import Team
+
         delegate = getattr(obj, "delegate_profile", None)
         referee = getattr(obj, "referee_profile", None)
         coach = getattr(obj, "coach_profile", None)
         team_ids = set(obj.managed_teams.values_list("id", flat=True))
         if coach and coach.is_active and coach.team_id:
             team_ids.add(coach.team_id)
-        coach_team = coach.team if coach and coach.is_active and coach.team_id else None
         return {
             "delegate_id": delegate.id if delegate else None,
             "referee_id": referee.id if referee else None,
             "coach_id": coach.id if coach else None,
-            "coach_team": {
-                "id": coach_team.id, "name": coach_team.name,
-                "logo": coach_team.logo.url if coach_team.logo else None,
-            } if coach_team else None,
             "team_ids": sorted(team_ids),
+            # Equipos propios (como gestor o entrenador) para mostrarlos en el encabezado.
+            "my_teams": [
+                {"id": t.id, "name": t.name, "logo": t.logo.url if t.logo else None}
+                for t in Team.objects.filter(pk__in=team_ids, is_active=True).order_by("name")
+            ],
         }
 
     def get_terms_accepted(self, obj):
