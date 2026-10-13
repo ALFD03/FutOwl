@@ -94,18 +94,19 @@ export function FieldsPage() {
 }
 
 // ------------------------------------------------------------------- Entrenadores
+export const COACH_FIELDS: FieldDef[] = [
+  ...PERSON,
+  { name: "license_number", label: "N.º de licencia", type: "text", required: true, section: "Licencia" },
+  { name: "license_expiry_year", label: "Año de vencimiento", type: "year", required: true, min: 2000, max: 2100, defaultValue: new Date().getFullYear() + 1, section: "Licencia" },
+  { name: "license_photo", label: "Foto de la licencia", type: "file", accept: DOCUMENT_ACCEPT, section: "Licencia" },
+  accountField({ roleLabel: "Entrenador" }),
+];
+
 export function CoachesPage() {
-  const year = new Date().getFullYear();
   return (
     <ResourcePage<Coach> title="Entrenadores" subtitle="Cuerpo técnico y licencias" icon={<ClipboardList className="h-6 w-6" />}
       service={coaches} model="registry.coach" createLabel="Nuevo entrenador" searchPlaceholder={BY_NAME_OR_ID}
-      fields={[
-        ...PERSON,
-        { name: "license_number", label: "N.º de licencia", type: "text", required: true, section: "Licencia" },
-        { name: "license_expiry_year", label: "Año de vencimiento", type: "year", required: true, min: 2000, max: 2100, defaultValue: year + 1, section: "Licencia" },
-        { name: "license_photo", label: "Foto de la licencia", type: "file", accept: DOCUMENT_ACCEPT, section: "Licencia" },
-        accountField({ roleLabel: "Entrenador" }),
-      ]}
+      fields={COACH_FIELDS}
       columns={[
         personColumn<Coach>(),
         { key: "team", header: "Equipo", render: (r) => r.team_name ? <Badge tone="navy">{r.team_name}</Badge> : <span className="text-slate-400">Libre</span> },

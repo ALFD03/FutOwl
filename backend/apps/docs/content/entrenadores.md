@@ -17,7 +17,7 @@ order: 100
 ## Equipo del entrenador
 
 - Un entrenador pertenece a **un solo equipo a la vez** (o está *Libre*).
-- Se asigna desde la ficha del equipo → pestaña **Cuerpo técnico**.
+- Se asigna desde la ficha del equipo → pestaña **Cuerpo técnico**, donde también puede crearse con **Nuevo entrenador** (queda asignado a ese equipo).
 - No puede pasar a otro equipo si ambos equipos participan en un mismo torneo que no ha finalizado (no puede dirigir a dos equipos del mismo torneo).
 - Un gestor solo puede asignar entrenadores **libres** a su equipo o liberar los de su equipo.
 

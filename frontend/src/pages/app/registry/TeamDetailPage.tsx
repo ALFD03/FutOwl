@@ -15,7 +15,7 @@ import type { Coach, Player, Registration, Team, TeamPlayer } from "@/types";
 import { formatDate } from "@/utils/datetime";
 import { errorMessage } from "@/utils/errors";
 
-import { PLAYER_FIELDS } from "./index";
+import { COACH_FIELDS, PLAYER_FIELDS } from "./index";
 import { PlayerProfile } from "./PlayerProfile";
 
 type Tab = "roster" | "players" | "coaches" | "categories" | "access";
@@ -74,7 +74,7 @@ export function TeamDetailPage() {
 
       {tab === "roster" && <RosterTab team={team} canManage={isStaff && can("tournaments.add_teamplayer")} />}
       {tab === "players" && <PlayersTab team={team} canCreate={isStaff && can("registry.add_player")} />}
-      {tab === "coaches" && <CoachesTab team={team} canManage={isStaff && can("registry.change_coach")} />}
+      {tab === "coaches" && <CoachesTab team={team} canManage={isStaff && can("registry.change_coach")} canCreate={isStaff && can("registry.add_coach")} />}
       {tab === "categories" && <CategoriesTab team={team} canManage={isAdmin} />}
       {tab === "access" && <AccessTab team={team} />}
     </div>
@@ -212,10 +212,11 @@ function PlayersTab({ team, canCreate }: { team: Team; canCreate: boolean }) {
 }
 
 // ------------------------------------------------------------------ Cuerpo técnico
-function CoachesTab({ team, canManage }: { team: Team; canManage: boolean }) {
+function CoachesTab({ team, canManage, canCreate }: { team: Team; canManage: boolean; canCreate: boolean }) {
   const toast = useToast();
   const queryClient = useQueryClient();
   const [pick, setPick] = useState<number | null>(null);
+  const [creating, setCreating] = useState(false);
   const [busy, setBusy] = useState(false);
   const { data = [], isLoading } = useQuery({ queryKey: ["coaches", "team", team.id], queryFn: () => coaches.all({ team: team.id, is_active: true }) });
 
@@ -233,7 +234,8 @@ function CoachesTab({ team, canManage }: { team: Team; canManage: boolean }) {
 
   return (
     <Card>
-      <CardHeader title="Cuerpo técnico" subtitle="Un entrenador solo puede estar en un equipo a la vez. Si tiene usuario, ayuda al gestor a cargar la plantilla." />
+      <CardHeader title="Cuerpo técnico" subtitle="Un entrenador solo puede estar en un equipo a la vez. Si tiene usuario, ayuda al gestor a cargar la plantilla."
+        actions={canCreate && <button className="btn-gold btn-sm" onClick={() => setCreating(true)}><UserPlus className="h-4 w-4" /> Nuevo entrenador</button>} />
       {canManage && (
         <div className="flex flex-col gap-2 border-b border-slate-100 px-5 py-4 sm:flex-row dark:border-white/5">
           <div className="flex-1">
@@ -254,6 +256,15 @@ function CoachesTab({ team, canManage }: { team: Team; canManage: boolean }) {
           </button>
         ) },
       ]} />
+      <Modal open={creating} onClose={() => setCreating(false)} title="Nuevo entrenador" subtitle={`Queda asignado a ${team.name}`} size="lg">
+        <ResourceForm fields={COACH_FIELDS} onCancel={() => setCreating(false)} submitLabel="Crear y asignar"
+          onSubmit={async (v) => {
+            await coaches.create({ ...v, team: team.id });
+            toast.success("Entrenador creado y asignado al equipo.");
+            setCreating(false);
+            await refresh();
+          }} />
+      </Modal>
     </Card>
   );
 }

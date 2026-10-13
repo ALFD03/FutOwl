@@ -43,7 +43,7 @@ Detalle en [Inscripciones, grupos y nómina](/app/ayuda/inscripciones-grupos-y-n
 
 ### Cuerpo técnico
 
-Asigne entrenadores **libres** al equipo o libérelos. Un entrenador solo puede estar en **un equipo a la vez** y no puede dirigir a dos equipos del mismo torneo en curso.
+Busque y **asigne** entrenadores **libres** al equipo, o pulse **Nuevo entrenador** para registrarlo (con licencia y, si quiere, usuario de acceso) y dejarlo asignado en un solo paso (`registry.add_coach`). El ícono de quitar lo libera. Un entrenador solo puede estar en **un equipo a la vez** y no puede dirigir a dos equipos del mismo torneo en curso.
 
 ### Categorías
 
