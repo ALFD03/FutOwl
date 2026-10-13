@@ -7,7 +7,7 @@ order: 160
 ## Confirmar o rechazar una asignación
 
 **Dónde:** ficha del partido → **Resumen y confirmaciones** → panel *Confirmaciones de asistencia* (o desde **Mis asignaciones → Por confirmar**).
-**Permiso:** `competition.confirm_assignment` y **ser la parte asignada** (usuario vinculado al delegado/árbitro, o gestor del equipo).
+**Capacidad:** *Confirmar asistencia* y **ser la parte asignada** (usuario vinculado al delegado/árbitro, o gestor del equipo).
 
 El panel lista cada parte con su estado (*Pendiente*, *Confirmado*, *Rechazado*, *En revisión*):
 
@@ -40,7 +40,7 @@ Vea [Notas, apelaciones y revisiones](/app/ayuda/notas-apelaciones-y-revisiones)
 ## Ajustes con exposición de motivos
 
 **Dónde:** ficha del partido → **Ajustar** (solo si el partido está *Pendiente* o *Confirmado*, es decir, enviado y no iniciado).
-**Permiso:** `competition.adjust_match`.
+**Capacidad:** *Ajustar partidos confirmados* (todos los campos). Los jefes de oficiales también pueden ajustar, pero solo su oficial: *Asignar delegados* → el delegado; *Asignar árbitros* → la terna arbitral.
 
 Campos ajustables: **cancha, inicio, fin, delegado, árbitro principal, asistentes**. Escriba la **exposición de motivos** (mínimo 10 caracteres) y pulse **Registrar ajuste**.
 
@@ -60,7 +60,7 @@ FutOwl:
 
 ## Suspender un partido
 
-**Dónde:** ficha del partido → **Suspender** (partidos enviados que no estén cerrados ni suspendidos). **Permiso:** `competition.suspend_match`.
+**Dónde:** ficha del partido → **Suspender** (partidos enviados que no estén cerrados ni suspendidos). **Capacidad:** *Suspender partidos*.
 
 Requiere **exposición de motivos** (mínimo 10 caracteres). El partido pasa a **Suspendido**, se registra el estado anterior y el motivo, y se notifica a los involucrados. Un partido suspendido:
 

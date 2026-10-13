@@ -39,7 +39,7 @@ La sesión se renueva sola durante **12 horas**. Después, o si un administrador
 
 ### Veo «Acceso restringido» al abrir una pantalla
 
-Su cuenta no tiene el permiso de **ver** esa sección (por ejemplo `registry.view_team` para Equipos). Pida a un administrador que revise sus roles. En el [catálogo de permisos](/app/ayuda/catalogo-de-permisos) puede ver qué permiso exige cada pantalla.
+Su cuenta no tiene la capacidad para **ver** esa sección (por ejemplo *Consultar el registro* para Equipos). Pida a un administrador que revise sus roles. En el [catálogo de capacidades](/app/ayuda/catalogo-de-permisos) puede ver qué permite cada una.
 
 ### No aparece una opción en el menú lateral
 
@@ -47,7 +47,7 @@ El menú solo muestra lo que su cuenta puede ver. Compare sus permisos con el [c
 
 ### Un botón da «No tiene permisos para realizar esta acción»
 
-Le falta el permiso específico de esa acción (por ejemplo `competition.close_match` para *Cerrar partido*). Si cree que debería tenerlo, solicítelo a un administrador.
+Le falta el permiso específico de esa acción (por ejemplo *Cerrar partidos* para *Cerrar partido*). Si cree que debería tenerlo, solicítelo a un administrador.
 
 ### En «Mi cuenta» dice «Perfil de delegado: No» pero soy delegado
 

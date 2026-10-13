@@ -1,67 +1,64 @@
 ---
 title: Roles predefinidos
-summary: Para qué sirve cada rol que trae FutOwl y qué puede hacer quien lo tiene
+summary: Para qué sirve cada rol que trae FutOwl y qué capacidades tiene quien lo recibe
 section: permissions
 order: 20
 ---
-FutOwl crea estos roles con el comando `seed_roles`. Pueden modificarse desde **Administración → Roles y permisos**; el comando los restablece a estos valores.
+FutOwl crea estos roles con el comando `seed_roles` (`make roles`). Pueden modificarse desde **Administración → Roles y permisos**; el comando los restablece a estos valores.
 
 > [!NOTE]
-> «Consulta general» significa **ver** todo lo de Registro, Torneos, Competición, Notificaciones y Términos (`registry.view_*`, `tournaments.view_*`, `competition.view_*`, `notifications.view_*`, `legal.view_*`). Ningún rol, salvo Administrador, puede **eliminar** registros.
+> «Consulta» son dos capacidades: *Consultar el registro* y *Consultar torneos y partidos*. Las tienen todos los roles operativos.
 
 ## Resumen
 
-| Rol | Para quién | Permisos clave |
-|-----|-----------|----------------|
-| **Administrador** | Responsable técnico de la plataforma | Todos los permisos. |
-| **Autoridad** | Comisión organizadora / directiva del torneo | Todo Registro, Torneos, Competición y Términos; ver y verificar auditoría; ver usuarios. |
-| **Jefe de delegados** | Coordinador de delegados | Consulta general; crear/editar delegados; devolver informes; ver usuarios. |
-| **Jefe de árbitros** | Coordinador arbitral | Consulta general; crear/editar árbitros; devolver informes; ver usuarios. |
-| **Delegado** | Responsable de mesa técnica | Consulta general; confirmar asignación; operar mesa técnica; informe del delegado; notas. |
-| **Árbitro** | Árbitro principal o asistente | Consulta general; confirmar asignación; informe arbitral; notas. |
-| **Gestor de equipo** | Delegado o directivo del club | Consulta general; plantilla y nómina; entrenadores; alineaciones; confirmar asistencia; notas. |
-| **Entrenador** | Director técnico con usuario | Consulta general; plantilla y nómina; alineaciones; notas. |
+| Rol | Para quién | Capacidades |
+|-----|-----------|-------------|
+| **Administrador** | Responsable técnico de la plataforma | Todas. |
+| **Autoridad** | Comisión organizadora / directiva del torneo | Todas, salvo *Gestionar usuarios* y *Gestionar roles*. |
+| **Jefe de delegados** | Coordinador de delegados (también ejerce como delegado) | Lo del Delegado + *Gestionar delegados*, *Asignar delegados*, *Devolver informes*, *Ver usuarios*. |
+| **Jefe de árbitros** | Coordinador arbitral (también ejerce como árbitro) | Lo del Árbitro + *Gestionar árbitros*, *Asignar árbitros*, *Devolver informes*, *Ver usuarios*. |
+| **Delegado** | Responsable de mesa técnica | Consulta, *Confirmar asistencia*, *Mesa técnica de sus partidos*, *Informe del delegado*, *Notas y apelaciones*. |
+| **Árbitro** | Árbitro principal o asistente | Consulta, *Confirmar asistencia*, *Informe arbitral*, *Notas y apelaciones*. |
+| **Gestor de equipo** | Delegado o directivo del club | Lo del Entrenador + *Confirmar asistencia*, *Gestionar entrenadores*. |
+| **Entrenador** | Director técnico con usuario | Consulta, *Gestionar plantilla*, *Gestionar nómina*, *Cargar alineaciones*, *Notas y apelaciones*. |
 
 ## Detalle por rol
 
 ### Administrador
 
-Todos los permisos del catálogo (incluido eliminar y consultar el catálogo de permisos al editar usuarios y roles). Gestiona usuarios, roles, términos y auditoría. *No* edita la documentación salvo que además sea superusuario.
+Todas las capacidades: además de lo de la Autoridad, gestiona **usuarios** y **roles**. *No* edita la documentación salvo que además sea superusuario.
 
 ### Autoridad
 
-- **Registro, Torneos y Competición completos**: crear y editar todo; inscripciones, grupos y nómina de cualquier equipo; fixture; jornadas (crear, programar, enviar, cerrar); ajustes, suspensiones; devolver informes y **cerrar partidos**; **resolver revisiones**; operar la mesa técnica de **cualquier** partido (`operate_any_match`).
-- **Términos**: publicar nuevas versiones.
-- **Auditoría**: consultar y verificar integridad.
-- **Usuarios**: solo ver.
+- **Registro y Torneos completos**: categorías, canchas, cualquier equipo, plantilla, entrenadores, delegados, árbitros, torneos, inscripciones, grupos y nómina.
+- **Programación**: fixture, jornadas (crear, programar cancha, horario y oficiales, enviar y cerrar), ajustes con exposición de motivos y suspensiones.
+- **Partidos**: mesa técnica de **cualquier** partido, confirmar, notas; informes, devolverlos, **cerrar partidos** y **resolver revisiones**.
+- **Administración**: ver usuarios, publicar términos, ver y verificar la auditoría.
 - Recibe las notificaciones de rechazos, apelaciones e informes listos para cierre.
 
 ### Jefe de delegados
 
-Consulta general; `registry.add_delegate`, `registry.change_delegate`; `competition.return_report`; `competition.add_matchnote`; `accounts.view_user`. También trae `competition.schedule_match` y `competition.verify_lineup`, que hoy no habilitan acciones por sí solos (vea el [catálogo](/app/ayuda/catalogo-de-permisos)). Para programar partidos agregue `competition.change_match`.
+Ejerce como **delegado** (confirma sus asignaciones, opera la mesa técnica de sus partidos y envía su informe) y además:
+
+- Registra y edita **delegados**.
+- **Asigna el delegado** de cada partido en las jornadas en borrador y, si la jornada ya se envió (por ejemplo, tras un rechazo), lo reemplaza con exposición de motivos. **No** cambia cancha, horario ni jornada: eso lo programa la autoridad.
+- Devuelve informes para corrección y ve los usuarios.
 
 ### Jefe de árbitros
 
-Igual que el jefe de delegados pero para árbitros: `registry.add_referee`, `registry.change_referee`, `competition.return_report`, `competition.add_matchnote`, `accounts.view_user` y `competition.schedule_match`.
+Igual que el jefe de delegados, pero para árbitros: ejerce como **árbitro**, registra y edita árbitros, **asigna la terna arbitral** (y la reemplaza con exposición de motivos en jornadas enviadas), devuelve informes y ve los usuarios.
 
 ### Delegado
 
-Consulta general más `competition.confirm_assignment`, `competition.operate_match` (solo sus partidos), `competition.submit_delegate_report`, `competition.add_matchnote` y `competition.verify_lineup`.
+Confirma o rechaza sus asignaciones, opera la **mesa técnica** de los partidos donde es el delegado asignado, envía el **informe del delegado** y escribe notas y apelaciones en sus partidos.
 
 ### Árbitro
 
-Consulta general más `competition.confirm_assignment`, `competition.submit_referee_report` (solo como árbitro principal) y `competition.add_matchnote`.
+Confirma o rechaza sus asignaciones, envía el **informe arbitral** si es el árbitro principal y escribe notas y apelaciones en sus partidos.
 
 ### Gestor de equipo
 
-Consulta general más:
-
-- Plantilla: `registry.add_player`, `registry.change_player`, `registry.add_guardian`, `registry.change_guardian`.
-- Nómina: `tournaments.add_teamplayer`, `tournaments.change_teamplayer`.
-- Cuerpo técnico: `registry.add_coach`, `registry.change_coach`.
-- Partido: `competition.confirm_assignment` (asistencia del equipo), `competition.submit_lineup`, `competition.add_matchnote`.
-
-Sus equipos aparecen **primero** y resaltados (*Mi equipo*) en **Equipos**, y su escudo junto a *Mi cuenta*. Todo limitado a **sus equipos**: puede consultar los demás equipos, pero solo modifica (crea, edita, activa o desactiva) lo de los suyos:
+Lo del entrenador más: **confirma la asistencia** del equipo y **gestiona entrenadores** (registrar, editar, asignar y liberar). Sus equipos aparecen **primero** y resaltados (*Mi equipo*) en **Equipos**, y su escudo junto a *Mi cuenta*. Todo limitado a **sus equipos**: puede consultar los demás equipos, pero solo modifica (crea, edita, activa o desactiva) lo de los suyos:
 
 - Jugadores y entrenadores cuyo equipo actual es el suyo; los que están libres, solo si él mismo los registró. Puede **asignar** a su equipo un entrenador libre.
 - Representantes de jugadores de su equipo (o registrados por él).
@@ -70,11 +67,11 @@ Sus equipos aparecen **primero** y resaltados (*Mi equipo*) en **Equipos**, y su
 
 ### Entrenador
 
-Igual que el gestor en plantilla, nómina, alineaciones y notas, **sin** confirmar asistencia ni gestionar entrenadores. Limitado al equipo al que pertenece, con las mismas reglas del gestor. Igual que el gestor, ve su equipo primero en **Equipos** y su escudo junto a *Mi cuenta*.
+Gestiona la **plantilla** y la **nómina** de su equipo, carga sus **alineaciones** y escribe notas y apelaciones en sus partidos, con las mismas reglas del gestor. Igual que el gestor, ve su equipo primero en **Equipos** y su escudo junto a *Mi cuenta*.
 
 ## Roles personalizados
 
-Además de estos, puede crear roles a la medida (por ejemplo *Prensa* solo con consulta, o *Mesa técnica central* con `operate_any_match`). Vea [Crear roles y asignar permisos](/app/ayuda/crear-roles-y-asignar-permisos).
+Además de estos, puede crear roles a la medida (por ejemplo *Prensa* solo con consulta, o *Mesa técnica central* con *Mesa técnica de cualquier partido*). Vea [Crear roles y asignar capacidades](/app/ayuda/crear-roles-y-asignar-permisos).
 
 ```futowl-roles
 ```

@@ -1,6 +1,6 @@
 ---
 title: Cómo funcionan los permisos
-summary: Roles, permisos personalizados, superusuario y las comprobaciones adicionales de cada acción
+summary: Capacidades, roles, capacidades extra por usuario, superusuario y las comprobaciones adicionales de cada acción
 section: permissions
 order: 10
 ---
@@ -11,71 +11,66 @@ order: 10
 
 | Pieza | Qué es | Dónde se gestiona |
 |-------|--------|-------------------|
-| **Permiso** | Autorización para **una acción concreta** (por ejemplo, *Cerrar partidos* = `competition.close_match`). | Catálogo fijo del sistema. |
-| **Rol** | Conjunto de permisos con un nombre (*Delegado*, *Autoridad*…). | Administración → Roles y permisos. |
-| **Usuario** | Recibe **uno o varios roles** y, opcionalmente, **permisos personalizados** adicionales. | Administración → Usuarios. |
+| **Capacidad** | Una **función concreta** del sistema, con nombre y explicación: *Asignar árbitros*, *Cerrar partidos*, *Gestionar plantilla*… Son unas 35, agrupadas por área. | Catálogo fijo del sistema ([Catálogo de capacidades](/app/ayuda/catalogo-de-permisos)). |
+| **Rol** | Conjunto de capacidades con un nombre (*Delegado*, *Autoridad*…). | Administración → Roles y permisos. |
+| **Usuario** | Recibe **uno o varios roles** y, opcionalmente, **capacidades extra** solo para él. | Administración → Usuarios. |
 
-Los **permisos efectivos** de un usuario son la **suma** de los permisos de todos sus roles más sus permisos personalizados. No existen permisos «negativos»: un rol nunca quita lo que otro da.
+Lo que un usuario puede hacer es la **suma** de las capacidades de todos sus roles más sus capacidades extra. No existen capacidades «negativas»: un rol nunca quita lo que otro da.
 
 > [!TIP]
-> Ejemplo: Ana tiene el rol *Árbitro* y, como permiso personalizado, *Devolver informes para corrección*. Puede hacer todo lo de un árbitro y, además, devolver informes.
+> Ejemplo: Ana tiene el rol *Árbitro* y, como capacidad extra, *Devolver informes*. Puede hacer todo lo de un árbitro y, además, devolver informes.
 
 ## El superusuario
 
 El **superusuario** es una marca especial de la cuenta (no un rol):
 
-- Tiene **todos** los permisos, presentes y futuros, sin necesidad de asignarlos.
+- Tiene **todas** las capacidades, presentes y futuras, sin necesidad de asignarlas.
 - Es el **único** que puede **editar esta documentación** (crear, modificar, publicar o despublicar páginas y ver su historial).
 - Accede al panel técnico de Django.
 
-El rol *Administrador* también recibe todos los permisos del catálogo, pero **no** convierte a la persona en superusuario.
+El rol *Administrador* también recibe todas las capacidades, pero **no** convierte a la persona en superusuario.
 
-## Cómo se lee el código de un permiso
+## Capacidades y permisos técnicos
 
-`módulo.acción_objeto`, por ejemplo `registry.add_player`:
-
-| Parte | Significado |
-|-------|-------------|
-| `registry` | Módulo: `registry` (Registro), `tournaments` (Torneos), `competition` (Competición), `accounts` (Usuarios), `auth` (Roles), `audit` (Auditoría), `legal` (Términos), `notifications` (Notificaciones). |
-| `view_` / `add_` / `change_` / `delete_` | Ver / Crear / Editar (incluye desactivar y reactivar) / Eliminar. |
-| Otras acciones | Permisos especiales del flujo: `close_match`, `operate_match`, `submit_matchday`… |
+Por dentro, cada capacidad activa los **permisos técnicos** que necesita (por ejemplo, *Gestionar canchas* activa «crear canchas» y «editar canchas»). Usted nunca los asigna uno por uno: solo elige capacidades. Los permisos técnicos que no forman parte de ninguna capacidad no habilitan nada y no se asignan.
 
 ## Dónde se comprueban
 
-Cada permiso se comprueba **dos veces**:
+Cada capacidad se comprueba **dos veces**:
 
-1. **En la pantalla**: el menú, las pestañas y los botones solo aparecen si tiene el permiso.
+1. **En la pantalla**: el menú, las pestañas y los botones solo aparecen si la tiene.
 2. **En el servidor**: aunque alguien intentara la acción por otro medio, la API la rechaza con *«No tiene permisos para realizar esta acción»*.
 
 Además, la API exige que el usuario haya **aceptado los términos** vigentes.
 
-## Comprobaciones adicionales: el permiso no siempre basta
+## Comprobaciones adicionales: la capacidad no siempre basta
 
-Varias acciones exigen el permiso **y** una relación con el registro:
+Varias acciones exigen la capacidad **y** una relación con el registro:
 
-| Acción | Además del permiso, se exige… |
-|--------|-------------------------------|
-| Confirmar/rechazar asignación | Ser la parte asignada: usuario vinculado al delegado o árbitro de esa posición, o gestor del equipo. |
-| Operar la mesa técnica (`operate_match`) | Ser el **delegado asignado** al partido. `operate_any_match` lo omite. |
-| Enviar informe del delegado / arbitral | Ser el delegado asignado / el **árbitro principal** del partido. |
-| Cargar alineación | Ser gestor o entrenador vinculado del equipo (o tener `operate_any_match`). |
-| Gestionar nómina, crear o editar jugadores, asignar entrenadores | Ser gestor o entrenador vinculado del equipo, salvo administradores del registro (`registry.change_team`) o del torneo (`tournaments.change_tournament` para la nómina). |
-| Editar la ficha de un jugador | Pertenecer a su **equipo actual** (o ser administrador del registro). |
+| Acción | Además de la capacidad, se exige… |
+|--------|-----------------------------------|
+| *Confirmar asistencia* | Ser la parte asignada: usuario vinculado al delegado o árbitro de esa posición, o gestor del equipo. |
+| *Mesa técnica de sus partidos* | Ser el **delegado asignado** al partido. *Mesa técnica de cualquier partido* lo omite. |
+| *Informe del delegado* / *Informe arbitral* | Ser el delegado asignado / el **árbitro principal** del partido. |
+| *Cargar alineaciones* | Ser gestor o entrenador vinculado del equipo (o tener *Mesa técnica de cualquier partido*). |
+| *Gestionar plantilla*, *Gestionar entrenadores*, *Gestionar nómina* | Ser gestor o entrenador vinculado del equipo, salvo con *Administrar todos los equipos* (o *Gestionar torneos* para la nómina). Lo que no tiene equipo solo lo modifica quien lo registró. |
+| *Notas y apelaciones* | Ser parte del partido (oficial asignado o cuerpo de uno de los equipos), salvo autoridades y jefes de oficiales. |
+| *Asignar delegados* / *Asignar árbitros* | Solo cambian el oficial de su tipo: cancha, horario y jornada quedan para *Programar jornadas y partidos*. |
 
 Y algunas acciones dependen del **estado** del registro (por ejemplo, solo se cierra un partido *Finalizado* con informes coincidentes). Esos requisitos están en cada capítulo del manual.
 
-## Notificaciones por permiso
+## Notificaciones por capacidad
 
-Algunos avisos se envían a **todos los usuarios activos que tengan un permiso**:
+Algunos avisos se envían a **todos los usuarios activos que tengan una capacidad**:
 
-- `competition.resolve_reviewcase` → rechazos de asignación y apelaciones.
-- `competition.close_match` → «Informes listos para cierre».
+- *Resolver revisiones* → rechazos de asignación y apelaciones.
+- *Cerrar partidos* → «Informes listos para cierre».
 
 ## Roles vigentes
 
-Este listado se genera en vivo con los roles configurados actualmente (incluidos los personalizados). Pulse un rol para ver sus permisos.
+Este listado se genera en vivo con los roles configurados actualmente (incluidos los personalizados). Pulse un rol para ver sus capacidades.
 
 ```futowl-roles
 ```
 
-Siguiente: [Roles predefinidos](/app/ayuda/roles-predefinidos) · [Catálogo de permisos](/app/ayuda/catalogo-de-permisos) · [Crear roles y asignar permisos](/app/ayuda/crear-roles-y-asignar-permisos)
+Siguiente: [Roles predefinidos](/app/ayuda/roles-predefinidos) · [Catálogo de capacidades](/app/ayuda/catalogo-de-permisos) · [Crear roles y asignar capacidades](/app/ayuda/crear-roles-y-asignar-permisos)

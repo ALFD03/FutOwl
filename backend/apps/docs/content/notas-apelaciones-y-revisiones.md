@@ -6,7 +6,7 @@ order: 200
 ---
 ## Notas y apelaciones
 
-**Dónde:** ficha del partido → **Notas y apelaciones**. **Permiso para escribir:** `competition.add_matchnote` (lo tienen casi todos los roles operativos).
+**Dónde:** ficha del partido → **Notas y apelaciones**. **Capacidad para escribir:** *Notas y apelaciones* (lo tienen casi todos los roles operativos).
 
 | Tipo | Uso | Efecto |
 |------|-----|--------|
@@ -17,7 +17,7 @@ Escriba el texto (mínimo 3 caracteres), adjunte un archivo si lo necesita (PDF,
 
 ## Revisiones
 
-**Ruta:** Competición → Revisiones (`/app/revisiones`). **Permisos:** `competition.view_reviewcase` para ver; `competition.resolve_reviewcase` para resolver.
+**Ruta:** Competición → Revisiones (`/app/revisiones`). **Capacidades:** *Consultar torneos y partidos* para ver; *Resolver revisiones* para resolver.
 
 Bandeja de casos que necesitan decisión de una autoridad:
 

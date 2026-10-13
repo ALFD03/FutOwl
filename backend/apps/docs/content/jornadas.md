@@ -4,7 +4,7 @@ summary: Armar el día de competencia, validaciones de solapamiento, enviar y ce
 section: manual
 order: 150
 ---
-**Rutas:** Competición → Jornadas (`/app/jornadas`) o la pestaña *Jornadas* del torneo · **Permisos:** `competition.view_matchday` (ver), `competition.add_matchday` (crear), `competition.change_match` (programar partidos), `competition.submit_matchday` (enviar), `competition.close_matchday` (cerrar), `competition.delete_matchday` (eliminar borrador).
+**Rutas:** Competición → Jornadas (`/app/jornadas`) o la pestaña *Jornadas* del torneo · **Capacidades:** *Consultar torneos y partidos* (ver); *Programar jornadas y partidos* (crear, programar y eliminar borradores); *Asignar delegados* / *Asignar árbitros* (solo los oficiales); *Enviar jornadas a confirmación*; *Cerrar jornadas*.
 
 ## Ciclo de vida
 
@@ -36,6 +36,9 @@ En cada tarjeta complete:
 | **Delegado** | Obligatorio. |
 | **Árbitro principal** | Obligatorio. |
 | **Asistente 1 / Asistente 2** | Solo aparecen si el torneo los exige. |
+
+> [!NOTE]
+> Con *Programar jornadas y partidos* se completa toda la tarjeta. El **jefe de delegados** (*Asignar delegados*) solo puede elegir el **delegado** y el **jefe de árbitros** (*Asignar árbitros*) solo la **terna arbitral**: para ellos, cancha, inicio y quitar el partido de la jornada aparecen desactivados.
 
 Pulse **Guardar** en la tarjeta. FutOwl valida al instante:
 

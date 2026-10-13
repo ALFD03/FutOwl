@@ -4,7 +4,7 @@ summary: Oficiales de partido, licencia, usuario vinculado y lo que puede hacer 
 section: manual
 order: 110
 ---
-**Rutas:** Registro → Delegados (`/app/delegados`) y Registro → Árbitros (`/app/arbitros`) · **Permisos:** `registry.view_delegate` / `add_delegate` / `change_delegate` y `registry.view_referee` / `add_referee` / `change_referee`.
+**Rutas:** Registro → Delegados (`/app/delegados`) y Registro → Árbitros (`/app/arbitros`) · **Capacidades:** *Consultar el registro* para ver; *Gestionar delegados* y *Gestionar árbitros* para registrar y editar.
 
 ## Campos
 
@@ -26,7 +26,7 @@ Responsable de la **mesa técnica** del partido:
 3. Verifica que la alineación cargada coincida con los documentos presentados.
 4. Envía el **informe del delegado** al finalizar.
 
-Solo el **delegado asignado** al partido puede operar su mesa técnica (salvo usuarios con el permiso `competition.operate_any_match`).
+Solo el **delegado asignado** al partido puede operar su mesa técnica (salvo usuarios con el permiso *Mesa técnica de cualquier partido*).
 
 ## La terna arbitral
 
@@ -41,4 +41,4 @@ Al programar, FutOwl impide que un **delegado** o un **árbitro** (en cualquier 
 
 ## Jefes de delegados y de árbitros
 
-Los roles *Jefe de delegados* y *Jefe de árbitros* pueden registrar y editar oficiales de su área y **devolver informes** para corrección. Para **programar partidos** en las jornadas (cancha, horario y oficiales) necesitan además el permiso `competition.change_match`. Vea [Roles predefinidos](/app/ayuda/roles-predefinidos).
+Los roles *Jefe de delegados* y *Jefe de árbitros* pueden registrar y editar oficiales de su área y **devolver informes** para corrección. Para **programar partidos** en las jornadas (cancha, horario y oficiales) necesitan además el permiso *Programar jornadas y partidos*. Vea [Roles predefinidos](/app/ayuda/roles-predefinidos).

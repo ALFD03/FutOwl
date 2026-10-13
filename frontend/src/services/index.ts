@@ -1,6 +1,6 @@
 import { api } from "@/api/client";
 import type {
-  Adjustment, AuditLog, Category, CategoryRules, Coach, Confirmation, DocPage, DocPageSummary, DocRevision, Field, Group, Guardian, ID, Lineup, LiveState, Match,
+  Adjustment, AuditLog, CapabilityCatalog, Category, CategoryRules, Coach, Confirmation, DocPage, DocPageSummary, DocRevision, Field, Group, Guardian, ID, Lineup, LiveState, Match,
   Matchday, MatchEvent, MatchNote, MatchReport, Me, Notification, Official, Paginated, PartyStatus, Permission, PermissionCatalog,
   Player, PlayerStat, PublicMatch, PublicTournament, Registration, ReportComparison, ReviewCase, Role,
   StandingRow, Team, TeamPlayer, Terms, Tournament, User,
@@ -88,6 +88,8 @@ export const usersExtra = { unlock: (id: ID) => api.post(`/users/${id}/unlock/`)
 export const roles = createResource<Role>("roles");
 export const permissions = {
   all: async () => (await api.get<Permission[]>("/permissions/")).data,
+  /** Capacidades: lo que se asigna a roles y usuarios (cada una con sus permisos técnicos). */
+  capabilities: async () => (await api.get<CapabilityCatalog>("/capabilities/")).data,
 };
 export const auditLogs = {
   list: async (params?: Record<string, unknown>) => (await api.get<Paginated<AuditLog>>("/audit-logs/", { params })).data,

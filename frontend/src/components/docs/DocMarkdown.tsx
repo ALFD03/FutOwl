@@ -21,7 +21,7 @@ export { headingsOf, slugify } from "@/utils/headings";
 
 export const WIDGETS: Record<string, { label: string; render: () => ReactNode }> = {
   "futowl-roles": { label: "Roles vigentes y sus permisos", render: () => <RolesWidget /> },
-  "futowl-permisos": { label: "Catálogo de permisos con buscador", render: () => <PermissionCatalogWidget /> },
+  "futowl-permisos": { label: "Catálogo de capacidades con buscador", render: () => <PermissionCatalogWidget /> },
   "futowl-mis-permisos": { label: "Roles y permisos del usuario que lee", render: () => <MyPermissionsWidget /> },
 };
 

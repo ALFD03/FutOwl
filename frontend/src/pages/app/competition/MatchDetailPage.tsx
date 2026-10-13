@@ -75,7 +75,7 @@ function Summary({ match }: { match: Match }) {
           <CardHeader title="Asignación" subtitle={match.is_locked ? `Bloqueada · versión ${match.assignment_version}` : "Borrador: se edita desde la jornada"}
             actions={<>
               {match.status !== "draft" && <Link to={`/partido/${match.id}`} className="btn-ghost btn-sm" target="_blank"><ExternalLink className="h-4 w-4" /> Vista pública</Link>}
-              {adjustable && <Can perm="competition.adjust_match"><button className="btn-outline btn-sm" onClick={() => setAdjusting(true)}><PencilRuler className="h-4 w-4" /> Ajustar</button></Can>}
+              {adjustable && <Can perm={["competition.adjust_match", "competition.assign_delegate", "competition.assign_referees"]} mode="any"><button className="btn-outline btn-sm" onClick={() => setAdjusting(true)}><PencilRuler className="h-4 w-4" /> Ajustar</button></Can>}
               {!["closed", "suspended", "draft"].includes(match.status) && <Can perm="competition.suspend_match"><button className="btn-ghost btn-sm text-crimson-600" onClick={() => setSuspending(true)}><Ban className="h-4 w-4" /> Suspender</button></Can>}
             </>} />
           <div className="card-body">

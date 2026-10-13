@@ -5,7 +5,7 @@ section: manual
 order: 170
 ---
 **Dónde:** ficha del partido → **Alineaciones** (una tarjeta para el local y otra para el visitante).
-**Quién:** gestores del equipo o entrenadores con usuario vinculado, con el permiso `competition.submit_lineup` (o usuarios con `competition.operate_any_match`).
+**Quién:** gestores del equipo o entrenadores con usuario vinculado, con el permiso *Cargar alineaciones* (o usuarios con *Mesa técnica de cualquier partido*).
 **Cuándo:** con el partido *Pendiente* o *Confirmado* y **antes de que inicie**.
 
 ## Cargar la alineación

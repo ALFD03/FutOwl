@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { KeyRound, Plus, Save } from "lucide-react";
 
-import { PermissionPicker } from "@/components/forms";
+import { PermissionPicker, useCapabilities } from "@/components/forms";
 import { Can } from "@/components/layout/Guards";
 import { Card, CardHeader, EmptyState, PageHeader, Spinner } from "@/components/ui";
 import { useCan, useToast } from "@/hooks";
@@ -16,6 +16,8 @@ export function RolesPage() {
   const queryClient = useQueryClient();
   const canChange = useCan("auth.change_group");
   const rolesQ = useQuery({ queryKey: ["roles", "all"], queryFn: () => roles.all() });
+  const catalog = useCapabilities().data?.capabilities ?? [];
+  const capabilityCount = (ids: number[]) => { const set = new Set(ids); return catalog.filter((c) => c.permissions.every((id) => set.has(id))).length; };
   const [selected, setSelected] = useState<Role | null>(null);
   const [checked, setChecked] = useState<number[]>([]);
   const [name, setName] = useState("");
@@ -43,7 +45,7 @@ export function RolesPage() {
 
   return (
     <div>
-      <PageHeader title="Roles y permisos" subtitle="Permisos por grupo; además, cada usuario puede tener permisos personalizados" icon={<KeyRound className="h-6 w-6" />}
+      <PageHeader title="Roles y permisos" subtitle="Cada rol reúne capacidades (funciones concretas); a un usuario también se le pueden dar capacidades extra" icon={<KeyRound className="h-6 w-6" />}
         actions={<Can perm="auth.add_group"><button className="btn-gold" onClick={() => setSelected({ id: 0, name: "", permissions: [], user_count: 0 })}><Plus className="h-4 w-4" /> Nuevo rol</button></Can>} />
       <div className="grid gap-6 lg:grid-cols-[300px_1fr]">
         <Card className="h-fit">
@@ -53,13 +55,13 @@ export function RolesPage() {
               <li key={r.id}>
                 <button onClick={() => setSelected(r)} className={cn("flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-sm transition",
                   selected?.id === r.id ? "bg-navy-900 text-white dark:bg-gold-500 dark:text-navy-950" : "hover:bg-slate-100 dark:hover:bg-white/5")}>
-                  <span className="font-semibold">{r.name}</span><span className="text-xs opacity-70">{r.permissions.length} · {r.user_count} usr</span>
+                  <span className="font-semibold">{r.name}</span><span className="text-xs opacity-70" title="Capacidades · usuarios">{capabilityCount(r.permissions)} cap. · {r.user_count} usr</span>
                 </button>
               </li>
             ))}
           </ul>
         </Card>
-        {!selected ? <Card><EmptyState title="Seleccione un rol" message="Elija un rol para ver y editar sus permisos." /></Card> : (
+        {!selected ? <Card><EmptyState title="Seleccione un rol" message="Elija un rol para ver y editar sus capacidades." /></Card> : (
           <Card>
             <div className="flex flex-col gap-3 border-b border-slate-100 px-5 py-4 sm:flex-row sm:items-center dark:border-white/5">
               <div className="flex-1">

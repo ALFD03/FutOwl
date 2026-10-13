@@ -6,6 +6,7 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import SAFE_METHODS, BasePermission
 from rest_framework.response import Response
 
+from apps.accounts.capabilities import AREAS, capabilities_from, catalog
 from apps.accounts.serializers import PermissionSerializer
 from apps.accounts.views import PermissionViewSet
 
@@ -69,15 +70,14 @@ class DocPageViewSet(
         """Catálogo de permisos y roles vigentes (para la sección de permisos de la documentación)."""
         permissions = PermissionViewSet.queryset.all()
         roles = Group.objects.prefetch_related("permissions__content_type").order_by("name")
+        role_rows = []
+        for role in roles:
+            perms = sorted(f"{p.content_type.app_label}.{p.codename}" for p in role.permissions.all())
+            role_rows.append({"id": role.id, "name": role.name, "user_count": role.user_set.count(),
+                              "permissions": perms, "capabilities": capabilities_from(perms)})
         return Response({
+            "areas": AREAS,
+            "capabilities": catalog(),
             "permissions": PermissionSerializer(permissions, many=True).data,
-            "roles": [
-                {
-                    "id": role.id,
-                    "name": role.name,
-                    "user_count": role.user_set.count(),
-                    "permissions": sorted(f"{p.content_type.app_label}.{p.codename}" for p in role.permissions.all()),
-                }
-                for role in roles
-            ],
+            "roles": role_rows,
         })

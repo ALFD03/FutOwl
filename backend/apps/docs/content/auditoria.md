@@ -4,7 +4,7 @@ summary: La bitácora inalterable, qué registra, cómo consultarla y verificar 
 section: manual
 order: 250
 ---
-**Ruta:** Administración → Auditoría (`/app/auditoria`) · **Permisos:** `audit.view_auditlog` para consultar, `audit.verify_auditlog` para verificar la integridad.
+**Ruta:** Administración → Auditoría (`/app/auditoria`) · **Capacidades:** *Ver auditoría* para consultar, *Verificar auditoría* para verificar la integridad.
 
 ## Qué registra
 

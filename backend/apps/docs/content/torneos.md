@@ -4,7 +4,7 @@ summary: Crear un torneo, su puntuación, reglas de juego por categoría, estado
 section: manual
 order: 120
 ---
-**Ruta:** Competición → Torneos (`/app/torneos`) · **Permisos:** `tournaments.view_tournament` para ver; `tournaments.add_tournament` para crear; `tournaments.change_tournament` para editar, cambiar estado, guardar el reglamento y desactivar.
+**Ruta:** Competición → Torneos (`/app/torneos`) · **Capacidades:** *Consultar torneos y partidos* para ver; *Gestionar torneos* para crear, editar, cambiar estado, reglas, reglamento y desactivar.
 
 ## Crear un torneo
 
@@ -27,8 +27,8 @@ Las **reglas de juego** no se piden al crear el torneo: se configuran después, 
 
 Pestaña **Reglas de juego** de la ficha del torneo:
 
-- **Reglas generales**: valen para todas las categorías que no tengan reglas propias. Se editan con **Editar** en esa tarjeta (`tournaments.change_tournament`).
-- **Por categoría**: botón **Personalizar** en la categoría para darle reglas propias (parten de las generales); **Usar generales** la devuelve a las reglas generales (`tournaments.add_categoryrules` / `tournaments.change_categoryrules`).
+- **Reglas generales**: valen para todas las categorías que no tengan reglas propias. Se editan con **Editar** en esa tarjeta (*Gestionar torneos*).
+- **Por categoría**: botón **Personalizar** en la categoría para darle reglas propias (parten de las generales); **Usar generales** la devuelve a las reglas generales (*Gestionar torneos*).
 
 | Regla | Valor por defecto / notas |
 |-------|---------------------------|

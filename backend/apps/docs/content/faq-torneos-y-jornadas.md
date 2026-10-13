@@ -22,7 +22,7 @@ Solo se listan partidos del mismo torneo, en **Borrador** y **sin jornada**. Si 
 
 ### El botón «Enviar jornada» está deshabilitado
 
-Algún partido tiene datos incompletos: cada tarjeta muestra **Falta: …** (cancha, inicio, delegado, árbitro o asistentes según el torneo). Complete y pulse **Guardar** en cada tarjeta. También necesita el permiso `competition.submit_matchday`.
+Algún partido tiene datos incompletos: cada tarjeta muestra **Falta: …** (cancha, inicio, delegado, árbitro o asistentes según el torneo). Complete y pulse **Guardar** en cada tarjeta. También necesita el permiso *Enviar jornadas a confirmación*.
 
 ### «La cancha … ya tiene N partido(s) en ese horario»
 

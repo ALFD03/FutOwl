@@ -8,7 +8,7 @@ order: 190
 
 ## 1. Enviar el informe
 
-**Quién:** el **delegado asignado** (permiso `competition.submit_delegate_report`) y el **árbitro principal** (permiso `competition.submit_referee_report`). Cada uno ve el formulario en su tarjeta.
+**Quién:** el **delegado asignado** (permiso *Informe del delegado*) y el **árbitro principal** (permiso *Informe arbitral*). Cada uno ve el formulario en su tarjeta.
 
 Datos del informe:
 
@@ -33,13 +33,13 @@ Cuando ambos informes están enviados, FutOwl notifica a quienes pueden cerrar p
 
 ## 3. Devolver un informe
 
-**Quién:** permiso `competition.return_report` (autoridades, jefes de delegados o de árbitros).
+**Quién:** permiso *Devolver informes* (autoridades, jefes de delegados o de árbitros).
 
 Botón **Devolver** en la tarjeta del informe → escriba el motivo (mínimo 5 caracteres). El informe actual **se conserva** en el historial marcado como devuelto, el autor recibe una notificación y vuelve a ver el formulario para enviar una **nueva versión** (v2, v3…). El historial de versiones muestra quién devolvió y por qué.
 
 ## 4. Cerrar el partido
 
-**Quién:** permiso `competition.close_match`.
+**Quién:** permiso *Cerrar partidos*.
 
 El botón **Cerrar partido** se habilita cuando **ambos informes vigentes coinciden** en marcador y tarjetas. Al cerrar:
 

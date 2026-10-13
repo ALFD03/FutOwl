@@ -4,7 +4,7 @@ summary: Rangos de edad por año de nacimiento y cómo se calcula la elegibilida
 section: manual
 order: 60
 ---
-**Ruta:** Registro → Categorías (`/app/categorias`) · **Permisos:** `registry.view_category` para ver, `registry.add_category` para crear, `registry.change_category` para editar o desactivar.
+**Ruta:** Registro → Categorías (`/app/categorias`) · **Capacidades:** *Consultar el registro* para ver; *Gestionar categorías* para crear, editar o desactivar.
 
 ## Qué es
 

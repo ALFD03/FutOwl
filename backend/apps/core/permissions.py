@@ -32,6 +32,8 @@ class ModelActionPermission(BasePermission):
     - Acciones personalizadas decoradas con `require_perms` → se validan en el decorador
       (aquí solo se exige autenticación).
     - Acciones personalizadas sin decorador → `view` para lectura, `change` para escritura.
+    - `alternative_perms = {acción: [permisos]}` en el ViewSet: cualquiera de ellos también habilita la
+      acción estándar; el ViewSet debe acotar entonces qué se puede cambiar (p. ej. solo ciertos campos).
     """
 
     def has_permission(self, request, view):
@@ -46,7 +48,9 @@ class ModelActionPermission(BasePermission):
         model = queryset.model
         action = getattr(view, "action", None)
         if action in STANDARD_ACTION_PERMS:
-            return user.has_perm(_perm(model, STANDARD_ACTION_PERMS[action]))
+            alternatives = getattr(view, "alternative_perms", {}).get(action, ())
+            return user.has_perm(_perm(model, STANDARD_ACTION_PERMS[action])) or any(
+                user.has_perm(p) for p in alternatives)
         handler = getattr(view, action, None) if action else None
         if handler is not None and getattr(handler, "required_perms", None):
             return True

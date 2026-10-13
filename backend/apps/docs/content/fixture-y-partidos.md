@@ -6,7 +6,7 @@ order: 140
 ---
 ## Generar el fixture
 
-**Torneo → Partidos → Generar fixture** (permiso `competition.generate_fixture`):
+**Torneo → Partidos → Generar fixture** (permiso *Armar el fixture*):
 
 | Campo | Descripción |
 |-------|-------------|
@@ -31,7 +31,7 @@ Reglas:
 
 ## Crear un partido manual
 
-**Torneo → Partidos → + Partido** (permiso `competition.add_match`): local, visitante, fecha/ronda y grupo. Útil para partidos extra, desempates o eliminación directa. Ambos equipos deben ser del mismo torneo y categoría, y un equipo no puede jugar contra sí mismo.
+**Torneo → Partidos → + Partido** (permiso *Armar el fixture*): local, visitante, fecha/ronda y grupo. Útil para partidos extra, desempates o eliminación directa. Ambos equipos deben ser del mismo torneo y categoría, y un equipo no puede jugar contra sí mismo.
 
 ## Listado de partidos
 
@@ -66,4 +66,4 @@ Si usted es el delegado del partido, la ficha se abre directamente en **Mesa té
 
 ## Eliminar un partido
 
-Solo los partidos en **Borrador** pueden eliminarse, y únicamente a través de la API (permiso `competition.delete_match`); la interfaz no ofrece ese botón. Para quitar un partido de una jornada en borrador use la **X** de su tarjeta. Una vez enviados, los partidos se **suspenden**, no se eliminan.
+Solo los partidos en **Borrador** pueden eliminarse, y únicamente a través de la API (permiso *Armar el fixture*); la interfaz no ofrece ese botón. Para quitar un partido de una jornada en borrador use la **X** de su tarjeta. Una vez enviados, los partidos se **suspenden**, no se eliminan.

@@ -1,7 +1,8 @@
 """
-Roles (grupos) predefinidos de FutOwl. Pueden ampliarse desde la interfaz de
-administración de roles o asignarse permisos personalizados a cada usuario.
+Roles (grupos) predefinidos de FutOwl, expresados en capacidades (ver `capabilities.py`).
+Pueden ampliarse desde la administración de roles o con capacidades extra por usuario.
 """
+from .capabilities import CAPABILITIES, grants_for
 
 ADMIN = "Administrador"
 AUTHORITY = "Autoridad"
@@ -15,79 +16,27 @@ TEAM_MANAGER = "Gestor de equipo"
 # Roles que existieron en versiones anteriores y ya no se crean por defecto.
 RETIRED_ROLES = ["Consulta"]
 
-DOMAIN_APPS = ["registry", "tournaments", "competition", "notifications", "legal"]
+CONSULTA = ["ver_registro", "ver_competicion"]
+DELEGATE_DUTIES = ["confirmar_asistencia", "mesa_tecnica", "informe_delegado", "notas"]
+REFEREE_DUTIES = ["confirmar_asistencia", "informe_arbitral", "notas"]
+SQUAD = ["gestionar_plantilla", "gestionar_nomina", "cargar_alineaciones", "notas"]
 
-# Permisos de lectura comunes para cualquier rol operativo
-VIEW_DOMAIN = [f"{app}.view_*" for app in DOMAIN_APPS]
+ROLE_CAPABILITIES: dict[str, list[str]] = {
+    ADMIN: [c.code for c in CAPABILITIES],
+    # Todo lo operativo; usuarios y roles quedan para el Administrador.
+    AUTHORITY: [c.code for c in CAPABILITIES if c.code not in ("gestionar_usuarios", "gestionar_roles")],
+    DELEGATE: CONSULTA + DELEGATE_DUTIES,
+    REFEREE: CONSULTA + REFEREE_DUTIES,
+    # Los jefes también ejercen como delegado / árbitro y asignan a los oficiales de su tipo (no programan).
+    HEAD_DELEGATE: CONSULTA + DELEGATE_DUTIES + ["gestionar_delegados", "asignar_delegados", "devolver_informes",
+                                                 "ver_usuarios"],
+    HEAD_REFEREE: CONSULTA + REFEREE_DUTIES + ["gestionar_arbitros", "asignar_arbitros", "devolver_informes",
+                                               "ver_usuarios"],
+    COACH: CONSULTA + SQUAD,
+    TEAM_MANAGER: CONSULTA + SQUAD + ["confirmar_asistencia", "gestionar_entrenadores"],
+}
 
-# Plantilla del equipo: jugadores, representantes y nómina por torneo
-SQUAD = [
-    "registry.add_player",
-    "registry.change_player",
-    "registry.add_guardian",
-    "registry.change_guardian",
-    "tournaments.add_teamplayer",
-    "tournaments.change_teamplayer",
-]
-
+# Permisos técnicos que recibe cada rol. El Administrador recibe todos ("*").
 ROLE_PERMISSIONS: dict[str, list[str]] = {
-    ADMIN: ["*"],
-    AUTHORITY: [
-        "registry.*",
-        "tournaments.*",
-        "competition.*",
-        "legal.*",
-        "notifications.view_*",
-        "audit.view_auditlog",
-        "audit.verify_auditlog",
-        "accounts.view_user",
-    ],
-    DELEGATE: VIEW_DOMAIN
-    + [
-        "competition.confirm_assignment",
-        "competition.operate_match",
-        "competition.submit_delegate_report",
-        "competition.add_matchnote",
-        "competition.verify_lineup",
-    ],
-    REFEREE: VIEW_DOMAIN
-    + [
-        "competition.confirm_assignment",
-        "competition.submit_referee_report",
-        "competition.add_matchnote",
-    ],
-    HEAD_DELEGATE: VIEW_DOMAIN
-    + [
-        "registry.add_delegate",
-        "registry.change_delegate",
-        "competition.schedule_match",
-        "competition.return_report",
-        "competition.verify_lineup",
-        "competition.add_matchnote",
-        "accounts.view_user",
-    ],
-    HEAD_REFEREE: VIEW_DOMAIN
-    + [
-        "registry.add_referee",
-        "registry.change_referee",
-        "competition.schedule_match",
-        "competition.return_report",
-        "competition.add_matchnote",
-        "accounts.view_user",
-    ],
-    COACH: VIEW_DOMAIN
-    + SQUAD
-    + [
-        "competition.submit_lineup",
-        "competition.add_matchnote",
-    ],
-    TEAM_MANAGER: VIEW_DOMAIN
-    + SQUAD
-    + [
-        "competition.confirm_assignment",
-        "competition.submit_lineup",
-        "competition.add_matchnote",
-        "registry.add_coach",
-        "registry.change_coach",
-    ],
+    role: ["*"] if role == ADMIN else grants_for(codes) for role, codes in ROLE_CAPABILITIES.items()
 }

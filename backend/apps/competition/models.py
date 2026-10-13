@@ -134,14 +134,14 @@ class Match(TimeStampedModel):
         verbose_name = "partido"
         verbose_name_plural = "partidos"
         permissions = [
-            ("schedule_match", "Puede programar partidos (cancha, horario, oficiales)"),
+            ("assign_delegate", "Puede asignar delegados a los partidos"),
+            ("assign_referees", "Puede asignar árbitros a los partidos"),
             ("generate_fixture", "Puede generar el fixture"),
             ("adjust_match", "Puede ajustar partidos confirmados con exposición de motivos"),
             ("confirm_assignment", "Puede confirmar o rechazar su asignación"),
             ("operate_match", "Puede operar la mesa técnica de sus partidos"),
             ("operate_any_match", "Puede operar la mesa técnica de cualquier partido"),
             ("submit_lineup", "Puede cargar alineaciones de sus equipos"),
-            ("verify_lineup", "Puede verificar documentación/alineaciones en mesa técnica"),
             ("submit_delegate_report", "Puede enviar el informe del delegado"),
             ("submit_referee_report", "Puede enviar el informe arbitral"),
             ("return_report", "Puede devolver informes para corrección"),

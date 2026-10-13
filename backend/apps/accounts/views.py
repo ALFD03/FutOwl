@@ -13,6 +13,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from apps.audit.services import record
 from apps.core.permissions import ModelActionPermission, require_authenticated
 
+from . import capabilities
 from .models import User
 from .serializers import (
     ChangePasswordSerializer,
@@ -133,6 +134,13 @@ def logout_view(request):
 @require_authenticated
 def me_view(request):
     return Response(MeSerializer(request.user).data)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def capabilities_view(request):
+    """Catálogo de capacidades (lo que se asigna a roles y usuarios)."""
+    return Response({"areas": capabilities.AREAS, "capabilities": capabilities.catalog()})
 
 
 @api_view(["POST"])

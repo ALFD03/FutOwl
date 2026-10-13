@@ -14,9 +14,9 @@ const TONES: Record<Tone, string> = {
   sky: "bg-sky-50 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300",
 };
 
-export function Badge({ children, tone = "slate", className, dot }: { children: ReactNode; tone?: Tone; className?: string; dot?: boolean }) {
+export function Badge({ children, tone = "slate", className, dot, title }: { children: ReactNode; tone?: Tone; className?: string; dot?: boolean; title?: string }) {
   return (
-    <span className={cn("badge", TONES[tone], className)}>
+    <span className={cn("badge", TONES[tone], className)} title={title}>
       {dot && <span className="h-1.5 w-1.5 rounded-full bg-current" />}
       {children}
     </span>

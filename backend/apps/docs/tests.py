@@ -6,18 +6,13 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 
 from apps.accounts import roles
-from apps.accounts.views import PermissionViewSet
+from apps.accounts.capabilities import CAPABILITIES
 from apps.core import factories as f
 from apps.core.models import ImmutableRecordError
 
 from .loader import read_pages
 from .models import DocPage, DocRevision
 
-# Tablas cuyos permisos no habilitan acciones por sí solos: el catálogo los explica en bloque.
-INTERNAL_MODELS = {
-    "lineup", "lineupplayer", "matchevent", "matchconfirmation", "matchadjustment", "matchreport", "reportreturn",
-    "matchclosure", "termsacceptance", "notification",
-}
 WIDGETS = {"futowl-roles", "futowl-permisos", "futowl-mis-permisos"}
 
 
@@ -47,15 +42,10 @@ class DocContentTests(TestCase):
             for lang in re.findall(r"^```(futowl-[a-z-]+)", page["content"], re.MULTILINE):
                 self.assertIn(lang, WIDGETS, page["slug"])
 
-    def test_permission_catalog_documents_every_actionable_permission(self):
+    def test_permission_catalog_documents_every_capability(self):
         content = next(p["content"] for p in self.pages if p["slug"] == "catalogo-de-permisos")
-        missing = [
-            f"{p.content_type.app_label}.{p.codename}"
-            for p in PermissionViewSet.queryset.all()
-            if p.content_type.model not in INTERNAL_MODELS and f"`{p.content_type.app_label}.{p.codename}`" not in content
-            and not p.codename.startswith(("view_terms", "change_terms", "delete_terms"))
-        ]
-        self.assertEqual(missing, [], "Documente estos permisos en catalogo-de-permisos.md")
+        missing = [c.label for c in CAPABILITIES if f"**{c.label}**" not in content]
+        self.assertEqual(missing, [], "Documente estas capacidades en catalogo-de-permisos.md")
 
     def test_predefined_roles_are_documented(self):
         content = next(p["content"] for p in self.pages if p["slug"] == "roles-predefinidos")

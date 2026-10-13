@@ -4,7 +4,7 @@ summary: Crear un club, su ficha, categorías, cuerpo técnico, plantel y usuari
 section: manual
 order: 80
 ---
-**Ruta:** Registro → Equipos (`/app/equipos`) · **Permisos:** `registry.view_team` para ver; `registry.add_team` para crear; `registry.change_team` para editar cualquier equipo (administrador del registro).
+**Ruta:** Registro → Equipos (`/app/equipos`) · **Capacidades:** *Consultar el registro* para ver; *Administrar todos los equipos* para crear clubes y editar cualquier equipo. Gestores y entrenadores manejan lo de **su** equipo con *Gestionar plantilla*, *Gestionar entrenadores* y *Gestionar nómina*.
 
 ## Crear un equipo
 
@@ -47,11 +47,11 @@ Detalle en [Inscripciones, grupos y nómina](/app/ayuda/inscripciones-grupos-y-n
 
 ### Cuerpo técnico
 
-Busque y **asigne** entrenadores **libres** al equipo, o pulse **Nuevo entrenador** para registrarlo (con licencia y, si quiere, usuario de acceso) y dejarlo asignado en un solo paso (`registry.add_coach`). El ícono de lápiz **edita** sus datos, licencia y usuario de acceso (solo los entrenadores del propio equipo, salvo un administrador); el ícono de quitar lo libera. Un entrenador solo puede estar en **un equipo a la vez** y no puede dirigir a dos equipos del mismo torneo en curso.
+Busque y **asigne** entrenadores **libres** al equipo, o pulse **Nuevo entrenador** para registrarlo (con licencia y, si quiere, usuario de acceso) y dejarlo asignado en un solo paso (*Gestionar entrenadores*). El ícono de lápiz **edita** sus datos, licencia y usuario de acceso (solo los entrenadores del propio equipo, salvo un administrador); el ícono de quitar lo libera. Un entrenador solo puede estar en **un equipo a la vez** y no puede dirigir a dos equipos del mismo torneo en curso.
 
 ### Categorías
 
-Marque las categorías en las que compite el equipo y pulse **Guardar categorías**. Solo un administrador del registro (`registry.change_team`) puede cambiarlas.
+Marque las categorías en las que compite el equipo y pulse **Guardar categorías**. Solo un administrador del registro (*Administrar todos los equipos*) puede cambiarlas.
 
 ### Acceso (solo administradores)
 
@@ -59,13 +59,13 @@ Usuarios **gestores** del equipo: cargan nómina y alineaciones y confirman asis
 
 ## Quién puede hacer qué en un equipo
 
-| Acción | Administrador del registro (`registry.change_team`) | Gestor del equipo / entrenador con usuario |
+| Acción | Administrador del registro (*Administrar todos los equipos*) | Gestor del equipo / entrenador con usuario |
 |--------|:---:|:---:|
 | Editar datos del equipo, categorías, acceso | ✅ | ❌ |
-| Inscribir/dar de baja jugadores en la nómina | ✅ | ✅ (con `tournaments.add_teamplayer` y `tournaments.change_teamplayer`) |
-| Crear jugadores para el equipo | ✅ | ✅ (con `registry.add_player`) |
-| Actualizar la ficha de jugadores del plantel actual | ✅ | ✅ (con `registry.change_player`) |
-| Asignar o liberar entrenadores | ✅ | ✅ solo entrenadores libres o propios (con `registry.change_coach`) |
+| Inscribir/dar de baja jugadores en la nómina | ✅ | ✅ (con *Gestionar nómina*) |
+| Crear jugadores para el equipo | ✅ | ✅ (con *Gestionar plantilla*) |
+| Actualizar la ficha de jugadores del plantel actual | ✅ | ✅ (con *Gestionar plantilla*) |
+| Asignar o liberar entrenadores | ✅ | ✅ solo entrenadores libres o propios (con *Gestionar entrenadores*) |
 
 > [!IMPORTANT]
 > Además del permiso, FutOwl verifica que el usuario sea **gestor** del equipo o el **entrenador vinculado**. Un gestor de *Águilas FC* no puede tocar la nómina de *Toros* aunque tenga el permiso.

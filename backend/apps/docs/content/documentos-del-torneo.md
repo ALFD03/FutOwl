@@ -4,7 +4,7 @@ summary: Exportar planilla de alineación, tarjetas de cambio y reglamento en PD
 section: manual
 order: 220
 ---
-**Dónde:** torneo → **Documentación**. Cualquier usuario que pueda ver el torneo puede **exportar**; para guardar el reglamento o importar plantillas se necesita `tournaments.change_tournament`.
+**Dónde:** torneo → **Documentación**. Cualquier usuario que pueda ver el torneo puede **exportar**; para guardar el reglamento o importar plantillas se necesita *Gestionar torneos*.
 
 ## Exportar
 

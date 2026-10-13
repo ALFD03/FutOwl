@@ -634,7 +634,23 @@ export interface DocRevision {
   edited_by_name: string;
 }
 
-export interface PermissionCatalog {
+/** Capacidad: función asignable a roles y usuarios; agrupa los permisos técnicos que necesita. */
+export interface Capability {
+  code: string;
+  area: string;
+  label: string;
+  description: string;
+  /** Ids de los permisos técnicos que otorga (lo que realmente se guarda en roles y usuarios). */
+  permissions: ID[];
+  grants: string[];
+}
+
+export interface CapabilityCatalog {
+  areas: string[];
+  capabilities: Capability[];
+}
+
+export interface PermissionCatalog extends CapabilityCatalog {
   permissions: Permission[];
-  roles: { id: ID; name: string; user_count: number; permissions: string[] }[];
+  roles: { id: ID; name: string; user_count: number; permissions: string[]; capabilities: string[] }[];
 }

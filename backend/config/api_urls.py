@@ -71,6 +71,7 @@ public_urls = [
 urlpatterns = [
     path("time/", core.server_time, name="server-time"),
     path("health/", core.health, name="health"),
+    path("capabilities/", accounts.capabilities_view, name="capabilities"),
     path("auth/", include(auth_urls)),
     path("legal/", include(legal_urls)),
     path("public/", include(public_urls)),

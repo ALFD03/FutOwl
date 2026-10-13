@@ -14,7 +14,7 @@ Revise que:
 
 1. El partido esté **Pendiente** o **Confirmado** (no en borrador).
 2. Usted sea la **parte asignada** (su fila del panel debe corresponder a su posición).
-3. Tenga el permiso `competition.confirm_assignment`.
+3. Tenga el permiso *Confirmar asistencia*.
 4. No haya confirmado ya (la confirmación queda bloqueada) ni tenga un rechazo **en revisión**.
 
 ### Confirmé por error / ya no puedo asistir
@@ -37,7 +37,7 @@ Faltan confirmaciones de **la terna exigida** por el torneo (principal y, según
 
 ### Necesito cambiar la hora o la cancha de un partido ya enviado
 
-**Ajustar** en la ficha del partido (permiso `competition.adjust_match`), solo antes de que inicie. Al cambiar cancha u horario **todos** (oficiales y equipos) deben volver a confirmar y el partido vuelve a *Pendiente*.
+**Ajustar** en la ficha del partido (permiso *Ajustar partidos confirmados*), solo antes de que inicie. Al cambiar cancha u horario **todos** (oficiales y equipos) deben volver a confirmar y el partido vuelve a *Pendiente*.
 
 ### «Solo se pueden ajustar partidos pendientes o confirmados que no hayan iniciado»
 

@@ -24,9 +24,9 @@ export function UsersPage() {
     { name: "phone", label: "Teléfono", type: "phone" },
     { name: "password", label: "Contraseña", type: "password", help: "Obligatoria al crear. Al editar, déjela vacía para no cambiarla." },
     { name: "must_change_password", label: "Cambio obligatorio", type: "checkbox", placeholder: "Exigir cambio de contraseña" },
-    { name: "groups", label: "Roles", type: "multiselect", wide: true, section: "Roles y permisos",
-      source: { service: roles, label: (r: Role) => r.name, hint: (r: Role) => `${r.permissions.length} permisos` } },
-    { name: "user_permissions", label: "Permisos", type: "custom", section: "Roles y permisos", emits: ["user_permissions"],
+    { name: "groups", label: "Roles", type: "multiselect", wide: true, section: "Roles y capacidades",
+      source: { service: roles, label: (r: Role) => r.name } },
+    { name: "user_permissions", label: "Capacidades extra", type: "custom", section: "Roles y capacidades", emits: ["user_permissions"],
       initial: (source) => ({ user_permissions: (source?.user_permissions as number[] | undefined) ?? [] }),
       render: ({ values, setValue }) => {
         // Lo que dan los roles elegidos se ve encendido y bloqueado; lo demás es personalización del usuario.
@@ -34,7 +34,7 @@ export function UsersPage() {
         const custom = ((values.user_permissions as number[]) ?? []).filter((id) => !fromRoles.has(id));
         return (
           <div>
-            <p className="mb-3 text-xs text-slate-500 dark:text-slate-400">Los permisos marcados «Por rol» vienen de los roles elegidos. Encienda otros para personalizar este usuario.</p>
+            <p className="mb-3 text-xs text-slate-500 dark:text-slate-400">Las capacidades marcadas «Por rol» vienen de los roles elegidos. Encienda otras para dárselas solo a este usuario.</p>
             <PermissionPicker value={custom} locked={fromRoles} onChange={(ids) => setValue("user_permissions", ids)} disabled={!canChange} />
           </div>
         );
@@ -42,7 +42,7 @@ export function UsersPage() {
   ];
 
   return (
-    <ResourcePage<User & { is_active: boolean }> title="Usuarios" subtitle="Cuentas, roles y permisos personalizados" icon={<Users className="h-6 w-6" />}
+    <ResourcePage<User & { is_active: boolean }> title="Usuarios" subtitle="Cuentas, roles y capacidades extra" icon={<Users className="h-6 w-6" />}
       service={users} model="accounts.user" createLabel="Nuevo usuario" fields={fields} formSize="xl"
       toForm={(u) => ({ ...u, password: "" })}
       rowActions={(u) => canChange && (

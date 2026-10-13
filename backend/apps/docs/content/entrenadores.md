@@ -4,7 +4,7 @@ summary: Cuerpo técnico, licencias, equipo asignado y usuario de acceso
 section: manual
 order: 100
 ---
-**Ruta:** Registro → Entrenadores (`/app/entrenadores`) · **Permisos:** `registry.view_coach`, `registry.add_coach`, `registry.change_coach`.
+**Ruta:** Registro → Entrenadores (`/app/entrenadores`) · **Capacidades:** *Consultar el registro* para ver; *Gestionar entrenadores* para registrar, editar y asignar.
 
 ## Campos
 

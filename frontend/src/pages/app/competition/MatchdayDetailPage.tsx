@@ -20,6 +20,13 @@ export function MatchdayDetailPage() {
   const [adding, setAdding] = useState(false);
   const [confirm, setConfirm] = useState<"submit" | "close" | "delete" | null>(null);
   const canSchedule = useCan("competition.change_match");
+  // Los jefes de delegados / árbitros solo asignan a los oficiales de su tipo (no cancha ni horario).
+  const scope: AssignScope = {
+    schedule: canSchedule,
+    delegate: useCan(["competition.change_match", "competition.assign_delegate"], "any"),
+    referees: useCan(["competition.change_match", "competition.assign_referees"], "any"),
+  };
+  const canEditRows = scope.schedule || scope.delegate || scope.referees;
 
   const md = useQuery({ queryKey: ["matchdays", id], queryFn: () => matchdays.get(id) });
   const list = useQuery({ queryKey: ["matches", "matchday", id], queryFn: () => matches.all({ matchday: id, ordering: "scheduled_start" }), refetchInterval: 20_000 });
@@ -74,8 +81,8 @@ export function MatchdayDetailPage() {
 
       {!list.data?.length && !list.isLoading ? <div className="card"><EmptyState title="Sin partidos" message="Agregue partidos del fixture a esta jornada." /></div> : (
         <div className="space-y-4">
-          {(list.data ?? []).map((m) => draft && canSchedule
-            ? <ScheduleRow key={m.id} match={m} referees_required={m.rules.referees_required} incomplete={completeness.data?.incomplete[m.id]} onSaved={refresh} />
+          {(list.data ?? []).map((m) => draft && canEditRows
+            ? <ScheduleRow key={m.id} match={m} scope={scope} referees_required={m.rules.referees_required} incomplete={completeness.data?.incomplete[m.id]} onSaved={refresh} />
             : <ReadOnlyRow key={m.id} match={m} />)}
         </div>
       )}
@@ -107,14 +114,16 @@ function ReadOnlyRow({ match }: { match: Match }) {
   );
 }
 
-function OfficialSelect({ value, onChange, options, placeholder }: { value: number | null; onChange: (v: number | null) => void; options: { id: number; full_name: string }[]; placeholder: string }) {
+interface AssignScope { schedule: boolean; delegate: boolean; referees: boolean }
+
+function OfficialSelect({ value, onChange, options, placeholder, disabled }: { value: number | null; onChange: (v: number | null) => void; options: { id: number; full_name: string }[]; placeholder: string; disabled?: boolean }) {
   return (
-    <SelectMenu value={value} onChange={(v) => onChange(v == null ? null : Number(v))} clearable placeholder={placeholder} className="py-1.5 text-xs"
+    <SelectMenu value={value} onChange={(v) => onChange(v == null ? null : Number(v))} clearable placeholder={placeholder} className="py-1.5 text-xs" disabled={disabled}
       options={options.map((o) => ({ value: o.id, label: o.full_name }))} />
   );
 }
 
-function ScheduleRow({ match, referees_required, incomplete, onSaved }: { match: Match; referees_required: number; incomplete?: string[]; onSaved: () => Promise<void> }) {
+function ScheduleRow({ match, scope, referees_required, incomplete, onSaved }: { match: Match; scope: AssignScope; referees_required: number; incomplete?: string[]; onSaved: () => Promise<void> }) {
   const toast = useToast();
   const [form, setForm] = useState({
     field: match.field, scheduled_start: match.scheduled_start, delegate: match.delegate, referee: match.referee,
@@ -132,8 +141,13 @@ function ScheduleRow({ match, referees_required, incomplete, onSaved }: { match:
     setBusy(true);
     setErrors({});
     try {
-      // Fin y mini cancha se recalculan en el servidor (duración del torneo + primera mini cancha libre)
-      await matches.update(match.id, { ...form, scheduled_end: null, sub_field: null });
+      // Fin y mini cancha se recalculan en el servidor (duración del torneo + primera mini cancha libre).
+      // Quien solo asigna oficiales envía únicamente los campos que le corresponden.
+      const payload = scope.schedule ? { ...form, scheduled_end: null, sub_field: null } : {
+        ...(scope.delegate ? { delegate: form.delegate } : {}),
+        ...(scope.referees ? { referee: form.referee, assistant_referee_1: form.assistant_referee_1, assistant_referee_2: form.assistant_referee_2 } : {}),
+      };
+      await matches.update(match.id, payload);
       toast.success("Partido programado (validado contra solapamientos).");
       await onSaved();
     } catch (e) {
@@ -161,42 +175,42 @@ function ScheduleRow({ match, referees_required, incomplete, onSaved }: { match:
           <span className="ml-2 text-xs font-normal text-slate-500">Fecha {match.round_number}{match.group_name ? ` · ${match.group_name}` : ""}</span></Link>
         <div className="flex items-center gap-2">
           {incomplete?.length ? <Badge tone="amber"><AlertTriangle className="h-3 w-3" /> Falta: {incomplete.map((f) => FIELD_LABELS[f] ?? f).join(", ")}</Badge> : <Badge tone="emerald"><CheckCircle2 className="h-3 w-3" /> Completo</Badge>}
-          <button className="btn-ghost btn-sm" onClick={removeFromMatchday} title="Quitar de la jornada"><X className="h-4 w-4" /></button>
+          {scope.schedule && <button className="btn-ghost btn-sm" onClick={removeFromMatchday} title="Quitar de la jornada"><X className="h-4 w-4" /></button>}
         </div>
       </div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div>
           <label className="label">Cancha</label>
-          <SelectMenu value={form.field ?? null} onChange={(v) => set("field", v == null ? null : Number(v))} clearable className="py-1.5 text-xs" invalid={Boolean(errors.field)}
+          <SelectMenu value={form.field ?? null} onChange={(v) => set("field", v == null ? null : Number(v))} clearable className="py-1.5 text-xs" invalid={Boolean(errors.field)} disabled={!scope.schedule}
             options={(fieldsQ.data ?? []).map((f) => ({ value: f.id, label: f.name, hint: `Capacidad: ${f.capacity} partido(s) simultáneo(s)` }))} />
           {errors.field && <p className="error-text">{errors.field}</p>}
         </div>
         <div>
           <label className="label">Inicio</label>
-          <DateTimeInput value={form.scheduled_start} onChange={(v) => set("scheduled_start", v)} invalid={Boolean(errors.scheduled_start)} />
+          <DateTimeInput value={form.scheduled_start} onChange={(v) => set("scheduled_start", v)} invalid={Boolean(errors.scheduled_start)} disabled={!scope.schedule} />
           {match.scheduled_end && <p className="help">Fin: {formatTime(match.scheduled_end)}</p>}
         </div>
         <div>
           <label className="label">Delegado</label>
-          <OfficialSelect value={form.delegate} onChange={(v) => set("delegate", v)} options={delegatesQ.data ?? []} placeholder="Seleccione…" />
+          <OfficialSelect value={form.delegate} onChange={(v) => set("delegate", v)} options={delegatesQ.data ?? []} placeholder="Seleccione…" disabled={!scope.delegate} />
           {errors.delegate && <p className="error-text">{errors.delegate}</p>}
         </div>
         <div>
           <label className="label">Árbitro principal</label>
-          <OfficialSelect value={form.referee} onChange={(v) => set("referee", v)} options={refs} placeholder="Seleccione…" />
+          <OfficialSelect value={form.referee} onChange={(v) => set("referee", v)} options={refs} placeholder="Seleccione…" disabled={!scope.referees} />
           {errors.referee && <p className="error-text">{errors.referee}</p>}
         </div>
         {referees_required >= 2 && (
           <div>
             <label className="label">Asistente 1</label>
-            <OfficialSelect value={form.assistant_referee_1} onChange={(v) => set("assistant_referee_1", v)} options={refs} placeholder="Seleccione…" />
+            <OfficialSelect value={form.assistant_referee_1} onChange={(v) => set("assistant_referee_1", v)} options={refs} placeholder="Seleccione…" disabled={!scope.referees} />
             {errors.assistant_referee_1 && <p className="error-text">{errors.assistant_referee_1}</p>}
           </div>
         )}
         {referees_required >= 3 && (
           <div>
             <label className="label">Asistente 2</label>
-            <OfficialSelect value={form.assistant_referee_2} onChange={(v) => set("assistant_referee_2", v)} options={refs} placeholder="Seleccione…" />
+            <OfficialSelect value={form.assistant_referee_2} onChange={(v) => set("assistant_referee_2", v)} options={refs} placeholder="Seleccione…" disabled={!scope.referees} />
             {errors.assistant_referee_2 && <p className="error-text">{errors.assistant_referee_2}</p>}
           </div>
         )}

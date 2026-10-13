@@ -1,10 +1,10 @@
 ---
 title: Usuarios
-summary: Crear cuentas, asignar roles y permisos personalizados, restablecer contraseñas y desbloquear
+summary: Crear cuentas, asignar roles y capacidades extra, restablecer contraseñas y desbloquear
 section: manual
 order: 240
 ---
-**Ruta:** Administración → Usuarios (`/app/usuarios`) · **Permisos:** `accounts.view_user` (ver), `accounts.add_user` (crear), `accounts.change_user` (editar, desactivar, desbloquear).
+**Ruta:** Administración → Usuarios (`/app/usuarios`) · **Capacidades:** *Ver usuarios* para ver; *Gestionar usuarios* para crear, editar, desactivar y desbloquear.
 
 ## Crear un usuario
 
@@ -17,7 +17,7 @@ order: 240
 | **Contraseña** | Obligatoria al crear (mín. 10 caracteres, no común, no solo números). Al editar, déjela vacía para no cambiarla. |
 | Cambio obligatorio | Exige que el usuario cambie la contraseña al entrar (se le muestra el aviso en *Mi cuenta*). |
 | **Roles** | Uno o varios. |
-| **Permisos** | Permisos adicionales solo para este usuario. Los que ya vienen de los roles elegidos aparecen encendidos y bloqueados (*Por rol*). |
+| **Capacidades extra** | Capacidades adicionales solo para este usuario. Las que ya vienen de los roles elegidos aparecen encendidas y bloqueadas (*Por rol*). |
 
 > [!TIP]
 > Para delegados, árbitros, entrenadores y gestores de equipo es más práctico crear el usuario **desde su ficha** (sección *Usuario de acceso*): queda vinculado y con el rol correcto en un solo paso.

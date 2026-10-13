@@ -10,7 +10,7 @@ La tarjeta se muestra solo lectura si:
 
 - El partido no está *Pendiente* o *Confirmado*, o **ya inició**.
 - La alineación ya fue **verificada** por el delegado.
-- Usted no es gestor/entrenador vinculado del equipo o le falta `competition.submit_lineup`.
+- Usted no es gestor/entrenador vinculado del equipo o le falta *Cargar alineaciones*.
 
 ### Un jugador no aparece en la lista de la alineación
 
@@ -25,7 +25,7 @@ Solo aparecen los jugadores **activos en la nómina del equipo para ese torneo**
 
 ### No veo la consola de la mesa técnica, solo la cronología
 
-Solo la ve el **delegado asignado** (su usuario vinculado) con `competition.operate_match`, o un usuario con `competition.operate_any_match`. Si es el delegado, revise el vínculo de su usuario en **Mi cuenta**.
+Solo la ve el **delegado asignado** (su usuario vinculado) con *Mesa técnica de sus partidos*, o un usuario con *Mesa técnica de cualquier partido*. Si es el delegado, revise el vínculo de su usuario en **Mi cuenta**.
 
 ### «La mesa técnica se habilita cuando el partido está confirmado…»
 

@@ -4,7 +4,7 @@ summary: Ficha única del jugador, edad, representante obligatorio para menores,
 section: manual
 order: 90
 ---
-**Rutas:** Registro → Jugadores (`/app/jugadores`) y Registro → Representantes (`/app/representantes`) · **Permisos:** `registry.view_player` / `add_player` / `change_player` y `registry.view_guardian` / `add_guardian` / `change_guardian`.
+**Rutas:** Registro → Jugadores (`/app/jugadores`) y Registro → Representantes (`/app/representantes`) · **Capacidades:** *Consultar el registro* para ver; *Gestionar plantilla* para registrar y editar jugadores y representantes.
 
 ## La ficha única del jugador
 

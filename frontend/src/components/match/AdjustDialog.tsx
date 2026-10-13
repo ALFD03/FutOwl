@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { DateTimeInput } from "@/components/forms";
 import { Alert, Modal, SelectMenu, Spinner } from "@/components/ui";
-import { useToast } from "@/hooks";
+import { useCan, useToast } from "@/hooks";
 import { delegates, fields as fieldsService, matches, referees } from "@/services";
 import type { Match } from "@/types";
 import { errorMessage } from "@/utils/errors";
@@ -12,6 +12,10 @@ import { errorMessage } from "@/utils/errors";
 export function AdjustDialog({ match, open, onClose }: { match: Match; open: boolean; onClose: () => void }) {
   const toast = useToast();
   const queryClient = useQueryClient();
+  // Con «Ajustar partidos» se cambia todo; los jefes de delegados / árbitros, solo sus oficiales.
+  const full = useCan("competition.adjust_match");
+  const canDelegate = useCan(["competition.adjust_match", "competition.assign_delegate"], "any");
+  const canReferees = useCan(["competition.adjust_match", "competition.assign_referees"], "any");
   const [form, setForm] = useState({
     field: match.field, scheduled_start: match.scheduled_start, scheduled_end: match.scheduled_end, delegate: match.delegate,
     referee: match.referee, assistant_referee_1: match.assistant_referee_1, assistant_referee_2: match.assistant_referee_2,
@@ -37,8 +41,8 @@ export function AdjustDialog({ match, open, onClose }: { match: Match; open: boo
     }
   };
 
-  const select = (key: keyof typeof form, options: { id: number; label: string }[]) => (
-    <SelectMenu value={(form[key] as number | null) ?? null} clearable placeholder="Sin cambio"
+  const select = (key: keyof typeof form, options: { id: number; label: string }[], disabled = false) => (
+    <SelectMenu value={(form[key] as number | null) ?? null} clearable placeholder="Sin cambio" disabled={disabled}
       onChange={(v) => setForm((f) => ({ ...f, [key]: v == null ? null : Number(v) }))} options={options.map((o) => ({ value: o.id, label: o.label }))} />
   );
   const refs = (refereesQ.data ?? []).map((r) => ({ id: r.id, label: r.full_name }));
@@ -50,13 +54,13 @@ export function AdjustDialog({ match, open, onClose }: { match: Match; open: boo
     }>
       <Alert tone="warning">El registro anterior no se modifica ni se borra: queda como evidencia junto a este ajuste. Se notificará a los involucrados.</Alert>
       <div className="mt-5 grid gap-4 sm:grid-cols-2">
-        <div><label className="label">Cancha</label>{select("field", (fieldsQ.data ?? []).map((f) => ({ id: f.id, label: `${f.name} (cap. ${f.capacity})` })))}</div>
-        <div><label className="label">Delegado</label>{select("delegate", (delegatesQ.data ?? []).map((d) => ({ id: d.id, label: d.full_name })))}</div>
-        <div><label className="label">Inicio</label><DateTimeInput value={form.scheduled_start} onChange={(v) => setForm((f) => ({ ...f, scheduled_start: v }))} /></div>
-        <div><label className="label">Fin</label><DateTimeInput value={form.scheduled_end} onChange={(v) => setForm((f) => ({ ...f, scheduled_end: v }))} /></div>
-        <div><label className="label">Árbitro principal</label>{select("referee", refs)}</div>
-        <div><label className="label">Asistente 1</label>{select("assistant_referee_1", refs)}</div>
-        <div><label className="label">Asistente 2</label>{select("assistant_referee_2", refs)}</div>
+        <div><label className="label">Cancha</label>{select("field", (fieldsQ.data ?? []).map((f) => ({ id: f.id, label: `${f.name} (cap. ${f.capacity})` })), !full)}</div>
+        <div><label className="label">Delegado</label>{select("delegate", (delegatesQ.data ?? []).map((d) => ({ id: d.id, label: d.full_name })), !canDelegate)}</div>
+        <div><label className="label">Inicio</label><DateTimeInput value={form.scheduled_start} onChange={(v) => setForm((f) => ({ ...f, scheduled_start: v }))} disabled={!full} /></div>
+        <div><label className="label">Fin</label><DateTimeInput value={form.scheduled_end} onChange={(v) => setForm((f) => ({ ...f, scheduled_end: v }))} disabled={!full} /></div>
+        <div><label className="label">Árbitro principal</label>{select("referee", refs, !canReferees)}</div>
+        <div><label className="label">Asistente 1</label>{select("assistant_referee_1", refs, !canReferees)}</div>
+        <div><label className="label">Asistente 2</label>{select("assistant_referee_2", refs, !canReferees)}</div>
       </div>
       <div className="mt-5">
         <label className="label">Exposición de motivos *</label>

@@ -6,7 +6,7 @@ order: 130
 ---
 ## Inscribir equipos
 
-**Torneo → Equipos y grupos → Inscribir equipo** (permiso `tournaments.add_tournamentteam`):
+**Torneo → Equipos y grupos → Inscribir equipo** (permiso *Inscripciones y grupos*):
 
 1. **Categoría**: una de las permitidas por el torneo.
 2. **Equipo**: el listado muestra entre paréntesis las categorías de cada equipo.
@@ -23,9 +23,9 @@ Un mismo equipo puede inscribirse en **varias categorías** del torneo (una insc
 
 ## Grupos
 
-**Torneo → Equipos y grupos → + Grupo** (permiso `tournaments.add_group`): nombre (*Grupo A*) y categoría. El nombre es único por torneo y categoría.
+**Torneo → Equipos y grupos → + Grupo** (permiso *Inscripciones y grupos*): nombre (*Grupo A*) y categoría. El nombre es único por torneo y categoría.
 
-Para asignar un equipo a un grupo, use el selector **Grupo** en su fila de *Equipos inscritos* (permiso `tournaments.change_tournamentteam`). Si no hay grupos, el torneo funciona como **liga única** por categoría.
+Para asignar un equipo a un grupo, use el selector **Grupo** en su fila de *Equipos inscritos* (permiso *Inscripciones y grupos*). Si no hay grupos, el torneo funciona como **liga única** por categoría.
 
 Los grupos se usan para:
 

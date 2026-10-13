@@ -5,7 +5,7 @@ section: manual
 order: 180
 ---
 **Dónde:** ficha del partido → **Mesa técnica** (se abre sola para el delegado asignado).
-**Quién:** el **delegado asignado** con el permiso `competition.operate_match`, o usuarios con `competition.operate_any_match`.
+**Quién:** el **delegado asignado** con el permiso *Mesa técnica de sus partidos*, o usuarios con *Mesa técnica de cualquier partido*.
 **Cuándo:** con el partido **Confirmado**, **En juego** o **Finalizado**.
 
 Cada acción queda registrada con **hora exacta del servidor (UTC-4)**, número de secuencia y usuario. Los eventos **no se editan ni se borran**.

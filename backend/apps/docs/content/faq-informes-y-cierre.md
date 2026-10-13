@@ -8,7 +8,7 @@ order: 70
 
 - El partido debe estar **Finalizado** (el delegado debe haber pulsado *Fin del partido*).
 - Debe ser el **delegado asignado** o el **árbitro principal** (los asistentes no envían informe), con su usuario vinculado.
-- Necesita `competition.submit_delegate_report` o `competition.submit_referee_report`.
+- Necesita *Informe del delegado* o *Informe arbitral*.
 - Si ya lo envió, no podrá enviar otro salvo que se lo **devuelvan**.
 
 ### Me equivoqué en el informe

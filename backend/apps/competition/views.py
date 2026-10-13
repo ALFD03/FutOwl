@@ -55,6 +55,26 @@ class MatchdayViewSet(viewsets.ModelViewSet):
         return Response(self.get_serializer(matchday).data)
 
 
+OFFICIAL_FIELDS = {
+    "competition.assign_delegate": {"delegate"},
+    "competition.assign_referees": {"referee", "assistant_referee_1", "assistant_referee_2"},
+}
+
+
+def assert_official_scope(user, full_perm: str, changed: set[str]):
+    """
+    Con `full_perm` (programar / ajustar) se cambia todo. Los jefes de delegados o de árbitros solo
+    asignan a los oficiales de su tipo: cualquier otro campo modificado se rechaza.
+    """
+    if user.has_perm(full_perm):
+        return
+    allowed = set().union(*(fields for perm, fields in OFFICIAL_FIELDS.items() if user.has_perm(perm)))
+    if changed - allowed:
+        names = {"delegate": "el delegado", "referee": "la terna arbitral"}
+        what = " y ".join(names[f] for f in ("delegate", "referee") if f in allowed) or "nada"
+        raise PermissionDenied(f"Solo puede asignar {what}; cancha, horario y jornada los programa la autoridad.")
+
+
 class MatchViewSet(viewsets.ModelViewSet):
     queryset = Match.objects.select_related(
         "tournament", "category", "group", "home__team", "away__team", "matchday", "field", "delegate", "referee",
@@ -65,6 +85,8 @@ class MatchViewSet(viewsets.ModelViewSet):
     filterset_fields = ["tournament", "category", "group", "matchday", "status", "field", "round_number"]
     search_fields = ["home__team__name", "away__team__name"]
     ordering_fields = ["scheduled_start", "round_number", "id"]
+    # Los asignadores de oficiales también editan el partido, pero solo sus campos (ver perform_update).
+    alternative_perms = {action: list(OFFICIAL_FIELDS) for action in ("update", "partial_update")}
 
     def get_serializer_class(self):
         if self.action in ("create", "update", "partial_update"):
@@ -89,6 +111,13 @@ class MatchViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
+
+    def perform_update(self, serializer):
+        match = serializer.instance
+        changed = {key for key, value in serializer.validated_data.items()
+                   if key in self.request.data and value != getattr(match, key)}
+        assert_official_scope(self.request.user, "competition.change_match", changed)
+        serializer.save()
 
     def perform_destroy(self, instance):
         if instance.is_locked:
@@ -128,12 +157,13 @@ class MatchViewSet(viewsets.ModelViewSet):
 
     # --------------------------------------------------------------- ajustes
     @action(detail=True, methods=["post"])
-    @require_perms("competition.adjust_match")
+    @require_perms("competition.adjust_match", *OFFICIAL_FIELDS, any_of=True)
     def adjust(self, request, pk=None):
         serializer = s.MatchAdjustSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = dict(serializer.validated_data)
         reason = data.pop("reason")
+        assert_official_scope(request.user, "competition.adjust_match", set(data))
         adjustment = scheduling.adjust_match(self.get_object(), data, reason, request.user)
         return Response(s.MatchAdjustmentSerializer(adjustment).data, status=status.HTTP_201_CREATED)
 
@@ -246,8 +276,9 @@ class MatchViewSet(viewsets.ModelViewSet):
     def add_note(self, request, pk=None):
         match = self.get_object()
         user = request.user
-        # Notas y apelaciones: oficiales del partido, el cuerpo de los dos equipos o las autoridades.
-        if not (user.is_superuser or user.has_perm("competition.schedule_match") or parties_for_user(match, user)
+        # Notas y apelaciones: oficiales del partido, el cuerpo de los dos equipos, autoridades y jefes de oficiales.
+        if not (user.is_superuser or any(user.has_perm(p) for p in ("competition.change_match", *OFFICIAL_FIELDS))
+                or parties_for_user(match, user)
                 or match.home.team.is_staff_user(user) or match.away.team.is_staff_user(user)):
             raise PermissionDenied("Solo las partes del partido pueden agregar notas o apelaciones.")
         serializer = s.MatchNoteSerializer(data=request.data, context={"request": request})

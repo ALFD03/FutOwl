@@ -4,7 +4,7 @@ summary: Sedes, medidas, canchas divisibles y capacidad de partidos simultáneos
 section: manual
 order: 70
 ---
-**Ruta:** Registro → Canchas (`/app/canchas`) · **Permisos:** `registry.view_field`, `registry.add_field`, `registry.change_field`.
+**Ruta:** Registro → Canchas (`/app/canchas`) · **Capacidades:** *Consultar el registro* para ver; *Gestionar canchas* para crear, editar y desactivar.
 
 ## Campos
 

@@ -11,12 +11,12 @@ order: 80
 ### ¿Cómo hago para que un delegado pueda operar la mesa técnica?
 
 1. El delegado debe tener **usuario vinculado** en su ficha (Registro → Delegados → editar → *Usuario de acceso*).
-2. Ese usuario debe tener el rol **Delegado** (o el permiso `competition.operate_match`).
+2. Ese usuario debe tener el rol **Delegado** (o el permiso *Mesa técnica de sus partidos*).
 3. Debe estar **asignado** al partido.
 
 ### Quiero que una persona opere la mesa técnica de cualquier partido (por ejemplo, una autoridad de apoyo)
 
-Asígnele el permiso `competition.operate_any_match` (directamente o mediante un rol). Úselo con cuidado: también permite cargar alineaciones de cualquier equipo.
+Asígnele el permiso *Mesa técnica de cualquier partido* (directamente o mediante un rol). Úselo con cuidado: también permite cargar alineaciones de cualquier equipo.
 
 ### ¿Cómo creo un rol nuevo?
 
@@ -24,15 +24,15 @@ Asígnele el permiso `competition.operate_any_match` (directamente o mediante un
 
 ### Necesito darle a una sola persona un permiso extra
 
-Edite el usuario en **Administración → Usuarios** y, en *Permisos*, encienda el permiso adicional. Los permisos de sus roles aparecen bloqueados como *Por rol*.
+Edite el usuario en **Administración → Usuarios** y, en *Capacidades extra*, encienda la capacidad adicional. Las de sus roles aparecen bloqueadas como *Por rol*.
 
 ### Los jefes de delegados o de árbitros no pueden programar partidos
 
-Para editar cancha, horario y oficiales en una jornada se necesita `competition.change_match`, que esos roles no traen por defecto. Agrégueselo al rol o a los usuarios que lo necesiten.
+Para editar cancha, horario y oficiales en una jornada se necesita *Programar jornadas y partidos*, que esos roles no traen por defecto. Agrégueselo al rol o a los usuarios que lo necesiten.
 
 ### Una autoridad no puede editar usuarios / cargar los permisos
 
-El rol *Autoridad* solo **ve** usuarios. Editar usuarios requiere `accounts.change_user` y el selector de permisos necesita poder consultar el catálogo de permisos, que por defecto solo tiene el *Administrador*.
+El rol *Autoridad* solo **ve** usuarios. Editar usuarios requiere la capacidad *Gestionar usuarios*, que por defecto solo tiene el *Administrador*.
 
 ### Restaurar los permisos originales de los roles predefinidos
 
