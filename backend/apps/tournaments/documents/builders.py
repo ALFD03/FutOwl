@@ -43,10 +43,11 @@ def lineup_sheet(tournament, team, category, roster, *, match=None, lineup=None,
             f"Fecha: {match.local_start:%d/%m/%Y %H:%M}  |  Cancha: {_safe(match.field)}"
             if match.scheduled_start else f"Partido: {_safe(match)}"
         ))
+    rules = tournament.rules_for(category.id)
     blocks += [
         Paragraph(f"Cuerpo técnico: {_safe(', '.join(c.full_name for c in coaches)) or '—'}"),
-        Paragraph(f"Máximo {tournament.max_lineup_players} jugadores convocados, "
-                  f"{tournament.starters_count} titulares."),
+        Paragraph(f"Máximo {rules.max_lineup_players} jugadores convocados, "
+                  f"{rules.starters_count} titulares."),
         Spacer(),
         Table(LINEUP_HEADERS, rows, widths=[0.6, 1.4, 3.2, 1.2, 0.8, 1.1, 1, 1]),
         Spacer(16),
@@ -79,6 +80,12 @@ def regulation(tournament):
         f"Modalidad: {tournament.get_modality_display()}  |  Duración: {tournament.match_duration_minutes} min "
         f"en {tournament.periods} tiempos  |  Puntos: G {tournament.points_win} / E {tournament.points_draw} / "
         f"P {tournament.points_loss}", bold=True))
+    for rules in tournament.category_rules.all():
+        if rules.is_active:
+            blocks.append(Paragraph(
+                f"{_safe(rules.category.name)}: {rules.match_duration_minutes} min en {rules.periods} tiempos  |  "
+                f"{rules.max_lineup_players} jugadores por planilla, {rules.starters_count} titulares  |  "
+                f"Cambios: {rules.max_substitutions if rules.max_substitutions is not None else 'ilimitados'}"))
     blocks.append(Spacer())
     text = tournament.regulation_text or "El reglamento de este torneo aún no ha sido redactado."
     for raw in text.splitlines():

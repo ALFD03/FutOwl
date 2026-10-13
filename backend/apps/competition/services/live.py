@@ -129,7 +129,8 @@ def public_state(match: Match) -> dict:
 def current_minute(match: Match) -> int | None:
     if match.phase != Match.Phase.PLAYING or not match.period_started_at:
         return None
-    period_length = match.tournament.match_duration_minutes // max(match.tournament.periods, 1)
+    rules = match.rules
+    period_length = rules.match_duration_minutes // max(rules.periods, 1)
     elapsed = int((timezone.now() - match.period_started_at).total_seconds() // 60)
     return (match.current_period - 1) * period_length + elapsed + 1
 
@@ -168,7 +169,7 @@ def _validate(match: Match, state: dict, data: dict, post_match: bool):
         _require(match.phase == Match.Phase.PLAYING, "No hay un tiempo en juego.")
     elif etype == T.PERIOD_START:
         _require(match.phase == Match.Phase.BREAK, "El partido no está en descanso.")
-        _require(match.current_period < match.tournament.periods, "Ya se jugaron todos los tiempos.")
+        _require(match.current_period < match.rules.periods, "Ya se jugaron todos los tiempos.")
     elif etype == T.MATCH_END:
         _require(state["kicked_off"] and not state["ended"], "El partido no está en juego.")
     elif etype in MatchEvent.IN_PLAY_TYPES:
@@ -186,7 +187,7 @@ def _validate(match: Match, state: dict, data: dict, post_match: bool):
         if etype == T.SUBSTITUTION:
             _require(player_id in team_state.on_field, "El jugador que sale no está en el campo.")
             _require(player_in_id in team_state.bench, "El jugador que entra no está en el banco.")
-            limit = match.tournament.max_substitutions
+            limit = match.rules.max_substitutions
             _require(limit is None or team_state.substitutions < limit, f"Se alcanzó el máximo de {limit} cambios.")
     elif etype in (T.INCIDENT, T.NOTE):
         _require(bool(data.get("notes", "").strip()), "Debe describir la incidencia.")

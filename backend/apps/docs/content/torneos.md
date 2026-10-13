@@ -1,6 +1,6 @@
 ---
 title: Torneos
-summary: Crear un torneo, sus reglas de juego, puntuación, estados y pestañas de la ficha
+summary: Crear un torneo, su puntuación, reglas de juego por categoría, estados y pestañas de la ficha
 section: manual
 order: 120
 ---
@@ -18,17 +18,31 @@ Botón **Nuevo torneo**:
 | | Fechas de inicio y fin | La de fin no puede ser anterior a la de inicio. |
 | | **Categorías permitidas** | Al menos una. |
 | | Canchas disponibles (tentativas) | Referencia para programar. |
-| Reglas de juego | Duración del partido (min) | 60 (entre 10 y 150). |
-| | Tiempos | 2 (de 1 a 4). |
-| | Descanso (min) | 10. |
-| | Cambios máximos | Vacío = ilimitados. |
-| | Jugadores por planilla | 18. |
-| | Titulares | 11 (no puede superar los jugadores por planilla). |
-| | Árbitros requeridos | 3 = terna completa; 2 = principal + asistente 1; 1 = solo principal. |
 | Puntuación | Puntos por victoria / empate / derrota | 3 / 1 / 0. |
 | Documentación (importar) | Reglamento, plantilla de planilla de alineación, plantilla de tarjeta de cambio | Archivos Word/PDF propios del torneo. |
 
+Las **reglas de juego** no se piden al crear el torneo: se configuran después, dentro del torneo, en la pestaña **Reglas de juego**.
+
+## Reglas de juego
+
+Pestaña **Reglas de juego** de la ficha del torneo:
+
+- **Reglas generales**: valen para todas las categorías que no tengan reglas propias. Se editan con **Editar** en esa tarjeta (`tournaments.change_tournament`).
+- **Por categoría**: botón **Personalizar** en la categoría para darle reglas propias (parten de las generales); **Usar generales** la devuelve a las reglas generales (`tournaments.add_categoryrules` / `tournaments.change_categoryrules`).
+
+| Regla | Valor por defecto / notas |
+|-------|---------------------------|
+| Duración del partido (min) | 60 (entre 10 y 150). |
+| Tiempos | 2 (de 1 a 4). |
+| Descanso (min) | 10. |
+| Cambios máximos | Vacío = ilimitados. |
+| Jugadores por planilla | 18. |
+| Titulares | 11 (no puede superar los jugadores por planilla). |
+| Árbitros requeridos | 3 = terna completa; 2 = principal + asistente 1; 1 = solo principal. |
+
 ## Cómo influyen las reglas
+
+Cada partido usa las reglas de **su categoría** (o las generales si la categoría no tiene propias).
 
 | Regla | Dónde se aplica |
 |-------|-----------------|
@@ -55,6 +69,7 @@ El estado se cambia con **Editar** en el encabezado del torneo.
 | Pestaña | Contenido | Capítulo |
 |---------|-----------|----------|
 | **Resumen** | Configuración y el flujo del torneo en 8 pasos. | — |
+| **Reglas de juego** | Reglas generales y reglas propias por categoría. | — |
 | **Equipos y grupos** | Inscripciones por categoría y grupos. | [Inscripciones, grupos y nómina](/app/ayuda/inscripciones-grupos-y-nomina) |
 | **Partidos** | Fixture por fecha; generar o crear partidos. | [Fixture y partidos](/app/ayuda/fixture-y-partidos) |
 | **Jornadas** | Jornadas del torneo. | [Jornadas](/app/ayuda/jornadas) |

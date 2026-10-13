@@ -13,7 +13,7 @@ import { ReportsPanel } from "@/components/match/ReportsPanel";
 import { ScoreBoard } from "@/components/match/ScoreBoard";
 import { Card, CardHeader, ConfirmDialog, KeyValue, PageLoader, Tabs } from "@/components/ui";
 import { useAuth, useLiveInterval, useToast } from "@/hooks";
-import { matches, tournaments } from "@/services";
+import { matches } from "@/services";
 import type { Match } from "@/types";
 import { formatDateTime } from "@/utils/datetime";
 import { errorMessage } from "@/utils/errors";
@@ -133,9 +133,8 @@ function display(value: unknown): string {
 
 function Lineups({ match }: { match: Match }) {
   const { data = [] } = useQuery({ queryKey: ["matches", match.id, "lineups"], queryFn: () => matches.lineups(match.id) });
-  const tournament = useQuery({ queryKey: ["tournaments", match.tournament], queryFn: () => tournaments.get(match.tournament) });
-  const max = tournament.data?.max_lineup_players ?? 18;
-  const starters = tournament.data?.starters_count ?? 11;
+  const max = match.rules.max_lineup_players;
+  const starters = match.rules.starters_count;
   return (
     <div className="grid gap-6 xl:grid-cols-2">
       <LineupEditor match={match} side="home" lineup={data.find((l) => l.team === match.home)} maxPlayers={max} starters={starters} />

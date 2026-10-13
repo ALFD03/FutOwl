@@ -93,6 +93,7 @@ Requisitos: Python 3.12+, Node 22+ y `make` (Linux/macOS; en Windows use WSL o G
 ```bash
 make setup   # instala dependencias, crea .env con claves nuevas, migra y carga datos demo
 make dev     # backend :8000 + frontend :5173 a la vez (Ctrl+C detiene ambos)
+             # si un puerto está ocupado propone otro libre; o fíjelos: make dev BACKEND_PORT=9000 FRONTEND_PORT=3000
 make         # lista todos los comandos
 ```
 
@@ -130,7 +131,7 @@ Con `seed_demo` se crean los usuarios `admin`, `autoridad`, `consulta`, `delegad
 
 ## Flujo del torneo
 
-1. **Crear el torneo** (modalidad, categorías, canchas, reglas, puntuación, documentos).
+1. **Crear el torneo** (modalidad, categorías, canchas, puntuación, documentos) y luego definir las **reglas de juego** dentro del torneo: generales y, si hace falta, propias de cada categoría.
 2. **Inscribir equipos** por categoría y, si aplica, asignarlos a **grupos**.
 3. **Generar partidos** (todos contra todos, ida y vuelta opcional) o crearlos manualmente.
 4. **Armar la jornada**: día, partido, cancha, horario, delegado y terna arbitral.
@@ -163,7 +164,7 @@ Con `seed_demo` se crean los usuarios `admin`, `autoridad`, `consulta`, `delegad
 | **Entrenador** | nombre, cédula (+ foto), teléfono, licencia (+ foto y año de vencimiento), foto |
 | **Jugador** | nombre, cédula o partida de nacimiento (+ foto), fecha de nacimiento, **edad calculada**, foto, teléfono, **representante obligatorio si es menor de 18** |
 | **Representante** | nombre, cédula, teléfono, parentesco |
-| **Torneo** | nombre, logo, modalidad, categorías, canchas, reglas, planilla de alineación, tarjetas de cambio, reglamento (texto o archivo) |
+| **Torneo** | nombre, logo, modalidad, categorías, canchas, reglas de juego (generales y por categoría), planilla de alineación, tarjetas de cambio, reglamento (texto o archivo) |
 | **Cancha** | nombre, dirección, responsable, teléfono, medidas (largo/alto y ancho), divisible, cantidad de mini canchas |
 | **Delegado / Árbitro** | nombre, cédula (+ foto), licencia (avalado / no avalado), teléfono, usuario vinculado |
 | **Categoría** | nombre (Sub 12), tope de edad (11), tope de año de nacimiento (2015) |

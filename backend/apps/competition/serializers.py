@@ -5,6 +5,7 @@ from rest_framework import serializers
 
 from apps.core.serializers import CleanModelSerializer
 from apps.registry.models import Coach, Delegate, Field, Referee
+from apps.tournaments.models import RULE_FIELDS
 
 from .models import (
     Lineup,
@@ -71,6 +72,7 @@ class MatchSerializer(serializers.ModelSerializer):
     phase_display = serializers.CharField(source="get_phase_display", read_only=True)
     is_locked = serializers.BooleanField(read_only=True)
     missing_fields = serializers.SerializerMethodField()
+    rules = serializers.SerializerMethodField()
 
     class Meta:
         model = Match
@@ -82,9 +84,13 @@ class MatchSerializer(serializers.ModelSerializer):
             "delegate_name", "referee", "referee_name", "assistant_referee_1", "assistant_referee_1_name",
             "assistant_referee_2", "assistant_referee_2_name", "status", "status_display", "phase",
             "phase_display", "current_period", "period_started_at", "assignment_version", "home_score",
-            "away_score", "is_locked", "missing_fields", "created_at", "updated_at",
+            "away_score", "is_locked", "missing_fields", "rules", "created_at", "updated_at",
         ]
         read_only_fields = fields
+
+    def get_rules(self, obj):
+        rules = obj.rules
+        return {name: getattr(rules, name) for name in RULE_FIELDS}
 
     def get_matchday_label(self, obj):
         return _name(obj.matchday)
@@ -128,8 +134,10 @@ class MatchWriteSerializer(CleanModelSerializer):
         start_changed = "scheduled_start" in attrs
         if start and not attrs.get("scheduled_end") and (start_changed or not getattr(self.instance, "scheduled_end", None)):
             tournament = attrs.get("tournament") or self.instance.tournament
+            category = attrs.get("category") or self.instance.category
+            rules = tournament.rules_for(category.pk)
             attrs["scheduled_end"] = start + timedelta(
-                minutes=tournament.match_duration_minutes + tournament.break_minutes * (tournament.periods - 1)
+                minutes=rules.match_duration_minutes + rules.break_minutes * (rules.periods - 1)
             )
         attrs = super().validate(attrs)
         probe = Match(**{**self._current_values(), **attrs})

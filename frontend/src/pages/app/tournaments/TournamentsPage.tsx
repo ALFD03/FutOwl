@@ -8,6 +8,7 @@ import { categories, fields, tournaments } from "@/services";
 import type { Category, Field, Tournament } from "@/types";
 import { formatDate } from "@/utils/datetime";
 
+/** Datos, puntuación y documentación. Las reglas de juego se configuran dentro del torneo (pestaña Reglas de juego). */
 export const TOURNAMENT_FIELDS: FieldDef[] = [
   { name: "name", label: "Nombre", type: "text", required: true, wide: true },
   { name: "logo", label: "Logo", type: "image", accept: IMAGE_ACCEPT },
@@ -24,13 +25,6 @@ export const TOURNAMENT_FIELDS: FieldDef[] = [
   { name: "end_date", label: "Fecha de fin", type: "date" },
   { name: "categories", label: "Categorías permitidas", type: "multiselect", required: true, wide: true, source: { service: categories, label: (c: Category) => c.name } },
   { name: "fields", label: "Canchas disponibles (tentativas)", type: "multiselect", wide: true, source: { service: fields, label: (f: Field) => `${f.name} (${f.capacity})` } },
-  { name: "match_duration_minutes", label: "Duración del partido (min)", type: "number", defaultValue: 60, section: "Reglas de juego" },
-  { name: "periods", label: "Tiempos", type: "number", min: 1, max: 4, defaultValue: 2, section: "Reglas de juego" },
-  { name: "break_minutes", label: "Descanso (min)", type: "number", defaultValue: 10, section: "Reglas de juego" },
-  { name: "max_substitutions", label: "Cambios máximos", type: "number", help: "Vacío = ilimitados", section: "Reglas de juego" },
-  { name: "max_lineup_players", label: "Jugadores por planilla", type: "number", defaultValue: 18, section: "Reglas de juego" },
-  { name: "starters_count", label: "Titulares", type: "number", defaultValue: 11, section: "Reglas de juego" },
-  { name: "referees_required", label: "Árbitros requeridos", type: "number", min: 1, max: 3, defaultValue: 3, section: "Reglas de juego", help: "3 = terna completa" },
   { name: "points_win", label: "Puntos por victoria", type: "number", defaultValue: 3, section: "Puntuación" },
   { name: "points_draw", label: "Puntos por empate", type: "number", defaultValue: 1, section: "Puntuación" },
   { name: "points_loss", label: "Puntos por derrota", type: "number", defaultValue: 0, section: "Puntuación" },

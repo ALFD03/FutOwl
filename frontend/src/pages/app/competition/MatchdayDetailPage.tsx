@@ -7,7 +7,7 @@ import { DateTimeInput } from "@/components/forms";
 import { Can } from "@/components/layout/Guards";
 import { Alert, Badge, ConfirmDialog, EmptyState, Modal, PageHeader, PageLoader, SelectMenu, Spinner, StatusBadge, Toggle } from "@/components/ui";
 import { useCan, useToast } from "@/hooks";
-import { delegates, fields as fieldsService, matchdays, matches, referees, tournaments } from "@/services";
+import { delegates, fields as fieldsService, matchdays, matches, referees } from "@/services";
 import type { Match } from "@/types";
 import { formatDateTime, formatLongDate, formatTime } from "@/utils/datetime";
 import { errorMessage, fieldErrors } from "@/utils/errors";
@@ -23,7 +23,6 @@ export function MatchdayDetailPage() {
 
   const md = useQuery({ queryKey: ["matchdays", id], queryFn: () => matchdays.get(id) });
   const list = useQuery({ queryKey: ["matches", "matchday", id], queryFn: () => matches.all({ matchday: id, ordering: "scheduled_start" }), refetchInterval: 20_000 });
-  const tournament = useQuery({ queryKey: ["tournaments", md.data?.tournament], queryFn: () => tournaments.get(md.data!.tournament), enabled: Boolean(md.data) });
   const completeness = useQuery({ queryKey: ["matchdays", id, "completeness", list.data], queryFn: () => matchdays.completeness(id), enabled: md.data?.status === "draft" });
 
   const refresh = async () => {
@@ -76,7 +75,7 @@ export function MatchdayDetailPage() {
       {!list.data?.length && !list.isLoading ? <div className="card"><EmptyState title="Sin partidos" message="Agregue partidos del fixture a esta jornada." /></div> : (
         <div className="space-y-4">
           {(list.data ?? []).map((m) => draft && canSchedule
-            ? <ScheduleRow key={m.id} match={m} referees_required={tournament.data?.referees_required ?? 3} incomplete={completeness.data?.incomplete[m.id]} onSaved={refresh} />
+            ? <ScheduleRow key={m.id} match={m} referees_required={m.rules.referees_required} incomplete={completeness.data?.incomplete[m.id]} onSaved={refresh} />
             : <ReadOnlyRow key={m.id} match={m} />)}
         </div>
       )}

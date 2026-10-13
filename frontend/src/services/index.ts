@@ -1,6 +1,6 @@
 import { api } from "@/api/client";
 import type {
-  Adjustment, AuditLog, Category, Coach, Confirmation, DocPage, DocPageSummary, DocRevision, Field, Group, Guardian, ID, Lineup, LiveState, Match,
+  Adjustment, AuditLog, Category, CategoryRules, Coach, Confirmation, DocPage, DocPageSummary, DocRevision, Field, Group, Guardian, ID, Lineup, LiveState, Match,
   Matchday, MatchEvent, MatchNote, MatchReport, Me, Notification, Official, Paginated, PartyStatus, Permission, PermissionCatalog,
   Player, PlayerStat, PublicMatch, PublicTournament, Registration, ReportComparison, ReviewCase, Role,
   StandingRow, Team, TeamPlayer, Terms, Tournament, User,
@@ -21,6 +21,7 @@ export const roster = createResource<TeamPlayer>("roster");
 
 // ---------------------------------------------------------------- Torneos
 export const tournaments = createResource<Tournament>("tournaments");
+export const categoryRules = createResource<CategoryRules>("category-rules");
 export const groups = createResource<Group>("groups");
 export const registrations = createResource<Registration>("registrations");
 

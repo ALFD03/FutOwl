@@ -167,7 +167,24 @@ export interface TeamPlayer extends BaseEntity {
 
 export type TournamentStatus = "draft" | "registration" | "in_progress" | "finished";
 
-export interface Tournament extends BaseEntity {
+/** Reglas de juego: las generales del torneo o las propias de una categoría. */
+export interface GameRules {
+  match_duration_minutes: number;
+  periods: number;
+  break_minutes: number;
+  max_substitutions: number | null;
+  max_lineup_players: number;
+  starters_count: number;
+  referees_required: number;
+}
+
+export interface CategoryRules extends BaseEntity, GameRules {
+  tournament: ID;
+  category: ID;
+  category_name: string;
+}
+
+export interface Tournament extends BaseEntity, GameRules {
   name: string;
   logo: string | null;
   modality: string;
@@ -180,13 +197,6 @@ export interface Tournament extends BaseEntity {
   field_names: string[];
   start_date: string | null;
   end_date: string | null;
-  match_duration_minutes: number;
-  periods: number;
-  break_minutes: number;
-  max_substitutions: number | null;
-  max_lineup_players: number;
-  starters_count: number;
-  referees_required: number;
   points_win: number;
   points_draw: number;
   points_loss: number;
@@ -281,6 +291,7 @@ export interface Match {
   assignment_version: number;
   home_score: number | null;
   away_score: number | null;
+  rules: GameRules;
   is_locked: boolean;
   missing_fields: string[];
 }

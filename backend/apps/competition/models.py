@@ -157,6 +157,11 @@ class Match(TimeStampedModel):
         return timezone.localtime(self.scheduled_start) if self.scheduled_start else None
 
     @property
+    def rules(self):
+        """Reglas de juego que aplican al partido (las de su categoría o las generales del torneo)."""
+        return self.tournament.rules_for(self.category_id)
+
+    @property
     def is_locked(self) -> bool:
         return self.status != self.Status.DRAFT
 

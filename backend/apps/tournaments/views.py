@@ -10,8 +10,10 @@ from apps.core.mixins import NoDeleteModelViewSet
 from apps.registry.models import Category, Team
 
 from . import documents
-from .models import Group, TeamPlayer, Tournament, TournamentTeam
-from .serializers import GroupSerializer, TeamPlayerSerializer, TournamentSerializer, TournamentTeamSerializer
+from .models import CategoryRules, Group, TeamPlayer, Tournament, TournamentTeam
+from .serializers import (
+    CategoryRulesSerializer, GroupSerializer, TeamPlayerSerializer, TournamentSerializer, TournamentTeamSerializer,
+)
 
 
 def _file_response(content: bytes, fmt: str, name: str) -> HttpResponse:
@@ -22,7 +24,7 @@ def _file_response(content: bytes, fmt: str, name: str) -> HttpResponse:
 
 
 class TournamentViewSet(NoDeleteModelViewSet):
-    queryset = Tournament.objects.prefetch_related("categories", "fields", "registrations")
+    queryset = Tournament.objects.prefetch_related("categories", "fields", "registrations", "category_rules__category")
     serializer_class = TournamentSerializer
     filterset_fields = ["is_active", "status", "modality", "categories"]
     search_fields = ["name"]
@@ -75,6 +77,14 @@ class TournamentViewSet(NoDeleteModelViewSet):
         fmt = self._format(request)
         return _file_response(documents.render(documents.regulation(tournament), fmt, "Reglamento"), fmt,
                               f"reglamento-{tournament.name}")
+
+
+class CategoryRulesViewSet(NoDeleteModelViewSet):
+    """Reglas de juego por categoría. Desactivarlas devuelve la categoría a las reglas generales."""
+
+    queryset = CategoryRules.objects.select_related("category")
+    serializer_class = CategoryRulesSerializer
+    filterset_fields = ["tournament", "category", "is_active"]
 
 
 class GroupViewSet(NoDeleteModelViewSet):

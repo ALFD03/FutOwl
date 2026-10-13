@@ -13,11 +13,12 @@ import { formatDate } from "@/utils/datetime";
 import { MatchdaysList } from "../competition/MatchdaysPage";
 import { DocumentsTab } from "./DocumentsTab";
 import { FixtureTab } from "./FixtureTab";
+import { RulesTab, rulesSummary } from "./RulesTab";
 import { StandingsTab } from "./StandingsTab";
 import { TeamsTab } from "./TeamsTab";
 import { TOURNAMENT_FIELDS } from "./TournamentsPage";
 
-type Tab = "summary" | "teams" | "fixture" | "matchdays" | "documents" | "standings";
+type Tab = "summary" | "rules" | "teams" | "fixture" | "matchdays" | "documents" | "standings";
 
 export function TournamentDetailPage() {
   const id = Number(useParams().id);
@@ -39,10 +40,11 @@ export function TournamentDetailPage() {
           {canEdit && <button className="btn-outline" onClick={() => setEditing(true)}><Pencil className="h-4 w-4" /> Editar</button>}
         </>} />
       <Tabs<Tab> value={tab} onChange={setTab} tabs={[
-        { id: "summary", label: "Resumen" }, { id: "teams", label: "Equipos y grupos" }, { id: "fixture", label: "Partidos" },
+        { id: "summary", label: "Resumen" }, { id: "rules", label: "Reglas de juego" }, { id: "teams", label: "Equipos y grupos" }, { id: "fixture", label: "Partidos" },
         { id: "matchdays", label: "Jornadas" }, { id: "documents", label: "Documentación" }, { id: "standings", label: "Posiciones" },
       ]} />
       {tab === "summary" && <Summary t={t} />}
+      {tab === "rules" && <RulesTab tournament={t} />}
       {tab === "teams" && <TeamsTab tournament={t} />}
       {tab === "fixture" && <FixtureTab tournament={t} />}
       {tab === "matchdays" && <MatchdaysList tournamentId={t.id} />}
@@ -71,17 +73,14 @@ function Summary({ t }: { t: Tournament }) {
           { label: "Categorías", value: t.category_names.map((c) => <Badge key={c} tone="gold" className="mr-1">{c}</Badge>) },
           { label: "Canchas", value: t.field_names.join(", ") || "—" },
           { label: "Equipos inscritos", value: t.team_count },
-          { label: "Duración", value: `${t.match_duration_minutes} min · ${t.periods} tiempos · ${t.break_minutes} min descanso` },
-          { label: "Planilla", value: `${t.max_lineup_players} jugadores · ${t.starters_count} titulares` },
-          { label: "Cambios", value: t.max_substitutions ?? "Ilimitados" },
-          { label: "Árbitros por partido", value: t.referees_required },
+          ...rulesSummary(t).map((item) => ({ ...item, label: `${item.label} (general)` })),
           { label: "Puntos", value: `G ${t.points_win} · E ${t.points_draw} · P ${t.points_loss}` },
         ]} />
       </div></Card>
       <Card><div className="card-body">
         <h3 className="mb-4 font-bold">Flujo del torneo</h3>
         <ol className="space-y-3 text-sm">
-          {["Crear el torneo y sus reglas", "Inscribir equipos participantes por categoría", "Establecer grupos y generar partidos",
+          {["Crear el torneo y definir sus reglas de juego por categoría", "Inscribir equipos participantes por categoría", "Establecer grupos y generar partidos",
             "Armar jornadas: día, cancha, horario, delegado y terna arbitral", "Enviar jornada → confirmaciones de oficiales y equipos",
             "Equipos cargan alineaciones antes de la jornada", "Mesa técnica en vivo a cargo del delegado",
             "Informes de delegado y árbitro → cierre por la autoridad"].map((step, i) => (

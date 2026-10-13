@@ -5,8 +5,8 @@ from ..models import OFFICIAL_PARTIES, TEAM_PARTIES, Match, MatchConfirmation, P
 
 
 def required_official_parties(match: Match) -> list[str]:
-    """Delegado + terna arbitral según lo exigido por el torneo."""
-    refs = [Party.REFEREE, Party.ASSISTANT_1, Party.ASSISTANT_2][: match.tournament.referees_required]
+    """Delegado + terna arbitral según lo exigido por las reglas de la categoría."""
+    refs = [Party.REFEREE, Party.ASSISTANT_1, Party.ASSISTANT_2][: match.rules.referees_required]
     return [Party.DELEGATE, *refs]
 
 

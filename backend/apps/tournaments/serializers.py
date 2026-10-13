@@ -2,7 +2,7 @@ from rest_framework import serializers
 
 from apps.core.serializers import CleanModelSerializer
 
-from .models import Group, TeamPlayer, Tournament, TournamentTeam
+from .models import CategoryRules, Group, TeamPlayer, Tournament, TournamentTeam
 
 BASE_READONLY = ["id", "is_active", "created_at", "updated_at"]
 
@@ -27,6 +27,18 @@ class TournamentSerializer(CleanModelSerializer):
 
     def get_team_count(self, obj):
         return sum(1 for r in obj.registrations.all() if r.is_active)
+
+
+class CategoryRulesSerializer(CleanModelSerializer):
+    category_name = serializers.CharField(source="category.name", read_only=True)
+
+    class Meta:
+        model = CategoryRules
+        fields = BASE_READONLY + [
+            "tournament", "category", "category_name", "match_duration_minutes", "periods", "break_minutes",
+            "max_substitutions", "max_lineup_players", "starters_count", "referees_required",
+        ]
+        read_only_fields = BASE_READONLY
 
 
 class GroupSerializer(CleanModelSerializer):

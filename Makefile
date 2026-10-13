@@ -3,6 +3,7 @@
 #   make            → muestra esta ayuda
 #   make setup      → instala todo y prepara la base de datos con datos demo
 #   make dev        → levanta backend (8000) y frontend (5173) a la vez
+#                     (puertos ocupados → propone otros; o fíjelos: make dev BACKEND_PORT=9000 FRONTEND_PORT=3000)
 # =============================================================================
 
 SHELL := /bin/bash
@@ -61,13 +62,9 @@ env: ## Crea los .env a partir de los ejemplos (no sobrescribe) y genera claves
 
 ##@ Desarrollo
 .PHONY: dev backend frontend shell
-dev: ## Levanta backend y frontend juntos (Ctrl+C detiene ambos)
-	@echo -e "\033[36mBackend  → http://$(HOST):$(BACKEND_PORT)/api/\033[0m"
-	@echo -e "\033[36mFrontend → http://localhost:$(FRONTEND_PORT)\033[0m"
-	@trap 'kill 0' INT TERM EXIT; \
-		($(MANAGE) runserver $(HOST):$(BACKEND_PORT)) & \
-		(cd $(FRONTEND) && npx vite --port $(FRONTEND_PORT)) & \
-		wait
+dev: ## Levanta backend y frontend juntos; si un puerto está ocupado pregunta otro (Ctrl+C detiene ambos)
+	@HOST=$(HOST) BACKEND_PORT=$(BACKEND_PORT) FRONTEND_PORT=$(FRONTEND_PORT) PY=$(PY) \
+		BACKEND=$(BACKEND) FRONTEND=$(FRONTEND) bash scripts/dev.sh
 
 backend: ## Solo el backend Django (puerto 8000)
 	$(MANAGE) runserver $(HOST):$(BACKEND_PORT)

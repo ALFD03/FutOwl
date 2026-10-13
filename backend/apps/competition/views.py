@@ -59,7 +59,7 @@ class MatchViewSet(viewsets.ModelViewSet):
     queryset = Match.objects.select_related(
         "tournament", "category", "group", "home__team", "away__team", "matchday", "field", "delegate", "referee",
         "assistant_referee_1", "assistant_referee_2",
-    )
+    ).prefetch_related("tournament__category_rules")
     permission_classes = viewsets.ModelViewSet.permission_classes + PROTECTED
     parser_classes = [JSONParser, MultiPartParser, FormParser]
     filterset_fields = ["tournament", "category", "group", "matchday", "status", "field", "round_number"]

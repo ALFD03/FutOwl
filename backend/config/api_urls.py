@@ -29,6 +29,7 @@ router.register("referees", registry.RefereeViewSet)
 router.register("teams", registry.TeamViewSet)
 # Torneos
 router.register("tournaments", tournaments.TournamentViewSet)
+router.register("category-rules", tournaments.CategoryRulesViewSet)
 router.register("groups", tournaments.GroupViewSet)
 router.register("registrations", tournaments.TournamentTeamViewSet)
 router.register("roster", tournaments.RosterViewSet)

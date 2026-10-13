@@ -30,14 +30,14 @@ def _team_for(match: Match, team_id: int):
 
 
 def _validate_players(match: Match, tournament_team, players: list[dict]) -> list[dict]:
-    tournament = match.tournament
+    rules = match.rules
     if not players:
         raise ValidationError({"players": "Debe seleccionar al menos un jugador."})
-    if len(players) > tournament.max_lineup_players:
-        raise ValidationError({"players": f"Máximo {tournament.max_lineup_players} jugadores por planilla."})
+    if len(players) > rules.max_lineup_players:
+        raise ValidationError({"players": f"Máximo {rules.max_lineup_players} jugadores por planilla."})
     starters = [p for p in players if p.get("is_starter")]
-    if len(starters) > tournament.starters_count:
-        raise ValidationError({"players": f"Máximo {tournament.starters_count} titulares."})
+    if len(starters) > rules.starters_count:
+        raise ValidationError({"players": f"Máximo {rules.starters_count} titulares."})
     if sum(1 for p in players if p.get("is_captain")) > 1:
         raise ValidationError({"players": "Solo puede haber un capitán."})
     numbers = [p["shirt_number"] for p in players]

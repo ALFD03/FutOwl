@@ -46,7 +46,10 @@ Sin efecto, porque los registros maestros se desactivan en lugar de borrarse: `r
 |---------|--------|-------------|-------|
 | Ver torneos | `tournaments.view_tournament` | Ver el menú, la ficha y sus pestañas; **exportar** documentos. | Competición → Torneos |
 | Crear torneos | `tournaments.add_tournament` | Botón *Nuevo torneo*. | |
-| Editar torneos | `tournaments.change_tournament` | Editar reglas, estado y fechas; guardar el **reglamento**; importar plantillas; gestionar la **nómina de cualquier equipo** del torneo; desactivar. | Ficha del torneo |
+| Editar torneos | `tournaments.change_tournament` | Editar datos, puntuación, **reglas generales**, estado y fechas; guardar el **reglamento**; importar plantillas; gestionar la **nómina de cualquier equipo** del torneo; desactivar. | Ficha del torneo |
+| Ver reglas por categoría | `tournaments.view_categoryrules` | Consultar las reglas de juego propias de cada categoría. | Torneo → Reglas de juego |
+| Crear reglas por categoría | `tournaments.add_categoryrules` | Botón *Personalizar* en una categoría. | Torneo → Reglas de juego |
+| Editar reglas por categoría | `tournaments.change_categoryrules` | Modificar las reglas de una categoría o volver a las **generales** (desactivar). | |
 | Ver grupos | `tournaments.view_group` | Consultar grupos. | |
 | Crear grupos | `tournaments.add_group` | Botón *+ Grupo*. | Torneo → Equipos y grupos |
 | Editar grupos | `tournaments.change_group` | Renombrar o desactivar grupos. | |
@@ -57,7 +60,7 @@ Sin efecto, porque los registros maestros se desactivan en lugar de borrarse: `r
 | Crear nómina de jugadores | `tournaments.add_teamplayer` | *Inscribir jugador* / *Nuevo jugador* en la nómina (gestores: solo su equipo). | Ficha del equipo → Nómina por torneo |
 | Editar nómina de jugadores | `tournaments.change_teamplayer` | Cambiar dorsal, **dar de baja** o reactivar inscripciones de la nómina. | |
 
-Sin efecto (se desactiva en lugar de borrar): `tournaments.delete_tournament`, `tournaments.delete_group`, `tournaments.delete_tournamentteam`, `tournaments.delete_teamplayer`.
+Sin efecto (se desactiva en lugar de borrar): `tournaments.delete_tournament`, `tournaments.delete_categoryrules`, `tournaments.delete_group`, `tournaments.delete_tournamentteam`, `tournaments.delete_teamplayer`.
 
 ## Competición (`competition`)
 
