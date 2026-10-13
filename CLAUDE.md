@@ -28,6 +28,9 @@ Todo el producto, la UI, los mensajes, los commits y la documentación van **en 
 - `make setup` (deps + verifica `.env.vercel.*`) · `make dev` (puertos ocupados → propone otros)
 - `make migrate|roles|superuser|docs|shell|secure-db [ENV=production]` (producción pide confirmación)
 - `make migrations` (sin Supabase) · `make test-backend [T=apps.x]` · `make test-frontend` · `make typecheck` · `make check` · `make ci`
+- Datos de prueba en qa (solo base limpia, sin torneos): `manage.py seed_test_data` con el entorno de `.env.vercel.preview`
+  (50 equipos × 8 categorías × 22 jugadores, oficiales y canchas; contraseña común `FutOwl#2026!`).
+- Capacidades (`accounts/capabilities.py`): al cambiarlas, `manage.py build_capability_catalog` y `make docs`.
 
 ## Arquitectura
 - **Backend** `backend/` — Django 5.2 + DRF + SimpleJWT. Apps: `core` (base), `accounts` (usuarios/roles), `registry`
@@ -46,7 +49,11 @@ Todo el producto, la UI, los mensajes, los commits y la documentación van **en 
 - Permisos de modelo (`ModelActionPermission`); roles en `accounts/roles.py` + `seed_roles`. Todo permiso nuevo debe
   documentarse en `docs/content/catalogo-de-permisos.md` (hay una prueba que lo exige).
 - Modelo nuevo en Postgres: la migración incluye `RunPython(enable_row_level_security, noop)` (`apps.core.db`).
-- Reglas de juego: usar `match.rules` / `tournament.rules_for(category_id)`, no los campos del torneo directamente.
+- Reglas de juego: son de la categoría; usar `match.rules` / `tournament.rules_for(category)` (ajuste del torneo o categoría).
+- Partidos de eliminación directa (`stage != "regular"`): `home`/`away` pueden ser null hasta llenar la llave; usar
+  `home_label`/`away_label`. La llave vive en `competition/services/bracket.py`.
+- Flujo de jornada: la autoridad envía cancha y horario; los jefes asignan oficiales (`assign-officials`); el partido se
+  confirma con los oficiales y recién ahí se avisa a los equipos (su confirmación es informativa).
 - Frontend: formularios con `ResourceForm` + `FieldDef[]`; permisos en UI con `<Can perm="app.codename">` / `useCan`.
 - Datos sensibles cifrados (`FIELD_ENCRYPTION_KEY`, índices ciegos con `BLIND_INDEX_KEY`): no cambiar esas claves.
 - Archivos en Supabase Storage vía `django-storages` (bucket privado, URLs firmadas SigV4).
