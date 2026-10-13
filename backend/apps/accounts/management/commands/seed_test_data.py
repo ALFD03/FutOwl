@@ -7,7 +7,7 @@ Datos de prueba masivos para ensayar torneos a mano (sin torneos ni partidos):
 - 50 equipos con las 8 categorías, un gestor con usuario y 4 entrenadores (el primero con usuario).
 - 22 jugadores por categoría y equipo (8.800), con representante para los menores de edad.
 
-    python manage.py seed_test_data --password "FutOwl#2026!"
+    python manage.py seed_test_data --password "Alfd0101.01"
 
 Todas las cuentas usan la misma contraseña y ya aceptaron los términos vigentes.
 """
@@ -55,7 +55,7 @@ class Command(BaseCommand):
     help = "Carga datos de prueba masivos (registro completo, sin torneos ni partidos)."
 
     def add_arguments(self, parser):
-        parser.add_argument("--password", default="FutOwl#2026!", help="Contraseña común de todas las cuentas")
+        parser.add_argument("--password", default="Alfd0101.01", help="Contraseña común de todas las cuentas")
 
     def handle(self, *args, **options):
         if Team.objects.exists() or Category.objects.exists():

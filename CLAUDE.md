@@ -29,7 +29,7 @@ Todo el producto, la UI, los mensajes, los commits y la documentación van **en 
 - `make migrate|roles|superuser|docs|shell|secure-db [ENV=production]` (producción pide confirmación)
 - `make migrations` (sin Supabase) · `make test-backend [T=apps.x]` · `make test-frontend` · `make typecheck` · `make check` · `make ci`
 - Datos de prueba en qa (solo base limpia, sin torneos): `manage.py seed_test_data` con el entorno de `.env.vercel.preview`
-  (50 equipos × 8 categorías × 22 jugadores, oficiales y canchas; contraseña común `FutOwl#2026!`).
+  (50 equipos × 8 categorías × 22 jugadores, oficiales y canchas; contraseña común `Alfd0101.01`).
 - Capacidades (`accounts/capabilities.py`): al cambiarlas, `manage.py build_capability_catalog` y `make docs`.
 
 ## Arquitectura
