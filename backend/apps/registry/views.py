@@ -1,4 +1,4 @@
-from django.db.models import Count, IntegerField, OuterRef, Prefetch, Q, Subquery, Value
+from django.db.models import Case, Count, IntegerField, OuterRef, Prefetch, Q, Subquery, Value, When
 from django.db.models.functions import Coalesce
 from rest_framework.exceptions import PermissionDenied
 
@@ -12,6 +12,30 @@ from .models import Category, Coach, Delegate, Field, Guardian, Player, Referee,
 def is_registry_admin(user) -> bool:
     """Administra cualquier equipo (no solo los propios)."""
     return user.is_superuser or user.has_perm("registry.change_team")
+
+
+def assert_team_owned(user, team, obj, what: str):
+    """
+    Gestores y entrenadores solo modifican lo de su equipo. Un registro sin equipo solo lo modifica
+    quien lo creó (p. ej. recién registrado y aún sin asignar). Los administradores del registro, todo.
+    """
+    if is_registry_admin(user):
+        return
+    if team is not None:
+        if not team.is_staff_user(user):
+            raise PermissionDenied(f"Solo el equipo {team.name} puede modificar {what}.")
+    elif getattr(obj, "created_by_id", None) != user.pk:
+        raise PermissionDenied(f"Solo puede modificar {what} de su equipo.")
+
+
+def assert_no_foreign_account(user, serializer):
+    """Vincular un usuario existente (distinto del ya vinculado) queda reservado a los administradores."""
+    data = serializer.initial_data
+    if data.get("account_mode") != "existing" or is_registry_admin(user):
+        return
+    current = getattr(serializer.instance, "user_id", None)
+    if current is None or str(data.get("account_user")) != str(current):
+        raise PermissionDenied("Solo un administrador puede vincular un usuario existente; cree uno nuevo.")
 
 
 def _count(queryset, group_by: str, distinct: str = "id"):
@@ -71,16 +95,22 @@ class CoachViewSet(NoDeleteModelViewSet):
         if new_team is not None and not new_team.is_staff_user(user):
             raise PermissionDenied("Solo puede asignar entrenadores a sus equipos.")
 
+    def assert_can_write(self, instance):
+        assert_team_owned(self.request.user, instance.team, instance, "a este entrenador")
+
     def perform_create(self, serializer):
+        assert_no_foreign_account(self.request.user, serializer)
         self._check_team_change(serializer)
         super().perform_create(serializer)
 
     def perform_update(self, serializer):
-        """Los datos del entrenador los edita su equipo (o un administrador del registro)."""
+        """Los datos del entrenador los edita su equipo; un entrenador libre se puede asignar al equipo propio."""
         user = self.request.user
-        team = serializer.instance.team
-        if not is_registry_admin(user) and team is not None and not team.is_staff_user(user):
-            raise PermissionDenied(f"Solo el equipo del entrenador ({team.name}) puede actualizar su ficha.")
+        coach = serializer.instance
+        assigning_free = coach.team is None and serializer.validated_data.get("team") is not None
+        if not assigning_free:  # asignarlo lo valida _check_team_change (solo a un equipo propio)
+            self.assert_can_write(coach)
+        assert_no_foreign_account(user, serializer)
         self._check_team_change(serializer)
         serializer.save()
 
@@ -90,6 +120,19 @@ class GuardianViewSet(NoDeleteModelViewSet):
     serializer_class = s.GuardianSerializer
     filterset_fields = ["is_active"]
     search_fields = ["first_name", "last_name"]
+
+    def assert_can_write(self, instance):
+        """Un representante lo modifica el equipo actual de alguno de sus representados (o quien lo creó)."""
+        user = self.request.user
+        if is_registry_admin(user) or instance.created_by_id == user.pk:
+            return
+        if not any(p.current_team and p.current_team.is_staff_user(user)
+                   for p in instance.players.select_related("current_team")):
+            raise PermissionDenied("Solo puede modificar representantes de jugadores de su equipo.")
+
+    def perform_update(self, serializer):
+        self.assert_can_write(serializer.instance)
+        serializer.save()
 
 
 class PlayerViewSet(NoDeleteModelViewSet):
@@ -125,12 +168,12 @@ class PlayerViewSet(NoDeleteModelViewSet):
         self._check_current_team(serializer)
         super().perform_create(serializer)
 
-    def perform_update(self, serializer):
+    def assert_can_write(self, instance):
         """La ficha la actualiza el equipo actual del jugador (o un administrador)."""
-        user = self.request.user
-        team = serializer.instance.current_team
-        if not is_registry_admin(user) and team is not None and not team.is_staff_user(user):
-            raise PermissionDenied(f"Solo el equipo actual del jugador ({team.name}) puede actualizar su ficha.")
+        assert_team_owned(self.request.user, instance.current_team, instance, "la ficha de este jugador")
+
+    def perform_update(self, serializer):
+        self.assert_can_write(serializer.instance)
         self._check_current_team(serializer)
         serializer.save()
 
@@ -159,7 +202,12 @@ class TeamViewSet(NoDeleteModelViewSet):
 
     def get_queryset(self):
         qs = super().get_queryset()
+        user = self.request.user
         if self.request.query_params.get("mine") == "1":
-            user = self.request.user
             qs = qs.filter(Q(managers=user) | Q(coaches__user=user)).distinct()
+        # El equipo actual del entrenador encabeza el listado (salvo que se pida otro orden).
+        coach = getattr(user, "coach_profile", None)
+        if coach and coach.is_active and coach.team_id and not self.request.query_params.get("ordering"):
+            qs = qs.annotate(is_coach_team=Case(When(pk=coach.team_id, then=1), default=0, output_field=IntegerField()))
+            qs = qs.order_by("-is_coach_team", *Team._meta.ordering)
         return qs

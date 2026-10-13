@@ -61,11 +61,16 @@ Consulta general más:
 - Cuerpo técnico: `registry.add_coach`, `registry.change_coach`.
 - Partido: `competition.confirm_assignment` (asistencia del equipo), `competition.submit_lineup`, `competition.add_matchnote`.
 
-Todo limitado a **sus equipos**.
+Todo limitado a **sus equipos**: puede consultar los demás equipos, pero solo modifica (crea, edita, activa o desactiva) lo de los suyos:
+
+- Jugadores y entrenadores cuyo equipo actual es el suyo; los que están libres, solo si él mismo los registró. Puede **asignar** a su equipo un entrenador libre.
+- Representantes de jugadores de su equipo (o registrados por él).
+- Nómina y alineaciones de su equipo; notas y apelaciones solo en partidos donde juega su equipo.
+- Al crear un entrenador puede **crear** su usuario de acceso, pero **vincular un usuario existente** es solo de administradores.
 
 ### Entrenador
 
-Igual que el gestor en plantilla, nómina, alineaciones y notas, **sin** confirmar asistencia ni gestionar entrenadores. Limitado al equipo al que pertenece.
+Igual que el gestor en plantilla, nómina, alineaciones y notas, **sin** confirmar asistencia ni gestionar entrenadores. Limitado al equipo al que pertenece, con las mismas reglas del gestor. En **Equipos**, su equipo aparece **primero** y resaltado con la etiqueta *Mi equipo*.
 
 ## Roles personalizados
 

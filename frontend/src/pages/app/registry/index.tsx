@@ -7,6 +7,7 @@ import { ResourcePage } from "@/components/crud/ResourcePage";
 import { accountField, DOCUMENT_ACCEPT, guardianField, IMAGE_ACCEPT, LICENSE_OPTIONS, type FieldDef } from "@/components/forms";
 import { TeamCrest } from "@/components/match/TeamCrest";
 import { Avatar, Badge, StatusBadge } from "@/components/ui";
+import { useAuth } from "@/hooks";
 import { categories, coaches, delegates, fields as fieldsService, guardians, players, referees, teams } from "@/services";
 import type { Category, Coach, Field, Guardian, Official, Player, Team, WithAccount } from "@/types";
 import { formatDate } from "@/utils/datetime";
@@ -215,12 +216,18 @@ export const TEAM_FIELDS: FieldDef[] = [
 
 export function TeamsPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const myTeam = user?.profiles.coach_team?.id;
   return (
     <ResourcePage<Team> title="Equipos" subtitle="Clubes, categorías, cuerpo técnico, jugadores y nómina por torneo" icon={<Shield className="h-6 w-6" />}
       service={teams} model="registry.team" createLabel="Nuevo equipo" fields={TEAM_FIELDS} formSize="lg" searchPlaceholder="Buscar por nombre o RIF…"
       onRowClick={(r) => navigate(`/app/equipos/${r.id}`)}
+      // El equipo actual del entrenador viene primero desde la API; aquí se resalta.
+      rowClassName={(r) => (r.id === myTeam ? "bg-gold-50 shadow-[inset_4px_0_0_theme(colors.gold.400)] dark:bg-gold-500/10" : undefined)}
       columns={[
-        { key: "name", header: "Equipo", render: (r) => <span className="flex items-center gap-3"><TeamCrest src={r.logo} name={r.name} size="sm" /><span><b>{r.name}</b><span className="block text-xs text-slate-500">RIF {r.vat_display}</span></span></span> },
+        { key: "name", header: "Equipo", render: (r) => <span className="flex items-center gap-3"><TeamCrest src={r.logo} name={r.name} size="sm" /><span>
+          <b>{r.name}</b>{r.id === myTeam && <Badge tone="gold" className="ml-2">Mi equipo</Badge>}
+          <span className="block text-xs text-slate-500">RIF {r.vat_display}</span></span></span> },
         { key: "categories", header: "Categorías", render: (r) => r.category_names.length ? r.category_names.map((c) => <Badge key={c} tone="gold" className="mr-1">{c}</Badge>) : <span className="text-slate-400">—</span> },
         { key: "location", header: "Ubicación", render: (r) => `${r.municipality}, ${r.state}` },
         { key: "players", header: "Jugadores", render: (r) => `${r.player_count}` },

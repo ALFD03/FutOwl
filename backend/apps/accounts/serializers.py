@@ -127,10 +127,15 @@ class MeSerializer(serializers.ModelSerializer):
         team_ids = set(obj.managed_teams.values_list("id", flat=True))
         if coach and coach.is_active and coach.team_id:
             team_ids.add(coach.team_id)
+        coach_team = coach.team if coach and coach.is_active and coach.team_id else None
         return {
             "delegate_id": delegate.id if delegate else None,
             "referee_id": referee.id if referee else None,
             "coach_id": coach.id if coach else None,
+            "coach_team": {
+                "id": coach_team.id, "name": coach_team.name,
+                "logo": coach_team.logo.url if coach_team.logo else None,
+            } if coach_team else None,
             "team_ids": sorted(team_ids),
         }
 

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { CircleHelp, ExternalLink, LogOut, Menu, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
 
+import { TeamCrest } from "@/components/match/TeamCrest";
 import { Avatar } from "@/components/ui";
 import { ACCOUNT_ITEMS, NAVIGATION } from "@/config/navigation";
 import { useAuth } from "@/hooks";
@@ -79,6 +80,8 @@ function Sidebar({ onNavigate, collapsed = false }: { onNavigate?: () => void; c
 }
 
 export function AppLayout() {
+  const { user } = useAuth();
+  const coachTeam = user?.profiles.coach_team;
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(readCollapsed);
   const location = useLocation();
@@ -116,6 +119,13 @@ export function AppLayout() {
           <NavLink to="/app/ayuda" className="btn-ghost h-9 w-9 p-0" title="Ayuda y documentación" aria-label="Ayuda y documentación"><CircleHelp className="h-5 w-5" /></NavLink>
           <ThemeToggle />
           <NotificationBell />
+          {coachTeam && (
+            <NavLink to={`/app/equipos/${coachTeam.id}`} title={`Equipo actual: ${coachTeam.name}`}
+              className="flex h-9 max-w-[14rem] items-center gap-2 rounded-xl border border-gold-300/60 bg-gold-50 px-2 text-sm font-semibold text-navy-900 transition hover:bg-gold-100 dark:border-gold-500/30 dark:bg-gold-500/10 dark:text-gold-300 dark:hover:bg-gold-500/20">
+              <TeamCrest src={coachTeam.logo} name={coachTeam.name} size="sm" />
+              <span className="hidden truncate sm:inline">{coachTeam.name}</span>
+            </NavLink>
+          )}
           <NavLink to={ACCOUNT_ITEMS[0].to} className="btn-ghost h-9 w-9 p-0" title="Mi cuenta"><UserIcon /></NavLink>
         </div>
       </header>

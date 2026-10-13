@@ -204,3 +204,88 @@ class SquadRulesTests(TestCase):
         res = self.api(self.admin).post("/api/users/", {"username": "sinclave", "password": ""}, format="json")
         self.assertEqual(res.status_code, 400)
         self.assertIn("password", res.data)
+
+
+class TeamOwnershipTests(TestCase):
+    """Gestores y entrenadores solo modifican lo de su equipo."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_roles", verbosity=0)
+        cls.manager = f.user("gestor", role=roles.TEAM_MANAGER)
+        cls.cat = f.category("Sub 12", 11)
+        cls.team = f.team("Halcones FC", cls.cat, manager=cls.manager, players=2)
+        cls.rival = f.team("Lobos FC", cls.cat, players=2)
+        cls.third = f.team("Pumas FC", cls.cat, players=0)
+
+    def setUp(self):
+        self.api = APIClient()
+        self.api.force_authenticate(self.manager)
+
+    def test_cannot_deactivate_other_team_player_or_coach(self):
+        rival_player, own_player = self.rival.current_players.first(), self.team.current_players.first()
+        self.assertEqual(self.api.post(f"/api/players/{rival_player.id}/deactivate/").status_code, 403)
+        self.assertEqual(self.api.post(f"/api/players/{own_player.id}/deactivate/").status_code, 200)
+        rival_coach, own_coach = self.rival.coaches.first(), self.team.coaches.first()
+        self.assertEqual(self.api.post(f"/api/coaches/{rival_coach.id}/deactivate/").status_code, 403)
+        self.assertEqual(self.api.post(f"/api/coaches/{own_coach.id}/deactivate/").status_code, 200)
+
+    def test_free_records_only_editable_by_their_creator(self):
+        foreign_free = f.player("Libre", "Ajeno", date(2015, 3, 3))
+        res = self.api.patch(f"/api/players/{foreign_free.id}/", {"first_name": "X"}, format="json")
+        self.assertEqual(res.status_code, 403)
+        mine = Player.objects.get(pk=foreign_free.pk)
+        mine.created_by = self.manager
+        mine.save(update_fields=["created_by"])
+        res = self.api.patch(f"/api/players/{mine.id}/", {"first_name": "Propio"}, format="json")
+        self.assertEqual(res.status_code, 200, res.data)
+
+    def test_free_coach_can_be_assigned_but_not_edited(self):
+        coach = self.third.coaches.first()
+        Coach.objects.filter(pk=coach.pk).update(team=None)
+        res = self.api.patch(f"/api/coaches/{coach.id}/", {"first_name": "Otro"}, format="json")
+        self.assertEqual(res.status_code, 403)
+        res = self.api.patch(f"/api/coaches/{coach.id}/", {"team": self.team.id}, format="json")
+        self.assertEqual(res.status_code, 200, res.data)
+
+    def test_cannot_link_existing_user_to_coach(self):
+        other = f.user("otro_gestor", role=roles.TEAM_MANAGER)
+        coach = self.team.coaches.first()
+        res = self.api.patch(f"/api/coaches/{coach.id}/", {"account_mode": "existing", "account_user": other.id},
+                             format="json")
+        self.assertEqual(res.status_code, 403)
+        # Reenviar el mismo usuario ya vinculado (al editar la ficha) sí se permite.
+        Coach.objects.filter(pk=coach.pk).update(user=other)
+        res = self.api.patch(f"/api/coaches/{coach.id}/", {"account_mode": "existing", "account_user": other.id,
+                                                           "first_name": "Editado"}, format="json")
+        self.assertEqual(res.status_code, 200, res.data)
+
+    def test_guardian_only_editable_by_ward_team(self):
+        rival_guardian = self.rival.current_players.exclude(guardian=None).first().guardian
+        res = self.api.patch(f"/api/guardians/{rival_guardian.id}/", {"phone": "+58 414-0000000"}, format="json")
+        self.assertEqual(res.status_code, 403)
+        own_guardian = self.team.current_players.exclude(guardian=None).first().guardian
+        res = self.api.patch(f"/api/guardians/{own_guardian.id}/", {"phone": "+58 414-0000000"}, format="json")
+        self.assertEqual(res.status_code, 200, res.data)
+
+    def test_notes_only_on_own_team_matches(self):
+        cup = f.tournament("Copa N", categories=[self.cat])
+        own = f.register(cup, self.team, self.cat, with_roster=False)
+        rival = f.register(cup, self.rival, self.cat, with_roster=False)
+        third = f.register(cup, self.third, self.cat, with_roster=False)
+        foreign = Match.objects.create(tournament=cup, category=self.cat, home=rival, away=third)
+        mine = Match.objects.create(tournament=cup, category=self.cat, home=own, away=rival)
+        res = self.api.post(f"/api/matches/{foreign.id}/add-note/", {"kind": "note", "body": "Hola"}, format="json")
+        self.assertEqual(res.status_code, 403)
+        res = self.api.post(f"/api/matches/{mine.id}/add-note/", {"kind": "note", "body": "Hola"}, format="json")
+        self.assertEqual(res.status_code, 201, res.data)
+
+    def test_coach_team_shown_in_profile_and_listed_first(self):
+        coach_user = f.user("dt_pumas", role=roles.COACH)
+        Coach.objects.filter(pk=self.third.coaches.first().pk).update(user=coach_user)
+        api = APIClient()
+        api.force_authenticate(coach_user)
+        me = api.get("/api/auth/me/").data
+        self.assertEqual(me["profiles"]["coach_team"]["name"], "Pumas FC")
+        names = [t["name"] for t in api.get("/api/teams/").data["results"]]
+        self.assertEqual(names[0], "Pumas FC")  # alfabéticamente iría último

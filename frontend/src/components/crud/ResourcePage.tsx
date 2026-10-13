@@ -6,6 +6,7 @@ import { ResourceForm, type FieldDef, type Values } from "@/components/forms";
 import { Card, DataTable, Modal, PageHeader, Pagination, SearchInput, StatusBadge, Toggle, type Column } from "@/components/ui";
 import { useCan, useToast } from "@/hooks";
 import type { Query, ResourceService } from "@/services/resource";
+import { cn } from "@/utils/cn";
 import { errorMessage } from "@/utils/errors";
 
 interface Props<T> {
@@ -20,6 +21,8 @@ interface Props<T> {
   filters?: Query;
   toForm?: (row: T) => Values;
   onRowClick?: (row: T) => void;
+  /** Clase extra por fila (p. ej. resaltar el equipo propio). */
+  rowClassName?: (row: T) => string | undefined;
   rowActions?: (row: T) => ReactNode;
   headerActions?: ReactNode;
   createLabel?: string;
@@ -120,7 +123,7 @@ export function ResourcePage<T extends { id: number; is_active?: boolean }>(prop
           </div>
         </div>
         <DataTable columns={allColumns} rows={data?.results ?? []} loading={isLoading} onRowClick={props.onRowClick}
-          rowClassName={(row) => (row.is_active === false ? "opacity-60" : undefined)} />
+          rowClassName={(row) => cn(row.is_active === false && "opacity-60", props.rowClassName?.(row)) || undefined} />
         <Pagination page={page} count={data?.count ?? 0} onChange={setPage} />
       </Card>
 

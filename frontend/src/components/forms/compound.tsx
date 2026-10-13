@@ -7,6 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Eye, EyeOff, Link2, UserPlus, UserX } from "lucide-react";
 
 import { Segmented, SelectMenu, Switch } from "@/components/ui";
+import { useAuth } from "@/hooks";
 import { guardians, users } from "@/services";
 import type { Guardian, User } from "@/types";
 import { cn } from "@/utils/cn";
@@ -80,6 +81,8 @@ function AccountSection({ ctx, roleLabel, required, multiple }: { ctx: CustomFie
   const editing = Boolean(values.account_editing);
   const mandatory = required && !editing;
   const noneLabel = multiple ? (editing ? "Sin cambios" : "Sin usuario") : "Sin usuario";
+  // Vincular un usuario existente es de administradores; los demás solo conservan el ya vinculado.
+  const canLink = useAuth().can("registry.change_team");
 
   return (
     <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50/60 p-4 dark:border-white/10 dark:bg-white/[.02]">
@@ -91,12 +94,12 @@ function AccountSection({ ctx, roleLabel, required, multiple }: { ctx: CustomFie
       </div>
       <Segmented<AccountMode> value={mode} onChange={(v) => setValue("account_mode", v)} options={[
         { value: "none", label: noneLabel, icon: <UserX className="h-3.5 w-3.5" />, disabled: mandatory },
-        { value: "existing", label: "Vincular existente", icon: <Link2 className="h-3.5 w-3.5" /> },
+        { value: "existing", label: "Vincular existente", icon: <Link2 className="h-3.5 w-3.5" />, disabled: !canLink && !values.account_label },
         { value: "new", label: "Crear usuario", icon: <UserPlus className="h-3.5 w-3.5" /> },
       ]} />
       {mode === "existing" && (
         <Field label="Usuario" required error={errors.account_user}>
-          <SelectMenu value={values.account_user as number | null} load={loadUsers} selectedLabel={values.account_label as string | undefined}
+          <SelectMenu value={values.account_user as number | null} load={loadUsers} selectedLabel={values.account_label as string | undefined} disabled={!canLink}
             placeholder="Buscar usuario…" searchPlaceholder="Usuario o nombre…" invalid={Boolean(errors.account_user)}
             onChange={(v, option) => { setValue("account_user", v); setValue("account_label", option?.label); }} />
         </Field>

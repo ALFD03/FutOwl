@@ -4,7 +4,7 @@ from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 
@@ -245,6 +245,11 @@ class MatchViewSet(viewsets.ModelViewSet):
     @require_perms("competition.add_matchnote")
     def add_note(self, request, pk=None):
         match = self.get_object()
+        user = request.user
+        # Notas y apelaciones: oficiales del partido, el cuerpo de los dos equipos o las autoridades.
+        if not (user.is_superuser or user.has_perm("competition.schedule_match") or parties_for_user(match, user)
+                or match.home.team.is_staff_user(user) or match.away.team.is_staff_user(user)):
+            raise PermissionDenied("Solo las partes del partido pueden agregar notas o apelaciones.")
         serializer = s.MatchNoteSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
         note = serializer.save(match=match, author=request.user)

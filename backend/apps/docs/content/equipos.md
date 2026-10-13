@@ -22,6 +22,9 @@ Botón **Nuevo equipo**. Datos:
 > [!NOTE]
 > Las categorías, el cuerpo técnico y la nómina **no** se cargan al crear el equipo: se gestionan después en la ficha.
 
+> [!TIP]
+> Si su usuario es de un entrenador asignado a un equipo, ese equipo aparece **primero** en el listado, resaltado en dorado y con la etiqueta *Mi equipo*.
+
 ## La ficha del equipo
 
 Pulse un equipo del listado. Arriba verá logo, RIF, dirección, categorías, cuerpo técnico, cantidad de jugadores actuales y usuarios de acceso. Pestañas:

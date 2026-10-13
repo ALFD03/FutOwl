@@ -42,7 +42,7 @@ La nueva contraseña debe tener **al menos 10 caracteres**, no puede ser una con
 | Zona | Qué contiene |
 |------|--------------|
 | **Barra lateral** (izquierda) | Menú agrupado en *General*, *Competición*, *Registro*, *Administración* y *Ayuda*. Solo muestra lo que su cuenta puede ver. Abajo, su nombre, su rol y el botón **Cerrar sesión**. En el teléfono se abre con el botón ☰. En pantallas grandes, el botón del extremo izquierdo de la barra superior la **contrae** a solo íconos (pase el cursor para ver el nombre) y la vuelve a expandir; el navegador recuerda su elección. |
-| **Encabezado** (arriba) | Reloj oficial (UTC-4), enlace al **Sitio público**, botón de **Ayuda** (?), cambio de tema claro/oscuro, **campana de notificaciones** y acceso a **Mi cuenta**. |
+| **Encabezado** (arriba) | Reloj oficial (UTC-4), enlace al **Sitio público**, botón de **Ayuda** (?), cambio de tema claro/oscuro, **campana de notificaciones** y acceso a **Mi cuenta**. Si su usuario es de un **entrenador asignado a un equipo**, junto a *Mi cuenta* verá el escudo y el nombre de ese equipo (lleva a su ficha). |
 | **Contenido** | La pantalla en la que está trabajando. |
 
 ### Elementos comunes en las pantallas

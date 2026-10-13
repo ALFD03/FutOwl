@@ -50,7 +50,11 @@ export interface Me {
   is_superuser: boolean;
   groups: string[];
   permissions: string[];
-  profiles: { delegate_id: ID | null; referee_id: ID | null; coach_id: ID | null; team_ids: ID[] };
+  profiles: {
+    delegate_id: ID | null; referee_id: ID | null; coach_id: ID | null; team_ids: ID[];
+    /** Equipo actual del entrenador vinculado a este usuario. */
+    coach_team: { id: ID; name: string; logo: string | null } | null;
+  };
   terms_accepted: boolean;
   must_change_password: boolean;
 }

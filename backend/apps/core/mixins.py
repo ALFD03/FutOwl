@@ -24,8 +24,12 @@ class NoDeleteModelViewSet(
         extra = {"created_by": self.request.user} if hasattr(model, "created_by") else {}
         serializer.save(**extra)
 
+    def assert_can_write(self, instance):
+        """Gancho para restringir por objeto quién modifica el registro (p. ej. solo su equipo)."""
+
     def _set_active(self, request, value: bool):
         instance = self.get_object()
+        self.assert_can_write(instance)
         instance.is_active = value
         instance.save(update_fields=["is_active", "updated_at"])
         record(
