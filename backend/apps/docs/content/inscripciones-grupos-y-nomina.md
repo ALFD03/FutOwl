@@ -6,11 +6,12 @@ order: 130
 ---
 ## Inscribir equipos
 
-**Torneo → Equipos y grupos → Inscribir equipo** (permiso *Inscripciones y grupos*):
+**Torneo → Equipos y grupos → Inscribir equipo** (capacidad *Inscripciones y grupos*):
 
-1. **Categoría**: una de las permitidas por el torneo.
-2. **Equipo**: el listado muestra entre paréntesis las categorías de cada equipo.
-3. **Grupo** (opcional).
+1. **Equipo**: el buscador solo muestra equipos que tienen alguna categoría del torneo, con sus categorías y en cuántas ya está inscrito.
+2. **Categorías**: aparecen todas las del torneo. Marque **una o varias** de las que el equipo puede jugar (o **Marcar todas**); las que ya tiene inscritas salen como *Ya inscrito* y las que el equipo no tiene registradas aparecen desactivadas.
+3. **Grupo** (opcional): junto a cada categoría marcada, si esa categoría ya tiene grupos.
+4. Pulse **Inscribir**: se crea una inscripción por categoría. Si alguna falla, se avisa el motivo y esa categoría queda marcada para reintentar; las demás quedan inscritas.
 
 FutOwl valida que:
 
