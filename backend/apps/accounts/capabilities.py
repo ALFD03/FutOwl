@@ -56,9 +56,9 @@ CAPABILITIES: list[Capability] = [
                "Registrar, editar y activar o desactivar árbitros.", _crud("registry", "referee")),
     # ---------------------------------------------------------------- Torneos
     Capability("gestionar_torneos", "Torneos", "Gestionar torneos",
-               "Crear torneos y editar sus datos, estado, puntuación, reglas de juego (generales y por categoría), "
-               "reglamento y documentos.",
-               _crud("tournaments", "tournament", "categoryrules")),
+               "Crear torneos; editar sus datos, estado, puntuación, ajustes de reglas por categoría, reglamento y "
+               "documentos; y eliminar definitivamente los que siguen en borrador.",
+               _crud("tournaments", "tournament", "categoryrules") + ("tournaments.delete_tournament",)),
     Capability("inscripciones", "Torneos", "Inscripciones y grupos",
                "Inscribir equipos en los torneos por categoría y armar los grupos.",
                _crud("tournaments", "tournamentteam", "group")),

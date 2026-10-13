@@ -1,21 +1,24 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Shuffle } from "lucide-react";
+import { Plus, Shuffle, Trash2 } from "lucide-react";
 
 import { ResourceForm, type FieldDef } from "@/components/forms";
 import { Can } from "@/components/layout/Guards";
-import { Badge, Card, CardHeader, EmptyState, Modal, SelectMenu, StatusBadge } from "@/components/ui";
-import { useToast } from "@/hooks";
+import { Badge, Card, CardHeader, ConfirmDialog, EmptyState, Modal, SelectMenu, StatusBadge } from "@/components/ui";
+import { useCan, useToast } from "@/hooks";
 import { groups, matches, registrations } from "@/services";
 import type { Match, Registration, Tournament } from "@/types";
 import { formatDateTime } from "@/utils/datetime";
+import { errorMessage } from "@/utils/errors";
 
 export function FixtureTab({ tournament }: { tournament: Tournament }) {
   const toast = useToast();
   const queryClient = useQueryClient();
   const [modal, setModal] = useState<"generate" | "manual" | null>(null);
   const [category, setCategory] = useState<number>(tournament.categories[0]);
+  const [deleting, setDeleting] = useState<Match | null>(null);
+  const canDelete = useCan("competition.delete_match");
   const list = useQuery({ queryKey: ["matches", "tournament", tournament.id, category], queryFn: () => matches.all({ tournament: tournament.id, category, ordering: "round_number" }) });
   const grps = useQuery({ queryKey: ["groups", tournament.id], queryFn: () => groups.all({ tournament: tournament.id, is_active: true }) });
   const regs = useQuery({ queryKey: ["registrations", tournament.id], queryFn: () => registrations.all({ tournament: tournament.id, is_active: true }) });
@@ -64,6 +67,10 @@ export function FixtureTab({ tournament }: { tournament: Tournament }) {
                   <span className="flex shrink-0 items-center gap-2">
                     {m.home_score != null && <Badge tone="navy">{m.home_score}-{m.away_score}</Badge>}
                     <StatusBadge status={m.status} label={m.status_display} />
+                    {canDelete && m.status === "draft" && (
+                      <button className="btn-ghost btn-sm p-1 text-crimson-600" title="Eliminar partido (borrador)"
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDeleting(m); }}><Trash2 className="h-4 w-4" /></button>
+                    )}
                   </span>
                 </Link>
               ))}
@@ -80,6 +87,13 @@ export function FixtureTab({ tournament }: { tournament: Tournament }) {
           await refresh();
         }} />
       </Modal>
+      <ConfirmDialog open={deleting !== null} onClose={() => setDeleting(null)} danger confirmLabel="Eliminar definitivamente" title="Eliminar partido"
+        message={deleting ? `Se borrará ${deleting.home_name} vs ${deleting.away_name} (borrador). No se puede deshacer.` : ""}
+        onConfirm={async () => {
+          if (!deleting) return;
+          try { await matches.remove(deleting.id); toast.success("Partido eliminado."); await refresh(); }
+          catch (e) { toast.error(errorMessage(e)); throw e; }
+        }} />
       <Modal open={modal === "manual"} onClose={() => setModal(null)} title="Nuevo partido" size="sm">
         <ResourceForm fields={manualFields} onCancel={() => setModal(null)} onSubmit={async (v) => {
           await matches.create({ ...v, tournament: tournament.id, category });

@@ -20,7 +20,11 @@ export const teams = createResource<Team>("teams");
 export const roster = createResource<TeamPlayer>("roster");
 
 // ---------------------------------------------------------------- Torneos
-export const tournaments = createResource<Tournament>("tournaments");
+export const tournaments = {
+  ...createResource<Tournament>("tournaments"),
+  /** Solo en borrador: se borra definitivamente con todo lo que cuelga del torneo. */
+  remove: (id: ID) => api.delete(`/tournaments/${id}/`),
+};
 export const categoryRules = createResource<CategoryRules>("category-rules");
 export const groups = createResource<Group>("groups");
 export const registrations = createResource<Registration>("registrations");

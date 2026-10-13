@@ -1,14 +1,15 @@
 import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Pencil, Trophy } from "lucide-react";
+import { ArrowLeft, Pencil, Trash2, Trophy } from "lucide-react";
 
 import { ResourceForm } from "@/components/forms";
-import { Badge, Card, KeyValue, Modal, PageHeader, PageLoader, StatusBadge, Tabs } from "@/components/ui";
+import { Badge, Card, ConfirmDialog, KeyValue, Modal, PageHeader, PageLoader, StatusBadge, Tabs } from "@/components/ui";
 import { useCan, useToast } from "@/hooks";
 import { tournaments } from "@/services";
 import type { Tournament } from "@/types";
 import { formatDate } from "@/utils/datetime";
+import { errorMessage } from "@/utils/errors";
 
 import { MatchdaysList } from "../competition/MatchdaysPage";
 import { DocumentsTab } from "./DocumentsTab";
@@ -25,11 +26,24 @@ export function TournamentDetailPage() {
   const id = Number(useParams().id);
   const [tab, setTab] = useState<Tab>("summary");
   const [editing, setEditing] = useState(false);
+  // Salir de borrador o eliminar el torneo siempre pide confirmación.
+  const [publishing, setPublishing] = useState<Record<string, unknown> | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const navigate = useNavigate();
   const canEdit = useCan("tournaments.change_tournament");
+  const canDelete = useCan("tournaments.delete_tournament");
   const toast = useToast();
   const queryClient = useQueryClient();
   const { data: t, isLoading } = useQuery({ queryKey: ["tournaments", id], queryFn: () => tournaments.get(id) });
   if (isLoading || !t) return <PageLoader />;
+
+  const save = async (values: Record<string, unknown>) => {
+    await tournaments.update(t.id, values);
+    toast.success("Torneo actualizado.");
+    setEditing(false);
+    setPublishing(null);
+    await queryClient.invalidateQueries({ queryKey: ["tournaments"] });
+  };
 
   return (
     <div>
@@ -39,6 +53,7 @@ export function TournamentDetailPage() {
         actions={<>
           <StatusBadge status={t.status} label={t.status_display} />
           {canEdit && <button className="btn-outline" onClick={() => setEditing(true)}><Pencil className="h-4 w-4" /> Editar</button>}
+          {canDelete && t.status === "draft" && <button className="btn-ghost text-crimson-600" title="Eliminar torneo (borrador)" onClick={() => setDeleting(true)}><Trash2 className="h-4 w-4" /></button>}
         </>} />
       <Tabs<Tab> value={tab} onChange={setTab} tabs={[
         { id: "summary", label: "Resumen" }, { id: "rules", label: "Reglas de juego" }, { id: "teams", label: "Equipos" }, { id: "groups", label: "Grupos", hidden: !usesGroups(t) }, { id: "fixture", label: "Partidos" },
@@ -56,12 +71,29 @@ export function TournamentDetailPage() {
       <Modal open={editing} onClose={() => setEditing(false)} title="Editar torneo" size="lg">
         <ResourceForm fields={TOURNAMENT_FIELDS} initial={t as unknown as Record<string, unknown>} onCancel={() => setEditing(false)}
           onSubmit={async (values) => {
-            await tournaments.update(t.id, values);
-            toast.success("Torneo actualizado.");
-            setEditing(false);
-            await queryClient.invalidateQueries({ queryKey: ["tournaments"] });
+            if (t.status === "draft" && values.status !== "draft") { setPublishing(values); return; }
+            await save(values);
           }} />
       </Modal>
+      <ConfirmDialog open={publishing !== null} onClose={() => setPublishing(null)} onConfirm={async () => {
+          if (!publishing) return;
+          try { await save(publishing); } catch (e) { toast.error(errorMessage(e)); throw e; }
+        }}
+        title="Sacar el torneo de borrador" confirmLabel="Sí, cambiar estado"
+        message="El torneo dejará de ser un borrador: será visible en el sitio público y ya no podrá eliminarse. ¿Continuar?" />
+      <ConfirmDialog open={deleting} onClose={() => setDeleting(false)} danger confirmLabel="Eliminar definitivamente"
+        title="Eliminar torneo" onConfirm={async () => {
+          try {
+            await tournaments.remove(t.id);
+            toast.success("Torneo eliminado.");
+            await queryClient.invalidateQueries({ queryKey: ["tournaments"] });
+            navigate("/app/torneos");
+          } catch (e) {
+            toast.error(errorMessage(e));
+            throw e;
+          }
+        }}
+        message={`Se borrará «${t.name}» con sus inscripciones, nóminas, grupos, jornadas y partidos en borrador. No se puede deshacer.`} />
     </div>
   );
 }

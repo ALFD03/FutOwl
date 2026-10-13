@@ -2,14 +2,16 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils.text import slugify
+from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
+from rest_framework.response import Response
 
 from apps.audit.services import record
 from apps.core.mixins import NoDeleteModelViewSet
 from apps.registry.models import Category, Team
 
-from . import documents
+from . import documents, services
 from .models import CategoryRules, Group, TeamPlayer, Tournament, TournamentTeam
 from .serializers import (
     CategoryRulesSerializer, GroupSerializer, TeamPlayerSerializer, TournamentSerializer, TournamentTeamSerializer,
@@ -28,6 +30,14 @@ class TournamentViewSet(NoDeleteModelViewSet):
     serializer_class = TournamentSerializer
     filterset_fields = ["is_active", "status", "modality", "categories"]
     search_fields = ["name"]
+
+    def destroy(self, request, pk=None):
+        """Solo torneos en borrador: se borran definitivamente (ver services.delete_draft_tournament)."""
+        try:
+            services.delete_draft_tournament(self.get_object(), request.user)
+        except DjangoValidationError as exc:
+            raise ValidationError({"detail": exc.messages})
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     def _format(self, request) -> str:
         fmt = request.query_params.get("format_type", "pdf")

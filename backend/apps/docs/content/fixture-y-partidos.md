@@ -66,4 +66,4 @@ Si usted es el delegado del partido, la ficha se abre directamente en **Mesa té
 
 ## Eliminar un partido
 
-Solo los partidos en **Borrador** pueden eliminarse, y únicamente a través de la API (permiso *Armar el fixture*); la interfaz no ofrece ese botón. Para quitar un partido de una jornada en borrador use la **X** de su tarjeta. Una vez enviados, los partidos se **suspenden**, no se eliminan.
+Los partidos en **Borrador** se eliminan **definitivamente** con el ícono de papelera de su tarjeta en la pestaña **Partidos** (capacidad *Armar el fixture*); siempre se pide confirmación. Para solo quitar un partido de una jornada en borrador use la **X** de su tarjeta. Una vez enviados, los partidos se **suspenden**, no se eliminan.

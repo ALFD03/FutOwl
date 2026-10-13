@@ -79,4 +79,4 @@ El estado se cambia con **Editar** en el encabezado del torneo.
 | **Posiciones** | Tabla por categoría y grupo. | [Posiciones y estadísticas](/app/ayuda/posiciones-y-estadisticas) |
 
 > [!NOTE]
-> Los torneos no se eliminan: se **desactivan** desde el listado. Un torneo desactivado deja de verse en el sitio público.
+> Un torneo en **Borrador** se puede **eliminar definitivamente** con el ícono de papelera del encabezado (capacidad *Gestionar torneos*): se borran con él sus inscripciones, nóminas, grupos, jornadas y partidos en borrador. Pasarlo a otro estado pide confirmación, y desde entonces ya no se elimina: solo se **desactiva** desde el listado (deja de verse en el sitio público).

@@ -7,7 +7,7 @@ order: 30
 Las **capacidades** son lo que se asigna a roles y usuarios: cada una es una función concreta del sistema. Esta página explica todas; al final está el **catálogo interactivo**, con buscador, filtro por rol y la columna *Usted* que indica si su cuenta la tiene.
 
 > [!NOTE]
-> «Editar» incluye **desactivar y reactivar**. En FutOwl los registros no se borran, así que no hay capacidades de «eliminar» (salvo borradores de jornadas y partidos, dentro de la programación).
+> «Editar» incluye **desactivar y reactivar**. Lo que está en **borrador** (torneos, jornadas y partidos) se puede eliminar definitivamente; una vez enviado o confirmado ya no se borra.
 
 
 ## Consulta
@@ -33,7 +33,7 @@ Las **capacidades** son lo que se asigna a roles y usuarios: cada una es una fun
 
 | Capacidad | Qué permite | Roles que la traen |
 |-----------|-------------|--------------------|
-| **Gestionar torneos** | Crear torneos y editar sus datos, estado, puntuación, reglas de juego (generales y por categoría), reglamento y documentos. | Administrador, Autoridad |
+| **Gestionar torneos** | Crear torneos; editar sus datos, estado, puntuación, ajustes de reglas por categoría, reglamento y documentos; y eliminar definitivamente los que siguen en borrador. | Administrador, Autoridad |
 | **Inscripciones y grupos** | Inscribir equipos en los torneos por categoría y armar los grupos. | Administrador, Autoridad |
 | **Gestionar nómina** | Inscribir jugadores en la nómina de un torneo, cambiar dorsales y dar de baja (de sus equipos, salvo que administre todos los equipos o gestione torneos). | Administrador, Autoridad, Entrenador, Gestor de equipo |
 
@@ -83,7 +83,7 @@ Las **capacidades** son lo que se asigna a roles y usuarios: cada una es una fun
 
 ## Permisos técnicos
 
-Por dentro, cada capacidad activa uno o varios permisos técnicos de Django (por ejemplo, *Gestionar canchas* activa `registry.add_field` y `registry.change_field`). El sistema tiene más permisos técnicos que capacidades: los que no forman parte de ninguna (por ejemplo, los de las tablas internas de alineaciones, eventos, informes o confirmaciones, o los de «eliminar») **no habilitan nada por sí solos** y no se asignan.
+Por dentro, cada capacidad activa uno o varios permisos técnicos de Django (por ejemplo, *Gestionar canchas* activa `registry.add_field` y `registry.change_field`). Los permisos técnicos que no forman parte de ninguna capacidad **no habilitan nada por sí solos** y no se asignan.
 
 | Capacidad | Permisos técnicos que activa |
 |-----------|------------------------------|
@@ -96,7 +96,7 @@ Por dentro, cada capacidad activa uno o varios permisos técnicos de Django (por
 | Gestionar entrenadores | `registry.add_coach`, `registry.change_coach` |
 | Gestionar delegados | `registry.add_delegate`, `registry.change_delegate` |
 | Gestionar árbitros | `registry.add_referee`, `registry.change_referee` |
-| Gestionar torneos | `tournaments.add_tournament`, `tournaments.change_tournament`, `tournaments.add_categoryrules`, `tournaments.change_categoryrules` |
+| Gestionar torneos | `tournaments.add_tournament`, `tournaments.change_tournament`, `tournaments.add_categoryrules`, `tournaments.change_categoryrules`, `tournaments.delete_tournament` |
 | Inscripciones y grupos | `tournaments.add_tournamentteam`, `tournaments.change_tournamentteam`, `tournaments.add_group`, `tournaments.change_group` |
 | Gestionar nómina | `tournaments.add_teamplayer`, `tournaments.change_teamplayer` |
 | Armar el fixture | `competition.generate_fixture`, `competition.add_match`, `competition.delete_match` |
