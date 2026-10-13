@@ -75,6 +75,14 @@ class SquadRulesTests(TestCase):
         res = self.api(self.manager).patch(f"/api/players/{own.id}/", {"first_name": "Nuevo"}, format="json")
         self.assertEqual(res.status_code, 200, res.data)
 
+    def test_only_coach_team_edits_coach(self):
+        rival_coach = self.rival.coaches.first()
+        res = self.api(self.manager).patch(f"/api/coaches/{rival_coach.id}/", {"first_name": "Otro"}, format="json")
+        self.assertEqual(res.status_code, 403)
+        own = self.team.coaches.first()
+        res = self.api(self.manager).patch(f"/api/coaches/{own.id}/", {"first_name": "Nuevo"}, format="json")
+        self.assertEqual(res.status_code, 200, res.data)
+
     def test_player_stats_count_goals(self):
         entry = TeamPlayer.objects.filter(registration=self.reg_team_cup).first()
         match = Match.objects.create(tournament=self.cup, category=self.cat, home=self.reg_team_cup,

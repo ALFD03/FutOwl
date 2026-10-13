@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, KeyRound, Plus, Save, UserMinus, UserPlus, UserX } from "lucide-react";
+import { ArrowLeft, KeyRound, Pencil, Plus, Save, UserMinus, UserPlus, UserX } from "lucide-react";
 
 import { accountField, ResourceForm, type FieldDef, type Values } from "@/components/forms";
 import { TeamCrest } from "@/components/match/TeamCrest";
@@ -25,6 +25,32 @@ const playerCell = (p: { photo: string | null; full_name: string; vat_display: s
     <Avatar src={p.photo} name={p.full_name} size="sm" />
     <span><b>{p.full_name}</b><span className="block text-xs text-slate-500">{p.vat_display || "Partida de nacimiento"}</span></span>
   </span>
+);
+
+/** Edita la ficha completa de un jugador (la carga al abrir: las tablas solo traen un resumen). */
+function EditPlayerModal({ playerId, onClose }: { playerId: number | null; onClose: () => void }) {
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const { data, isLoading } = useQuery({ queryKey: ["players", playerId], queryFn: () => players.get(playerId!), enabled: playerId !== null });
+  return (
+    <Modal open={playerId !== null} onClose={onClose} title="Editar jugador" subtitle={data?.full_name} size="lg">
+      {isLoading || !data ? <div className="grid place-items-center py-10"><Spinner /></div> : (
+        <ResourceForm key={data.id} fields={PLAYER_FIELDS} initial={data as unknown as Values} onCancel={onClose}
+          onSubmit={async (v) => {
+            await players.update(data.id, v);
+            toast.success("Jugador actualizado.");
+            onClose();
+            await Promise.all([queryClient.invalidateQueries({ queryKey: ["players"] }), queryClient.invalidateQueries({ queryKey: ["roster"] })]);
+          }} />
+      )}
+    </Modal>
+  );
+}
+
+const editButton = (title: string, onClick: () => void) => (
+  <button className="btn-ghost btn-sm" title={title} aria-label={title} onClick={(e) => { e.stopPropagation(); onClick(); }}>
+    <Pencil className="h-4 w-4" />
+  </button>
 );
 
 export function TeamDetailPage() {
@@ -72,8 +98,8 @@ export function TeamDetailPage() {
         { id: "access", label: "Acceso", hidden: !isAdmin },
       ]} />
 
-      {tab === "roster" && <RosterTab team={team} canManage={isStaff && can("tournaments.add_teamplayer")} />}
-      {tab === "players" && <PlayersTab team={team} canCreate={isStaff && can("registry.add_player")} />}
+      {tab === "roster" && <RosterTab team={team} canManage={isStaff && can("tournaments.add_teamplayer")} canEditPlayers={isStaff && can("registry.change_player")} />}
+      {tab === "players" && <PlayersTab team={team} canCreate={isStaff && can("registry.add_player")} canEdit={isStaff && can("registry.change_player")} canEditFormer={isAdmin && can("registry.change_player")} />}
       {tab === "coaches" && <CoachesTab team={team} canManage={isStaff && can("registry.change_coach")} canCreate={isStaff && can("registry.add_coach")} />}
       {tab === "categories" && <CategoriesTab team={team} canManage={isAdmin} />}
       {tab === "access" && <AccessTab team={team} />}
@@ -82,10 +108,11 @@ export function TeamDetailPage() {
 }
 
 // ------------------------------------------------------------------ Nómina por torneo
-function RosterTab({ team, canManage }: { team: Team; canManage: boolean }) {
+function RosterTab({ team, canManage, canEditPlayers }: { team: Team; canManage: boolean; canEditPlayers: boolean }) {
   const toast = useToast();
   const queryClient = useQueryClient();
   const [selected, setSelected] = useState<number | null>(null);
+  const [editing, setEditing] = useState<number | null>(null);
   const [adding, setAdding] = useState<"existing" | "new" | null>(null);
 
   const regsQ = useQuery({ queryKey: ["registrations", "team", team.id], queryFn: () => registrations.all({ team: team.id, is_active: true }) });
@@ -139,13 +166,19 @@ function RosterTab({ team, canManage }: { team: Team; canManage: boolean }) {
         { key: "p", header: "Jugador", render: (r) => playerCell(r.player_detail) },
         { key: "age", header: "Edad", render: (r) => `${r.player_detail.age} años (${formatDate(r.player_detail.birth_date)})` },
         { key: "g", header: "Representante", render: (r) => r.player_detail.guardian_name ?? "—" },
-        { key: "a", header: "", className: "text-right", render: (r) => canManage && (
-          <button className="btn-ghost btn-sm text-crimson-600" title="Dar de baja de la nómina" onClick={async () => {
-            try { await roster.deactivate(r.id); toast.success("Jugador dado de baja de la nómina (registro conservado)."); await refresh(); }
-            catch (e) { toast.error(errorMessage(e)); }
-          }}><UserX className="h-4 w-4" /></button>
+        { key: "a", header: "", className: "text-right", render: (r) => (
+          <span className="flex justify-end gap-1">
+            {canEditPlayers && editButton("Editar jugador", () => setEditing(r.player))}
+            {canManage && (
+              <button className="btn-ghost btn-sm text-crimson-600" title="Dar de baja de la nómina" onClick={async () => {
+                try { await roster.deactivate(r.id); toast.success("Jugador dado de baja de la nómina (registro conservado)."); await refresh(); }
+                catch (e) { toast.error(errorMessage(e)); }
+              }}><UserX className="h-4 w-4" /></button>
+            )}
+          </span>
         ) },
       ]} />
+      <EditPlayerModal playerId={editing} onClose={() => setEditing(null)} />
 
       <Modal open={adding === "existing"} onClose={() => setAdding(null)} title="Inscribir jugador registrado" size="sm"
         subtitle={registration && `${registration.tournament_name} · ${registration.category_name}`}>
@@ -166,10 +199,11 @@ function RosterTab({ team, canManage }: { team: Team; canManage: boolean }) {
 }
 
 // ------------------------------------------------------------------ Jugadores (actuales e históricos)
-function PlayersTab({ team, canCreate }: { team: Team; canCreate: boolean }) {
+function PlayersTab({ team, canCreate, canEdit, canEditFormer }: { team: Team; canCreate: boolean; canEdit: boolean; canEditFormer: boolean }) {
   const toast = useToast();
   const queryClient = useQueryClient();
   const [profile, setProfile] = useState<number | null>(null);
+  const [editing, setEditing] = useState<number | null>(null);
   const [creating, setCreating] = useState(false);
   const { data = [], isLoading } = useQuery({ queryKey: ["players", "team", team.id], queryFn: () => players.all({ team: team.id }) });
   const current = data.filter((p) => p.current_team === team.id);
@@ -181,13 +215,16 @@ function PlayersTab({ team, canCreate }: { team: Team; canCreate: boolean }) {
     { key: "t", header: "Torneos con el equipo", render: (r: Player) => r.history.filter((h) => h.team === team.id).map((h) => <Badge key={h.id} className="mr-1">{h.tournament_name}</Badge>) },
     { key: "s", header: "G · PJ", render: (r: Player) => <span className="font-mono text-xs"><b className="text-gold-600 dark:text-gold-400">{r.stats.goals}</b> · {r.stats.matches}</span> },
   ];
+  // Solo el equipo actual (o un administrador) puede actualizar la ficha del jugador.
+  const editColumn = (enabled: boolean) => ({ key: "e", header: "", className: "text-right",
+    render: (r: Player) => enabled && editButton("Editar jugador", () => setEditing(r.id)) });
 
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader title="Plantel actual" subtitle="Jugadores cuyo equipo actual es este: el equipo puede actualizar su ficha (fotos, documento…)."
           actions={canCreate && <button className="btn-gold btn-sm" onClick={() => setCreating(true)}><UserPlus className="h-4 w-4" /> Nuevo jugador</button>} />
-        <DataTable<Player> loading={isLoading} rows={current} onRowClick={(r) => setProfile(r.id)} empty="Sin jugadores actuales." columns={columns} />
+        <DataTable<Player> loading={isLoading} rows={current} onRowClick={(r) => setProfile(r.id)} empty="Sin jugadores actuales." columns={[...columns, editColumn(canEdit)]} />
       </Card>
       <Card>
         <CardHeader title="Han jugado con el equipo" subtitle="Registro histórico: jugadores que estuvieron en la nómina de algún torneo y hoy están en otro equipo o libres." />
@@ -195,9 +232,11 @@ function PlayersTab({ team, canCreate }: { team: Team; canCreate: boolean }) {
           ...columns.slice(0, 1),
           { key: "now", header: "Equipo actual", render: (r: Player) => r.current_team_name ? <Badge tone="navy">{r.current_team_name}</Badge> : <span className="text-slate-400">Libre</span> },
           ...columns.slice(2),
+          editColumn(canEditFormer),
         ]} />
       </Card>
       <PlayerProfile playerId={profile} onClose={() => setProfile(null)} />
+      <EditPlayerModal playerId={editing} onClose={() => setEditing(null)} />
       <Modal open={creating} onClose={() => setCreating(false)} title="Nuevo jugador" subtitle={`Queda con ${team.name} como equipo actual`} size="lg">
         <ResourceForm fields={PLAYER_FIELDS} onCancel={() => setCreating(false)} submitLabel="Crear jugador"
           onSubmit={async (v) => {
@@ -217,6 +256,7 @@ function CoachesTab({ team, canManage, canCreate }: { team: Team; canManage: boo
   const queryClient = useQueryClient();
   const [pick, setPick] = useState<number | null>(null);
   const [creating, setCreating] = useState(false);
+  const [editing, setEditing] = useState<Coach | null>(null);
   const [busy, setBusy] = useState(false);
   const { data = [], isLoading } = useQuery({ queryKey: ["coaches", "team", team.id], queryFn: () => coaches.all({ team: team.id, is_active: true }) });
 
@@ -251,11 +291,23 @@ function CoachesTab({ team, canManage, canCreate }: { team: Team; canManage: boo
         { key: "l", header: "Licencia", render: (c) => <span>{c.license_number} <StatusBadge status={c.license_valid ? "confirmed" : "rejected"} label={c.license_valid ? `Vigente ${c.license_expiry_year}` : `Vencida ${c.license_expiry_year}`} /></span> },
         { key: "u", header: "Usuario", render: (c) => c.username ? <Badge tone="navy">@{c.username}</Badge> : <span className="text-slate-400">Sin acceso</span> },
         { key: "a", header: "", className: "text-right", render: (c) => canManage && (
-          <button className="btn-ghost btn-sm text-crimson-600" title="Quitar del equipo (queda libre)" onClick={() => setTeam(c.id, null, "Entrenador liberado.")}>
-            <UserMinus className="h-4 w-4" />
-          </button>
+          <span className="flex justify-end gap-1">
+            {editButton("Editar entrenador", () => setEditing(c))}
+            <button className="btn-ghost btn-sm text-crimson-600" title="Quitar del equipo (queda libre)" onClick={() => setTeam(c.id, null, "Entrenador liberado.")}>
+              <UserMinus className="h-4 w-4" />
+            </button>
+          </span>
         ) },
       ]} />
+      <Modal open={editing !== null} onClose={() => setEditing(null)} title="Editar entrenador" subtitle={editing?.full_name} size="lg">
+        {editing && <ResourceForm key={editing.id} fields={COACH_FIELDS} initial={editing as unknown as Values} onCancel={() => setEditing(null)}
+          onSubmit={async (v) => {
+            await coaches.update(editing.id, v);
+            toast.success("Entrenador actualizado.");
+            setEditing(null);
+            await refresh();
+          }} />}
+      </Modal>
       <Modal open={creating} onClose={() => setCreating(false)} title="Nuevo entrenador" subtitle={`Queda asignado a ${team.name}`} size="lg">
         <ResourceForm fields={COACH_FIELDS} onCancel={() => setCreating(false)} submitLabel="Crear y asignar"
           onSubmit={async (v) => {

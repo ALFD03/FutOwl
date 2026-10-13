@@ -76,6 +76,11 @@ class CoachViewSet(NoDeleteModelViewSet):
         super().perform_create(serializer)
 
     def perform_update(self, serializer):
+        """Los datos del entrenador los edita su equipo (o un administrador del registro)."""
+        user = self.request.user
+        team = serializer.instance.team
+        if not is_registry_admin(user) and team is not None and not team.is_staff_user(user):
+            raise PermissionDenied(f"Solo el equipo del entrenador ({team.name}) puede actualizar su ficha.")
         self._check_team_change(serializer)
         serializer.save()
 

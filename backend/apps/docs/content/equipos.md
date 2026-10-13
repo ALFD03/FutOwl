@@ -32,18 +32,19 @@ Lista los jugadores inscritos con el equipo en un torneo/categoría. Elija la in
 
 - **Inscribir jugador**: busca jugadores ya registrados que sean **elegibles** para la categoría y estén **libres** en ese torneo.
 - **Nuevo jugador**: crea la ficha y la inscribe en un solo paso.
+- Ícono de lápiz: **edita la ficha** del jugador (datos, fotos, documento, representante).
 - Ícono de baja: **da de baja** al jugador de la nómina (el registro se conserva).
 
 Detalle en [Inscripciones, grupos y nómina](/app/ayuda/inscripciones-grupos-y-nomina).
 
 ### Jugadores
 
-- **Plantel actual**: jugadores cuyo *equipo actual* es este. El equipo puede actualizar su ficha (fotos, documento…).
+- **Plantel actual**: jugadores cuyo *equipo actual* es este. El equipo puede actualizar su ficha (fotos, documento…) con el ícono de lápiz; pulsar la fila abre su perfil.
 - **Han jugado con el equipo**: historial de quienes estuvieron en alguna nómina y hoy están en otro equipo o libres.
 
 ### Cuerpo técnico
 
-Busque y **asigne** entrenadores **libres** al equipo, o pulse **Nuevo entrenador** para registrarlo (con licencia y, si quiere, usuario de acceso) y dejarlo asignado en un solo paso (`registry.add_coach`). El ícono de quitar lo libera. Un entrenador solo puede estar en **un equipo a la vez** y no puede dirigir a dos equipos del mismo torneo en curso.
+Busque y **asigne** entrenadores **libres** al equipo, o pulse **Nuevo entrenador** para registrarlo (con licencia y, si quiere, usuario de acceso) y dejarlo asignado en un solo paso (`registry.add_coach`). El ícono de lápiz **edita** sus datos, licencia y usuario de acceso (solo los entrenadores del propio equipo, salvo un administrador); el ícono de quitar lo libera. Un entrenador solo puede estar en **un equipo a la vez** y no puede dirigir a dos equipos del mismo torneo en curso.
 
 ### Categorías
 
