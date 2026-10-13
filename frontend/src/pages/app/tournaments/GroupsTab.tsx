@@ -11,8 +11,8 @@ import { groups, knockout, registrations } from "@/services";
 import type { Registration, Tournament } from "@/types";
 import { errorMessage } from "@/utils/errors";
 
-/** Modalidades que usan fase de grupos. */
-export const usesGroups = (t: Tournament) => t.modality === "groups" || t.modality === "groups_knockout";
+/** La fase de grupos solo existe en «Grupos + eliminación directa». */
+export const usesGroups = (t: Tournament) => t.modality === "groups_knockout";
 
 export function GroupsTab({ tournament }: { tournament: Tournament }) {
   const toast = useToast();

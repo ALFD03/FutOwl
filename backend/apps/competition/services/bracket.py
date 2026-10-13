@@ -29,7 +29,7 @@ FINISHED = [Match.Status.CLOSED, Match.Status.SUSPENDED]
 
 
 def _uses_groups(tournament: Tournament) -> bool:
-    return tournament.modality in (Tournament.Modality.GROUPS, Tournament.Modality.GROUPS_KNOCKOUT)
+    return tournament.modality == Tournament.Modality.GROUPS_KNOCKOUT
 
 
 def _registrations(tournament: Tournament, category_id: int):

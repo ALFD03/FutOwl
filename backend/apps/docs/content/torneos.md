@@ -13,7 +13,7 @@ Botón **Nuevo torneo**:
 | Sección | Campo | Valor por defecto / notas |
 |---------|-------|---------------------------|
 | General | **Nombre** (único), logo | |
-| | **Modalidad** | Liga (todos contra todos), Liga ida y vuelta, Fase de grupos, Grupos + eliminación directa, Eliminación directa. |
+| | **Modalidad** | Liga (todos contra todos), Liga ida y vuelta, Grupos + eliminación directa (fase de grupos y luego llave) o Eliminación directa (llave por sorteo). |
 | | **Estado** | *Borrador (no público)*, *Inscripciones*, *En curso*, *Finalizado*. |
 | | Fechas de inicio y fin | La de fin no puede ser anterior a la de inicio. |
 | | **Categorías permitidas** | Al menos una. |

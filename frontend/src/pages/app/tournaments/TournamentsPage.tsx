@@ -14,7 +14,7 @@ export const TOURNAMENT_FIELDS: FieldDef[] = [
   { name: "logo", label: "Logo", type: "image", accept: IMAGE_ACCEPT },
   { name: "modality", label: "Modalidad", type: "select", required: true, defaultValue: "league", options: [
     { value: "league", label: "Liga (todos contra todos)" }, { value: "league_double", label: "Liga ida y vuelta" },
-    { value: "groups", label: "Fase de grupos" }, { value: "groups_knockout", label: "Grupos + eliminación directa" },
+    { value: "groups_knockout", label: "Grupos + eliminación directa" },
     { value: "knockout", label: "Eliminación directa" },
   ] },
   { name: "status", label: "Estado", type: "select", required: true, defaultValue: "draft", options: [

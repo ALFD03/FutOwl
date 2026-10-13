@@ -12,7 +12,6 @@ class Tournament(BaseEntity):
     class Modality(models.TextChoices):
         LEAGUE = "league", "Liga (todos contra todos)"
         LEAGUE_DOUBLE = "league_double", "Liga ida y vuelta"
-        GROUPS = "groups", "Fase de grupos"
         GROUPS_KNOCKOUT = "groups_knockout", "Grupos + eliminación directa"
         KNOCKOUT = "knockout", "Eliminación directa"
 

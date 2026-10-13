@@ -24,7 +24,7 @@ Un mismo equipo puede inscribirse en **varias categorías** del torneo (una insc
 
 ## Grupos
 
-La pestaña **Grupos** solo aparece si la modalidad del torneo es *Fase de grupos* o *Grupos + eliminación directa* (capacidad *Inscripciones y grupos*). Elija la categoría arriba:
+La pestaña **Grupos** solo aparece si la modalidad del torneo es *Grupos + eliminación directa* (capacidad *Inscripciones y grupos*). Elija la categoría arriba:
 
 - **+ Grupo**: crea un grupo (*Grupo A*); el nombre es único por torneo y categoría.
 - Cada tarjeta muestra los equipos del grupo; el selector junto a cada equipo lo cambia de grupo o lo deja sin grupo.
