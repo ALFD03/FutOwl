@@ -71,7 +71,8 @@ El estado se cambia con **Editar** en el encabezado del torneo.
 |---------|-----------|----------|
 | **Resumen** | Configuración y el flujo del torneo en 8 pasos. | — |
 | **Reglas de juego** | Reglas de cada categoría y su ajuste para este torneo. | — |
-| **Equipos y grupos** | Inscripciones por categoría y grupos. | [Inscripciones, grupos y nómina](/app/ayuda/inscripciones-grupos-y-nomina) |
+| **Equipos** | Una fila por equipo inscrito; al pulsarla, sus categorías. | [Inscripciones, grupos y nómina](/app/ayuda/inscripciones-grupos-y-nomina) |
+| **Grupos** | Solo en modalidades con grupos: grupos por categoría y sus equipos. | [Inscripciones, grupos y nómina](/app/ayuda/inscripciones-grupos-y-nomina) |
 | **Partidos** | Fixture por fecha; generar o crear partidos. | [Fixture y partidos](/app/ayuda/fixture-y-partidos) |
 | **Jornadas** | Jornadas del torneo. | [Jornadas](/app/ayuda/jornadas) |
 | **Documentación** | Exportar planilla, tarjetas de cambio y reglamento; editar el reglamento. | [Documentos del torneo](/app/ayuda/documentos-del-torneo) |

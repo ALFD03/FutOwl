@@ -1,94 +1,92 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Plus } from "lucide-react";
+import { Check, ChevronRight, Plus } from "lucide-react";
 
-import { ResourceForm } from "@/components/forms";
 import { Can } from "@/components/layout/Guards";
 import { TeamCrest } from "@/components/match/TeamCrest";
-import { Alert, Badge, Card, CardHeader, DataTable, Modal, SelectMenu, Spinner } from "@/components/ui";
+import { Alert, Badge, Card, CardHeader, Modal, SelectMenu, Spinner } from "@/components/ui";
 import { useToast } from "@/hooks";
-import { groups, registrations, teams } from "@/services";
-import type { Group, Registration, Tournament } from "@/types";
+import { registrations, teams } from "@/services";
+import type { Registration, Tournament } from "@/types";
 import { errorMessage } from "@/utils/errors";
 
+/** Una fila por equipo; al pulsarla se ven las categorías en las que está inscrito en el torneo. */
 export function TeamsTab({ tournament }: { tournament: Tournament }) {
-  const toast = useToast();
   const queryClient = useQueryClient();
-  const [modal, setModal] = useState<"team" | "group" | null>(null);
+  const [registering, setRegistering] = useState(false);
+  const [open, setOpen] = useState<Set<number>>(new Set());
   const regs = useQuery({ queryKey: ["registrations", tournament.id], queryFn: () => registrations.all({ tournament: tournament.id, is_active: true }) });
-  const grps = useQuery({ queryKey: ["groups", tournament.id], queryFn: () => groups.all({ tournament: tournament.id, is_active: true }) });
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: ["registrations"] });
-    void queryClient.invalidateQueries({ queryKey: ["groups"] });
     void queryClient.invalidateQueries({ queryKey: ["tournaments"] });
   };
 
-  const changeGroup = async (reg: Registration, group: string) => {
-    try {
-      await registrations.update(reg.id, { group: group ? Number(group) : null });
-      toast.success("Grupo asignado.");
-      refresh();
-    } catch (e) {
-      toast.error(errorMessage(e));
-    }
-  };
+  const byTeam = new Map<number, Registration[]>();
+  (regs.data ?? []).forEach((r) => byTeam.set(r.team, [...(byTeam.get(r.team) ?? []), r]));
+  const teamsList = [...byTeam.values()].sort((a, b) => a[0].team_name.localeCompare(b[0].team_name));
+  const toggle = (id: number) => setOpen((o) => { const n = new Set(o); if (n.has(id)) n.delete(id); else n.add(id); return n; });
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[1fr_340px]">
-      <Card>
-        <CardHeader title="Equipos inscritos" subtitle={`${regs.data?.length ?? 0} inscripciones`}
-          actions={<Can perm="tournaments.add_tournamentteam"><button className="btn-gold btn-sm" onClick={() => setModal("team")}><Plus className="h-4 w-4" /> Inscribir equipo</button></Can>} />
-        <DataTable<Registration> loading={regs.isLoading} rows={regs.data ?? []} columns={[
-          { key: "team", header: "Equipo", render: (r) => <span className="flex items-center gap-2"><TeamCrest src={r.team_logo} name={r.team_name} size="sm" /><b>{r.team_name}</b></span> },
-          { key: "cat", header: "Categoría", render: (r) => <Badge tone="gold">{r.category_name}</Badge> },
-          { key: "roster", header: "Nómina", render: (r) => <Link to={`/app/equipos/${r.team}`} className="text-sm font-semibold text-navy-700 hover:underline dark:text-gold-400">{r.roster_count} jugadores</Link> },
-          { key: "group", header: "Grupo", render: (r) => (
-            <div className="w-40"><SelectMenu value={r.group ?? null} clearable placeholder="Sin grupo" className="py-1" onChange={(v) => changeGroup(r, v == null ? "" : String(v))}
-              options={(grps.data ?? []).filter((g) => g.category === r.category).map((g) => ({ value: g.id, label: g.name }))} /></div>
-          ) },
-        ]} />
-      </Card>
-      <Card className="h-fit">
-        <CardHeader title="Grupos" actions={<Can perm="tournaments.add_group"><button className="btn-outline btn-sm" onClick={() => setModal("group")}><Plus className="h-4 w-4" /> Grupo</button></Can>} />
+    <Card>
+      <CardHeader title="Equipos inscritos" subtitle={`${teamsList.length} equipo(s) · ${regs.data?.length ?? 0} inscripción(es) por categoría`}
+        actions={<Can perm="tournaments.add_tournamentteam"><button className="btn-gold btn-sm" onClick={() => setRegistering(true)}><Plus className="h-4 w-4" /> Inscribir equipo</button></Can>} />
+      {regs.isLoading ? <div className="grid h-24 place-items-center"><Spinner /></div> : !teamsList.length ? (
+        <p className="px-5 py-10 text-center text-sm text-slate-400">Todavía no hay equipos inscritos.</p>
+      ) : (
         <ul className="divide-y divide-slate-100 dark:divide-white/5">
-          {(grps.data ?? []).map((g: Group) => (
-            <li key={g.id} className="flex items-center justify-between px-5 py-3 text-sm">
-              <span><b>{g.name}</b><span className="block text-xs text-slate-500">{g.category_name}</span></span>
-              <Badge tone="navy">{g.team_ids.length} equipos</Badge>
-            </li>
-          ))}
-          {grps.data?.length === 0 && <li className="px-5 py-6 text-center text-sm text-slate-400">Sin grupos (liga única)</li>}
+          {teamsList.map((items) => {
+            const team = items[0];
+            const expanded = open.has(team.team);
+            return (
+              <li key={team.team}>
+                <button type="button" onClick={() => toggle(team.team)} aria-expanded={expanded}
+                  className="flex w-full items-center gap-3 px-5 py-3 text-left transition hover:bg-slate-50 dark:hover:bg-white/[.03]">
+                  <ChevronRight className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${expanded ? "rotate-90" : ""}`} />
+                  <TeamCrest src={team.team_logo} name={team.team_name} size="sm" />
+                  <b className="min-w-0 flex-1 truncate">{team.team_name}</b>
+                  <Badge tone="gold">{items.length} categoría(s)</Badge>
+                  <span className="hidden text-xs text-slate-500 sm:inline">{items.reduce((n, r) => n + r.roster_count, 0)} jugadores en nómina</span>
+                </button>
+                {expanded && (
+                  <div className="bg-slate-50/60 px-5 pb-4 pt-1 dark:bg-white/[.02]">
+                    <table className="w-full text-sm">
+                      <thead><tr className="text-left text-xs uppercase tracking-wide text-slate-400">
+                        <th className="py-2 pl-7">Categoría</th><th className="py-2">Grupo</th><th className="py-2">Nómina</th>
+                      </tr></thead>
+                      <tbody>
+                        {items.sort((a, b) => a.category_name.localeCompare(b.category_name)).map((r) => (
+                          <tr key={r.id} className="border-t border-slate-200/70 dark:border-white/5">
+                            <td className="py-2 pl-7"><Badge tone="gold">{r.category_name}</Badge></td>
+                            <td className="py-2 text-slate-600 dark:text-slate-300">{r.group_name ?? "—"}</td>
+                            <td className="py-2"><Link to={`/app/equipos/${r.team}`} className="font-semibold text-navy-700 hover:underline dark:text-gold-400">{r.roster_count} jugadores</Link></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </li>
+            );
+          })}
         </ul>
-      </Card>
-
-      <RegisterTeamModal open={modal === "team"} onClose={() => setModal(null)} tournament={tournament}
-        registered={regs.data ?? []} groups={grps.data ?? []} onDone={refresh} />
-      <Modal open={modal === "group"} onClose={() => setModal(null)} title="Nuevo grupo" size="sm">
-        <ResourceForm fields={[
-          { name: "name", label: "Nombre", type: "text", required: true, placeholder: "Grupo A" },
-          { name: "category", label: "Categoría", type: "select", required: true, options: tournament.categories.map((id, i) => ({ value: id, label: tournament.category_names[i] })) },
-        ]} onCancel={() => setModal(null)} onSubmit={async (v) => {
-          await groups.create({ ...v, tournament: tournament.id });
-          toast.success("Grupo creado.");
-          setModal(null);
-          refresh();
-        }} />
-      </Modal>
-    </div>
+      )}
+      <RegisterTeamModal open={registering} onClose={() => setRegistering(false)} tournament={tournament}
+        registered={regs.data ?? []} onDone={refresh} />
+    </Card>
   );
 }
 
 /**
  * Inscripción rápida: se elige el equipo y aparecen las categorías del torneo; las que el equipo tiene
- * registradas se pueden marcar varias a la vez (con su grupo, si la categoría ya tiene grupos).
+ * registradas se pueden marcar varias a la vez. Los grupos se arman después, en la pestaña Grupos.
  */
-function RegisterTeamModal({ open, onClose, tournament, registered, groups: allGroups, onDone }: {
-  open: boolean; onClose: () => void; tournament: Tournament; registered: Registration[]; groups: Group[]; onDone: () => void;
+function RegisterTeamModal({ open, onClose, tournament, registered, onDone }: {
+  open: boolean; onClose: () => void; tournament: Tournament; registered: Registration[]; onDone: () => void;
 }) {
   const toast = useToast();
   const [teamId, setTeamId] = useState<number | null>(null);
-  const [picked, setPicked] = useState<Record<number, number | null>>({}); // categoría → grupo (null = sin grupo)
+  const [picked, setPicked] = useState<Set<number>>(new Set());
   const [busy, setBusy] = useState(false);
   const allowed = new Set(tournament.categories);
   const teamsQ = useQuery({ queryKey: ["teams", "options"], queryFn: () => teams.all({ is_active: true }), enabled: open, staleTime: 60_000 });
@@ -101,22 +99,18 @@ function RegisterTeamModal({ open, onClose, tournament, registered, groups: allG
     state: !team?.categories.includes(id) ? "missing" as const : already.has(id) ? "registered" as const : "available" as const,
   }));
   const available = categories.filter((c) => c.state === "available");
-  const selected = Object.keys(picked).map(Number);
+  const selected = [...picked];
 
-  const reset = () => { setTeamId(null); setPicked({}); };
+  const reset = () => { setTeamId(null); setPicked(new Set()); };
   const close = () => { reset(); onClose(); };
-  const toggle = (id: number) => setPicked((p) => {
-    const next = { ...p };
-    if (id in next) delete next[id]; else next[id] = null;
-    return next;
-  });
+  const toggle = (id: number) => setPicked((p) => { const next = new Set(p); if (next.has(id)) next.delete(id); else next.add(id); return next; });
 
   const submit = async () => {
     setBusy(true);
     const failed: { id: number; message: string }[] = [];
     for (const category of selected) {
       try {
-        await registrations.create({ tournament: tournament.id, team: teamId, category, group: picked[category] });
+        await registrations.create({ tournament: tournament.id, team: teamId, category });
       } catch (e) {
         failed.push({ id: category, message: `${categories.find((c) => c.id === category)?.name}: ${errorMessage(e)}` });
       }
@@ -128,7 +122,7 @@ function RegisterTeamModal({ open, onClose, tournament, registered, groups: allG
     if (!failed.length) return close();
     // Quedan marcadas solo las que fallaron, para corregir y reintentar.
     toast.error(failed.map((f) => f.message).join(" · "));
-    setPicked(Object.fromEntries(failed.map((f) => [f.id, picked[f.id]])));
+    setPicked(new Set(failed.map((f) => f.id)));
   };
 
   return (
@@ -141,7 +135,7 @@ function RegisterTeamModal({ open, onClose, tournament, registered, groups: allG
       <div className="space-y-5">
         <div>
           <label className="label">Equipo</label>
-          <SelectMenu value={teamId} onChange={(v) => { setTeamId(v == null ? null : Number(v)); setPicked({}); }} searchable clearable
+          <SelectMenu value={teamId} onChange={(v) => { setTeamId(v == null ? null : Number(v)); setPicked(new Set()); }} searchable clearable
             placeholder={teamsQ.isLoading ? "Cargando equipos…" : "Buscar equipo…"}
             options={candidates.map((t) => {
               const done = registered.filter((r) => r.team === t.id).length;
@@ -156,15 +150,14 @@ function RegisterTeamModal({ open, onClose, tournament, registered, groups: allG
               <span className="label mb-0">Categorías</span>
               {available.length > 1 && (
                 <button type="button" className="text-xs font-semibold text-navy-700 hover:underline dark:text-gold-400"
-                  onClick={() => setPicked(selected.length === available.length ? {} : Object.fromEntries(available.map((c) => [c.id, picked[c.id] ?? null])))}>
+                  onClick={() => setPicked(new Set(selected.length === available.length ? [] : available.map((c) => c.id)))}>
                   {selected.length === available.length ? "Quitar todas" : "Marcar todas"}
                 </button>
               )}
             </div>
             <ul className="space-y-2">
               {categories.map((c) => {
-                const on = c.id in picked;
-                const catGroups = allGroups.filter((g) => g.category === c.id);
+                const on = picked.has(c.id);
                 return (
                   <li key={c.id} className={`flex flex-wrap items-center gap-3 rounded-xl border px-3 py-2 ${on ? "border-gold-400 bg-gold-50 dark:bg-gold-500/10" : "border-slate-200 dark:border-white/10"}`}>
                     <button type="button" disabled={c.state !== "available"} onClick={() => toggle(c.id)} aria-pressed={on}
@@ -176,13 +169,6 @@ function RegisterTeamModal({ open, onClose, tournament, registered, groups: allG
                       {c.state === "registered" && <Badge tone="emerald">Ya inscrito</Badge>}
                       {c.state === "missing" && <span className="text-xs text-slate-400">El equipo no tiene esta categoría</span>}
                     </button>
-                    {on && catGroups.length > 0 && (
-                      <div className="w-40">
-                        <SelectMenu value={picked[c.id]} clearable placeholder="Sin grupo" className="py-1 text-xs"
-                          onChange={(v) => setPicked((p) => ({ ...p, [c.id]: v == null ? null : Number(v) }))}
-                          options={catGroups.map((g) => ({ value: g.id, label: g.name }))} />
-                      </div>
-                    )}
                   </li>
                 );
               })}

@@ -13,12 +13,13 @@ import { formatDate } from "@/utils/datetime";
 import { MatchdaysList } from "../competition/MatchdaysPage";
 import { DocumentsTab } from "./DocumentsTab";
 import { FixtureTab } from "./FixtureTab";
+import { GroupsTab, usesGroups } from "./GroupsTab";
 import { RulesTab } from "./RulesTab";
 import { StandingsTab } from "./StandingsTab";
 import { TeamsTab } from "./TeamsTab";
 import { TOURNAMENT_FIELDS } from "./TournamentsPage";
 
-type Tab = "summary" | "rules" | "teams" | "fixture" | "matchdays" | "documents" | "standings";
+type Tab = "summary" | "rules" | "teams" | "groups" | "fixture" | "matchdays" | "documents" | "standings";
 
 export function TournamentDetailPage() {
   const id = Number(useParams().id);
@@ -40,12 +41,13 @@ export function TournamentDetailPage() {
           {canEdit && <button className="btn-outline" onClick={() => setEditing(true)}><Pencil className="h-4 w-4" /> Editar</button>}
         </>} />
       <Tabs<Tab> value={tab} onChange={setTab} tabs={[
-        { id: "summary", label: "Resumen" }, { id: "rules", label: "Reglas de juego" }, { id: "teams", label: "Equipos y grupos" }, { id: "fixture", label: "Partidos" },
+        { id: "summary", label: "Resumen" }, { id: "rules", label: "Reglas de juego" }, { id: "teams", label: "Equipos" }, { id: "groups", label: "Grupos", hidden: !usesGroups(t) }, { id: "fixture", label: "Partidos" },
         { id: "matchdays", label: "Jornadas" }, { id: "documents", label: "Documentación" }, { id: "standings", label: "Posiciones" },
       ]} />
       {tab === "summary" && <Summary t={t} />}
       {tab === "rules" && <RulesTab tournament={t} />}
       {tab === "teams" && <TeamsTab tournament={t} />}
+      {tab === "groups" && usesGroups(t) && <GroupsTab tournament={t} />}
       {tab === "fixture" && <FixtureTab tournament={t} />}
       {tab === "matchdays" && <MatchdaysList tournamentId={t.id} />}
       {tab === "documents" && <DocumentsTab tournament={t} />}

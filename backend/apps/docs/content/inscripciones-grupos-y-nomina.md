@@ -6,7 +6,7 @@ order: 130
 ---
 ## Inscribir equipos
 
-**Torneo → Equipos y grupos → Inscribir equipo** (capacidad *Inscripciones y grupos*):
+**Torneo → Equipos → Inscribir equipo** (capacidad *Inscripciones y grupos*):
 
 1. **Equipo**: el buscador solo muestra equipos que tienen alguna categoría del torneo, con sus categorías y en cuántas ya está inscrito.
 2. **Categorías**: aparecen todas las del torneo. Marque **una o varias** de las que el equipo puede jugar (o **Marcar todas**); las que ya tiene inscritas salen como *Ya inscrito* y las que el equipo no tiene registradas aparecen desactivadas.
@@ -20,13 +20,15 @@ FutOwl valida que:
 - No exista ya la misma inscripción (equipo + torneo + categoría).
 - El grupo corresponda al mismo torneo y categoría.
 
-Un mismo equipo puede inscribirse en **varias categorías** del torneo (una inscripción por categoría).
+Un mismo equipo puede inscribirse en **varias categorías** del torneo (una inscripción por categoría). La pestaña **Equipos** muestra **una fila por equipo**: púlsela para ver sus categorías, su grupo y su nómina.
 
 ## Grupos
 
-**Torneo → Equipos y grupos → + Grupo** (permiso *Inscripciones y grupos*): nombre (*Grupo A*) y categoría. El nombre es único por torneo y categoría.
+La pestaña **Grupos** solo aparece si la modalidad del torneo es *Fase de grupos* o *Grupos + eliminación directa* (capacidad *Inscripciones y grupos*). Elija la categoría arriba:
 
-Para asignar un equipo a un grupo, use el selector **Grupo** en su fila de *Equipos inscritos* (permiso *Inscripciones y grupos*). Si no hay grupos, el torneo funciona como **liga única** por categoría.
+- **+ Grupo**: crea un grupo (*Grupo A*); el nombre es único por torneo y categoría.
+- Cada tarjeta muestra los equipos del grupo; el selector junto a cada equipo lo cambia de grupo o lo deja sin grupo.
+- **Equipos sin grupo**: los inscritos que aún no tienen grupo.
 
 Los grupos se usan para:
 
