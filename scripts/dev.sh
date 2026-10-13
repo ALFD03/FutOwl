@@ -4,7 +4,10 @@
 #   Si un puerto está ocupado, propone el siguiente libre y permite escribir otro.
 #   Sin terminal interactiva (CI, pipes) usa directamente el puerto propuesto.
 #
-#   Variables: HOST, BACKEND_PORT, FRONTEND_PORT, PY (python del venv), BACKEND, FRONTEND
+#   Siempre contra qa: carga ENV_FILE (.env.vercel.preview) tal cual lo usa Vercel en los previews
+#   (settings de producción, esquema qa, bucket futowl-qa). Solo se permite http para servir en localhost.
+#
+#   Variables: HOST, BACKEND_PORT, FRONTEND_PORT, PY (python del venv), BACKEND, FRONTEND, ENV_FILE
 # =============================================================================
 set -euo pipefail
 
@@ -71,11 +74,21 @@ choose_port() {
   done
 }
 
+ENV_FILE=${ENV_FILE:-.env.vercel.preview}
+[ -f "$ENV_FILE" ] || { echo "Falta $ENV_FILE: es la configuración de qa (ver make env)." >&2; exit 1; }
+set -a; source "$ENV_FILE"; set +a
+export SECURE_SSL_REDIRECT=false
+# Con migraciones sin aplicar en qa, las pantallas nuevas fallarían: se avisa antes de arrancar.
+if ! (cd "$BACKEND" && "$PY" manage.py migrate --check >/dev/null 2>&1); then
+  echo -e "\033[33m⚠ qa tiene migraciones pendientes o no responde. Aplíquelas con: make migrate\033[0m" >&2
+fi
+
 BACKEND_PORT=$(choose_port backend "$BACKEND_PORT")
 FRONTEND_PORT=$(choose_port frontend "$FRONTEND_PORT" "$BACKEND_PORT")
 
 echo -e "\033[36mBackend  → http://$HOST:$BACKEND_PORT/api/\033[0m"
 echo -e "\033[36mFrontend → http://localhost:$FRONTEND_PORT\033[0m"
+echo -e "\033[36mDatos    → esquema qa + bucket ${SUPABASE_S3_BUCKET:-?} (compartidos con los previews)\033[0m"
 
 trap 'kill 0' INT TERM EXIT
 # FRONTEND_PORT: Django confía en ese origen (CSRF/CORS). VITE_DEV_API_TARGET: destino del proxy de Vite.

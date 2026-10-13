@@ -35,8 +35,8 @@
 |------|------------|
 | Backend | Python 3.12+, Django 5.2, Django REST Framework, SimpleJWT, django-filter |
 | Frontend | TypeScript, React 19, Vite, Tailwind CSS 3, TanStack Query, React Router 7 |
-| Base de datos | PostgreSQL en **Supabase** (SQLite en local) |
-| Archivos | **Supabase Storage** (API S3) mediante `django-storages` |
+| Base de datos | PostgreSQL en **Supabase**: esquema `qa` (previews y desarrollo local) y `public` (producción) |
+| Archivos | **Supabase Storage** (API S3) mediante `django-storages`: bucket `futowl-qa` y `futowl` |
 | Despliegue | **Vercel**, un solo proyecto: frontend estático + Django como función Python en `/api` |
 | Documentos | ReportLab (PDF) y python-docx (Word) |
 
@@ -88,46 +88,36 @@ Cada módulo tiene una responsabilidad única: las **vistas** solo validan entra
 
 Requisitos: Python 3.12+, Node 22+ y `make` (Linux/macOS; en Windows use WSL o Git Bash).
 
-### Con Makefile (recomendado)
+No hay base de datos local: en desarrollo siempre se trabaja contra el entorno **qa** (esquema `qa` y bucket
+`futowl-qa` de Supabase), el mismo de los previews de Vercel y con su misma configuración (`config.settings.production`).
+Lo que haga en local se ve en los previews y viceversa. La única diferencia es que `make dev` sirve por
+`http://localhost` (sin redirección a HTTPS).
+
+Necesita los archivos `.env.vercel.preview` y `.env.vercel.production` en la raíz del repo (ver
+la sección *Variables de entorno* más abajo); los secretos de Vercel no se pueden descargar, así que se
+comparten fuera del repositorio.
 
 ```bash
-make setup   # instala dependencias, crea .env con claves nuevas, migra y carga datos demo
-make dev     # backend :8000 + frontend :5173 a la vez (Ctrl+C detiene ambos)
+make setup   # instala dependencias y verifica los .env.vercel.* (no toca ninguna base de datos)
+make dev     # backend :8000 + frontend :5173 contra qa (Ctrl+C detiene ambos)
              # si un puerto está ocupado propone otro libre; o fíjelos: make dev BACKEND_PORT=9000 FRONTEND_PORT=3000
 make         # lista todos los comandos
 ```
 
+Si qa tiene migraciones pendientes, `make dev` lo avisa: aplíquelas con `make migrate`.
+
 | Comando | Qué hace |
 |---------|----------|
-| `make dev` / `make backend` / `make frontend` | Levanta ambos servicios o solo uno |
-| `make migrate` · `make migrations` · `make roles` | Migraciones y roles con permisos |
-| `make demo` · `make superuser` · `make reset-db` | Datos demo, superusuario, recrear la base local |
-| `make test` · `make test-backend T=apps.core` · `make test-frontend` | Pruebas (todas, filtradas o solo frontend) |
+| `make dev` / `make backend` / `make frontend` | Levanta ambos servicios o solo uno (siempre contra qa) |
+| `make migrate` · `make roles` · `make superuser` · `make docs` | Migraciones, roles, superusuario y documentación base en qa; con `ENV=production` en producción (pide confirmación) |
+| `make migrations` | Genera migraciones nuevas tras cambiar modelos (no se conecta a Supabase) |
+| `make test` · `make test-backend T=apps.core` · `make test-frontend` | Pruebas (todas, filtradas o solo frontend; usan una base en memoria) |
 | `make typecheck` · `make check` · `make ci` | Tipos, chequeos de Django y el mismo pipeline de CI |
 | `make build` · `make preview` | Build de producción del frontend y vista previa |
-| `make keys` | Genera claves seguras para producción |
-| `make shell` · `make secure-db` · `make clean` | Shell de Django, protecciones de Supabase, limpieza |
+| `make keys` | Genera claves seguras para un entorno nuevo |
+| `make shell` · `make secure-db` · `make clean` | Shell de Django (`ENV=…`), protecciones de Supabase, limpieza |
 
-### Manual
-
-```bash
-# Backend
-cd backend
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env            # ajuste las claves (ver comentarios)
-python manage.py migrate
-python manage.py seed_roles     # crea los roles con sus permisos
-python manage.py seed_demo      # (opcional) datos de demostración con un partido en vivo
-python manage.py runserver      # http://127.0.0.1:8000
-
-# Frontend (otra terminal)
-cd frontend
-npm install
-npm run dev                     # http://localhost:5173 (proxy /api → Django)
-```
-
-Con `seed_demo` se crean los usuarios `admin`, `autoridad`, `consulta`, `delegado1-2`, `arbitro1-6` y `gestor1-6` con la contraseña `FutOwl#2026!` (cámbiela con `--password`). **No use datos demo en producción.**
+Los datos de demostración (`python manage.py seed_demo`) no se cargan nunca automáticamente: escribirían en qa.
 
 ## Flujo del torneo
 
@@ -311,9 +301,9 @@ SUPABASE_S3_ENDPOINT · SUPABASE_S3_BUCKET · SUPABASE_S3_REGION · SUPABASE_S3_
 Vercel no ejecuta migraciones. Antes de desplegar cambios de modelos, desde su equipo:
 
 ```bash
-make remote-migrate REMOTE_ENV=preview      # esquema qa
-make remote-migrate REMOTE_ENV=production   # esquema public
-make remote-superuser REMOTE_ENV=production
+make migrate                      # esquema qa (preview)
+make migrate ENV=production       # esquema public (pide confirmación)
+make superuser ENV=production
 ```
 
 ## Pruebas

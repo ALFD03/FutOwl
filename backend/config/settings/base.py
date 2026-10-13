@@ -1,18 +1,17 @@
 """
 Configuración base de FutOwl.
 
-Todos los valores sensibles se leen desde variables de entorno (ver `.env.example`).
-Los módulos `development` y `production` extienden esta configuración.
+Todos los valores se leen desde variables de entorno: en Vercel las del entorno (Preview / Production)
+y en local las de `.env.vercel.preview` (esquema qa), que carga `make dev`. No hay base de datos local.
+El módulo `production` extiende esta configuración; `test` la usa solo para las pruebas automáticas.
 """
 from datetime import timedelta
 from pathlib import Path
 import os
 
 import dj_database_url
-from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
-load_dotenv(BASE_DIR / ".env")
 
 
 def env(name: str, default: str | None = None) -> str | None:
@@ -104,15 +103,14 @@ TEMPLATES = [
 ]
 
 # ---------------------------------------------------------------------------
-# Base de datos (Supabase Postgres en producción, SQLite en local)
+# Base de datos: Supabase Postgres (esquema qa en previews y en local, public en producción)
 # ---------------------------------------------------------------------------
 DATABASES = {
-    "default": dj_database_url.config(
-        env="DATABASE_URL",
-        default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
+    "default": dj_database_url.parse(
+        env("DATABASE_URL"),
         conn_max_age=int(env("DB_CONN_MAX_AGE", "0")),
         ssl_require=env_bool("DB_SSL_REQUIRE", False),
-    )
+    ) if env("DATABASE_URL") else {}  # sin DATABASE_URL: production se niega a arrancar; test usa su propia base
 }
 # El pooler de Supabase en modo transacción (puerto 6543) no admite cursores del lado del servidor.
 # El esquema (public / qa) lo fija el search_path del rol de base de datos de cada entorno.
@@ -165,6 +163,9 @@ if env("SUPABASE_S3_ENDPOINT"):
             "secret_key": env("SUPABASE_S3_SECRET_KEY"),
             "bucket_name": env("SUPABASE_S3_BUCKET", "futowl"),
             "region_name": env("SUPABASE_S3_REGION", "us-east-1"),
+            # Supabase solo acepta URLs firmadas con SigV4 (con la firma por defecto responde 403 "Missing signature").
+            "signature_version": "s3v4",
+            "addressing_style": "path",
             "default_acl": None,
             "querystring_auth": True,
             "querystring_expire": 3600,
@@ -247,6 +248,11 @@ CORS_ALLOWED_ORIGINS = env_list("CORS_ALLOWED_ORIGINS", "http://localhost:5173")
 CORS_ALLOW_CREDENTIALS = True
 CSRF_TRUSTED_ORIGINS = env_list("CSRF_TRUSTED_ORIGINS", "http://localhost:5173")
 CSRF_TRUSTED_ORIGINS += [f"https://{host}" for host in VERCEL_HOSTS]
+# `make dev` exporta FRONTEND_PORT: el proxy de Vite conserva el Origin del navegador (http://localhost:<puerto>).
+if env("FRONTEND_PORT"):
+    for _origin in (f"http://localhost:{env('FRONTEND_PORT')}", f"http://127.0.0.1:{env('FRONTEND_PORT')}"):
+        CORS_ALLOWED_ORIGINS += [_origin] if _origin not in CORS_ALLOWED_ORIGINS else []
+        CSRF_TRUSTED_ORIGINS += [_origin] if _origin not in CSRF_TRUSTED_ORIGINS else []
 
 # ---------------------------------------------------------------------------
 # Seguridad

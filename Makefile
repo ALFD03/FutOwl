@@ -1,9 +1,12 @@
 # =============================================================================
 # FutOwl · comandos rápidos de desarrollo
 #   make            → muestra esta ayuda
-#   make setup      → instala todo y prepara la base de datos con datos demo
-#   make dev        → levanta backend (8000) y frontend (5173) a la vez
-#                     (puertos ocupados → propone otros; o fíjelos: make dev BACKEND_PORT=9000 FRONTEND_PORT=3000)
+#   make setup      → instala dependencias y verifica los .env.vercel.* (no toca ninguna base de datos)
+#   make dev        → levanta backend (8000) y frontend (5173) contra el esquema qa de Supabase y el bucket qa,
+#                     con la misma configuración que producción (puertos ocupados → propone otros)
+#
+# No hay base de datos local: en local siempre se trabaja sobre qa, igual que los previews.
+# Los comandos de base de datos usan ENV=preview (qa, por defecto) o ENV=production (public; pide confirmación).
 # =============================================================================
 
 SHELL := /bin/bash
@@ -14,13 +17,25 @@ FRONTEND := frontend
 VENV     ?= $(BACKEND)/.venv
 PY       := $(abspath $(VENV))/bin/python
 PIP      := $(abspath $(VENV))/bin/pip
-MANAGE   := cd $(BACKEND) && $(PY) manage.py
 TEST_ENV := DJANGO_SETTINGS_MODULE=config.settings.test
 
 HOST          ?= 127.0.0.1
 BACKEND_PORT  ?= 8000
 FRONTEND_PORT ?= 5173
-DEMO_PASSWORD ?= FutOwl\#2026!
+
+# Entorno de Supabase: preview → esquema qa + bucket futowl-qa · production → esquema public + bucket futowl
+ENV ?= preview
+ifeq ($(filter $(ENV),preview production),)
+$(error ENV debe ser preview o production)
+endif
+ENV_FILE := $(abspath .env.vercel.$(ENV))
+# Mismas variables que Vercel (settings de producción); solo se permite http para servir en localhost.
+DJ := { test -f $(ENV_FILE) || { echo "Falta $(ENV_FILE) (ver make env)"; exit 1; }; } && \
+	set -a && source $(ENV_FILE) && set +a && export SECURE_SSL_REDIRECT=false && cd $(BACKEND) && $(PY) manage.py
+# Línea propia en cada receta: si la respuesta no es "s", make se detiene antes de tocar producción.
+CONFIRM := $(if $(filter production,$(ENV)),read -p "⚠ Se ejecutará contra PRODUCCIÓN (esquema public). ¿Continuar? [s/N] " ok && [ "$$ok" = "s" ],true)
+REQUIRED_VARS := DJANGO_SETTINGS_MODULE DJANGO_SECRET_KEY FIELD_ENCRYPTION_KEY BLIND_INDEX_KEY JWT_SIGNING_KEY DATABASE_URL \
+	SUPABASE_S3_ENDPOINT SUPABASE_S3_BUCKET SUPABASE_S3_REGION SUPABASE_S3_ACCESS_KEY SUPABASE_S3_SECRET_KEY
 
 # ---------------------------------------------------------------------- Ayuda
 .PHONY: help
@@ -33,8 +48,8 @@ help: ## Muestra los comandos disponibles
 
 ##@ Instalación
 .PHONY: setup install install-backend install-frontend env
-setup: install env migrate demo ## Instala todo, migra y carga datos demo (primera vez)
-	@echo -e "\n\033[32m✔ Listo. Ejecute 'make dev' y abra http://localhost:$(FRONTEND_PORT)\033[0m"
+setup: install env ## Instala dependencias y verifica los .env.vercel.* (no toca ninguna base de datos)
+	@echo -e "\n\033[32m✔ Listo. Ejecute 'make dev' (esquema qa) y abra http://localhost:$(FRONTEND_PORT)\033[0m"
 
 install: install-backend install-frontend ## Instala dependencias de backend y frontend
 
@@ -46,77 +61,59 @@ install-backend: ## Crea el entorno virtual e instala requirements.txt
 install-frontend: ## Instala dependencias de npm
 	cd $(FRONTEND) && npm install --no-audit --no-fund
 
-env: ## Crea los .env a partir de los ejemplos (no sobrescribe) y genera claves
-	@if [ ! -f $(BACKEND)/.env ]; then \
-		cp $(BACKEND)/.env.example $(BACKEND)/.env; \
-		KEY=$$($(PY) -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"); \
-		SECRET=$$($(PY) -c "import secrets; print(secrets.token_urlsafe(50))"); \
-		BLIND=$$($(PY) -c "import secrets; print(secrets.token_urlsafe(40))"); \
-		JWT=$$($(PY) -c "import secrets; print(secrets.token_urlsafe(40))"); \
-		sed -i.bak -e "s|^FIELD_ENCRYPTION_KEY=.*|FIELD_ENCRYPTION_KEY=$$KEY|" -e "s|^DJANGO_SECRET_KEY=.*|DJANGO_SECRET_KEY=$$SECRET|" \
-			-e "s|^BLIND_INDEX_KEY=.*|BLIND_INDEX_KEY=$$BLIND|" -e "s|^JWT_SIGNING_KEY=.*|JWT_SIGNING_KEY=$$JWT|" $(BACKEND)/.env && rm -f $(BACKEND)/.env.bak; \
-		echo "✔ $(BACKEND)/.env creado con claves nuevas"; \
-	else echo "• $(BACKEND)/.env ya existe"; fi
-	@if [ ! -f $(FRONTEND)/.env ]; then cp $(FRONTEND)/.env.example $(FRONTEND)/.env && echo "✔ $(FRONTEND)/.env creado"; \
-	else echo "• $(FRONTEND)/.env ya existe"; fi
+env: ## Verifica .env.vercel.preview/.production (secretos de qa y producción) y crea frontend/.env
+	@if [ ! -f $(FRONTEND)/.env ]; then cp $(FRONTEND)/.env.example $(FRONTEND)/.env && echo "✔ $(FRONTEND)/.env creado"; fi
+	@ok=1; for f in .env.vercel.preview .env.vercel.production; do \
+		if [ ! -f $$f ]; then echo "✘ Falta $$f"; ok=0; continue; fi; \
+		missing=""; for k in $(REQUIRED_VARS); do grep -Eq "^$$k=.+" $$f || missing="$$missing $$k"; done; \
+		if [ -n "$$missing" ]; then echo "✘ $$f sin:$$missing"; ok=0; else echo "✔ $$f completo"; fi; \
+	done; \
+	if [ $$ok = 0 ]; then echo "  Pida los valores al responsable del proyecto: los secretos de Vercel no se pueden descargar."; exit 1; fi
 
-##@ Desarrollo
+##@ Desarrollo (siempre contra qa)
 .PHONY: dev backend frontend shell
-dev: ## Levanta backend y frontend juntos; si un puerto está ocupado pregunta otro (Ctrl+C detiene ambos)
+dev: ## Backend + frontend contra qa (base y bucket); si un puerto está ocupado pregunta otro
 	@HOST=$(HOST) BACKEND_PORT=$(BACKEND_PORT) FRONTEND_PORT=$(FRONTEND_PORT) PY=$(PY) \
-		BACKEND=$(BACKEND) FRONTEND=$(FRONTEND) bash scripts/dev.sh
+		BACKEND=$(BACKEND) FRONTEND=$(FRONTEND) ENV_FILE=$(abspath .env.vercel.preview) bash scripts/dev.sh
 
-backend: ## Solo el backend Django (puerto 8000)
-	$(MANAGE) runserver $(HOST):$(BACKEND_PORT)
+backend: ## Solo el backend Django contra qa (puerto 8000)
+	@$(MAKE) --no-print-directory _backend ENV=preview
 
-frontend: ## Solo el frontend Vite (puerto 5173)
+_backend:
+	@$(DJ) runserver $(HOST):$(BACKEND_PORT)
+
+frontend: ## Solo el frontend Vite (puerto 5173, proxy /api → backend :8000)
 	cd $(FRONTEND) && npx vite --port $(FRONTEND_PORT)
 
-shell: ## Shell interactiva de Django
-	$(MANAGE) shell
+shell: ## Shell de Django (ENV=preview|production)
+	@$(CONFIRM)
+	@$(DJ) shell
 
-##@ Base de datos
-.PHONY: migrate migrations roles demo superuser reset-db secure-db
+##@ Base de datos en Supabase (ENV=preview → qa por defecto · ENV=production → public)
+.PHONY: migrate migrations roles superuser docs secure-db
 migrate: ## Aplica migraciones y sincroniza roles
-	$(MANAGE) migrate
-	$(MANAGE) seed_roles
+	@$(CONFIRM)
+	@$(DJ) migrate
+	@$(DJ) seed_roles
 
-migrations: ## Genera migraciones nuevas tras cambiar modelos
-	$(MANAGE) makemigrations
+migrations: ## Genera migraciones nuevas tras cambiar modelos (no se conecta a Supabase)
+	cd $(BACKEND) && $(TEST_ENV) $(PY) manage.py makemigrations
 
 roles: ## Crea/actualiza los roles predefinidos y sus permisos
-	$(MANAGE) seed_roles
-
-demo: ## Carga datos de demostración (usuarios, torneo y partido en vivo)
-	$(MANAGE) seed_demo --password "$(DEMO_PASSWORD)"
+	@$(CONFIRM)
+	@$(DJ) seed_roles
 
 superuser: ## Crea un superusuario
-	$(MANAGE) createsuperuser
+	@$(CONFIRM)
+	@$(DJ) createsuperuser
 
-reset-db: ## ⚠ Borra la base SQLite local y la recrea con datos demo
-	@read -p "Se borrará $(BACKEND)/db.sqlite3. ¿Continuar? [s/N] " ok && [ "$$ok" = "s" ]
-	rm -f $(BACKEND)/db.sqlite3
-	$(MAKE) --no-print-directory migrate demo
+docs: ## Recarga la documentación base desde apps/docs/content (queda una revisión por página)
+	@$(CONFIRM)
+	@$(DJ) load_docs --overwrite
 
-secure-db: ## Reaplica RLS y triggers de inalterabilidad (solo PostgreSQL/Supabase)
-	$(MANAGE) secure_database
-
-##@ Despliegue (Supabase: esquema qa = previews/develop, public = producción/master)
-.PHONY: remote-migrate remote-superuser remote-shell
-REMOTE_ENV  ?= preview
-REMOTE_FILE := $(abspath .env.vercel.$(REMOTE_ENV))
-REMOTE      := set -a && source $(REMOTE_FILE) && set +a && cd $(BACKEND) && $(PY) manage.py
-
-remote-migrate: ## Migra y sincroniza roles en Supabase (REMOTE_ENV=preview|production)
-	@test -f $(REMOTE_FILE) || { echo "Falta $(REMOTE_FILE)"; exit 1; }
-	$(REMOTE) migrate
-	$(REMOTE) seed_roles
-
-remote-superuser: ## Crea un superusuario en Supabase (REMOTE_ENV=preview|production)
-	$(REMOTE) createsuperuser
-
-remote-shell: ## Shell de Django contra Supabase (REMOTE_ENV=preview|production)
-	$(REMOTE) shell
+secure-db: ## Reaplica RLS y triggers de inalterabilidad
+	@$(CONFIRM)
+	@$(DJ) secure_database
 
 ##@ Pruebas y calidad
 .PHONY: test test-backend test-frontend typecheck check check-deploy ci

@@ -15,8 +15,9 @@ from apps.accounts import roles
 from apps.competition.models import Match, Matchday, MatchEvent
 from apps.competition.services import confirmations, fixtures, lineups, live, scheduling
 from apps.core import factories as f
-from apps.tournaments.models import Group
+from apps.tournaments.models import Group, Tournament
 
+DEMO_TOURNAMENT = "Copa FutOwl 2026"
 TEAMS = ["Búhos Dorados", "Halcones Rojos", "Águilas Azules", "Leones del Norte", "Tiburones FC", "Panteras Negras"]
 
 
@@ -30,6 +31,12 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         pwd = options["password"]
         call_command("seed_roles", verbosity=0)
+        # Volver a correr `make setup` no debe fallar por datos demo ya cargados.
+        if Tournament.objects.filter(name=DEMO_TOURNAMENT).exists():
+            self.stdout.write(self.style.WARNING(
+                "• Los datos demo ya están cargados."
+            ))
+            return
         admin = f.user("admin", superuser=True, password=pwd)
         authority = f.user("autoridad", role=roles.AUTHORITY, password=pwd)
         f.user("jefearbitros", role=roles.HEAD_REFEREE, password=pwd)
@@ -45,7 +52,7 @@ class Command(BaseCommand):
         referees = [f.official("Referee", n, "Árbitro", f.user(f"arbitro{i}", role=roles.REFEREE, password=pwd))
                     for i, n in enumerate(["Luis", "Marta", "Pedro", "Rosa", "Iván", "Elena"], start=1)]
 
-        tournament = f.tournament("Copa FutOwl 2026", categories=[sub12], fields=[main], max_substitutions=5,
+        tournament = f.tournament(DEMO_TOURNAMENT, categories=[sub12], fields=[main], max_substitutions=5,
                                   starters_count=7, max_lineup_players=14,
                                   regulation_text="# Disposiciones generales\n- Partidos de 2 tiempos de 30 "
                                                   "minutos.\n- Cambios ilimitados en el entretiempo.")
