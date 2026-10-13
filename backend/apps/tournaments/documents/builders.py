@@ -39,7 +39,7 @@ def lineup_sheet(tournament, team, category, roster, *, match=None, lineup=None,
     ]
     if match is not None:
         blocks.append(Paragraph(
-            f"Partido: {_safe(match.home.team.name)} vs {_safe(match.away.team.name)}  |  "
+            f"Partido: {_safe(match.home_label)} vs {_safe(match.away_label)}  |  "
             f"Fecha: {match.local_start:%d/%m/%Y %H:%M}  |  Cancha: {_safe(match.field)}"
             if match.scheduled_start else f"Partido: {_safe(match)}"
         ))

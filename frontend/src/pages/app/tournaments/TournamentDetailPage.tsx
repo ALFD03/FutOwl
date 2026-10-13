@@ -15,12 +15,13 @@ import { MatchdaysList } from "../competition/MatchdaysPage";
 import { DocumentsTab } from "./DocumentsTab";
 import { FixtureTab } from "./FixtureTab";
 import { GroupsTab, usesGroups } from "./GroupsTab";
+import { KnockoutTab, usesKnockout } from "./KnockoutTab";
 import { RulesTab } from "./RulesTab";
 import { StandingsTab } from "./StandingsTab";
 import { TeamsTab } from "./TeamsTab";
 import { TOURNAMENT_FIELDS } from "./TournamentsPage";
 
-type Tab = "summary" | "rules" | "teams" | "groups" | "fixture" | "matchdays" | "documents" | "standings";
+type Tab = "summary" | "rules" | "teams" | "groups" | "knockout" | "fixture" | "matchdays" | "documents" | "standings";
 
 export function TournamentDetailPage() {
   const id = Number(useParams().id);
@@ -56,13 +57,14 @@ export function TournamentDetailPage() {
           {canDelete && t.status === "draft" && <button className="btn-ghost text-crimson-600" title="Eliminar torneo (borrador)" onClick={() => setDeleting(true)}><Trash2 className="h-4 w-4" /></button>}
         </>} />
       <Tabs<Tab> value={tab} onChange={setTab} tabs={[
-        { id: "summary", label: "Resumen" }, { id: "rules", label: "Reglas de juego" }, { id: "teams", label: "Equipos" }, { id: "groups", label: "Grupos", hidden: !usesGroups(t) }, { id: "fixture", label: "Partidos" },
+        { id: "summary", label: "Resumen" }, { id: "rules", label: "Reglas de juego" }, { id: "teams", label: "Equipos" }, { id: "groups", label: "Grupos", hidden: !usesGroups(t) }, { id: "knockout", label: "Eliminación directa", hidden: !usesKnockout(t) }, { id: "fixture", label: "Partidos" },
         { id: "matchdays", label: "Jornadas" }, { id: "documents", label: "Documentación" }, { id: "standings", label: "Posiciones" },
       ]} />
       {tab === "summary" && <Summary t={t} />}
       {tab === "rules" && <RulesTab tournament={t} />}
       {tab === "teams" && <TeamsTab tournament={t} />}
       {tab === "groups" && usesGroups(t) && <GroupsTab tournament={t} />}
+      {tab === "knockout" && usesKnockout(t) && <KnockoutTab tournament={t} />}
       {tab === "fixture" && <FixtureTab tournament={t} />}
       {tab === "matchdays" && <MatchdaysList tournamentId={t.id} />}
       {tab === "documents" && <DocumentsTab tournament={t} />}

@@ -41,7 +41,7 @@ Botón **Devolver** en la tarjeta del informe → escriba el motivo (mínimo 5 c
 
 **Quién:** permiso *Cerrar partidos*.
 
-El botón **Cerrar partido** se habilita cuando **ambos informes vigentes coinciden** en marcador y tarjetas. Al cerrar:
+El botón **Cerrar partido** se habilita cuando **ambos informes vigentes coinciden** en marcador y tarjetas. En un partido de **eliminación directa** que terminó empatado, elija también el **ganador por penales**; al cerrarlo, el ganador pasa al siguiente partido de la llave. Al cerrar:
 
 - Se crea el **cierre oficial** con el resultado del informe y referencias a ambos informes.
 - El partido pasa a **Cerrado**; el marcador queda **oficial e inalterable**.

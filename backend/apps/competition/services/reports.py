@@ -102,7 +102,8 @@ def compare(match: Match) -> dict:
 
 
 @transaction.atomic
-def close_match(match: Match, user, notes: str = "") -> MatchClosure:
+def close_match(match: Match, user, notes: str = "", winner_side: str | None = None) -> MatchClosure:
+    """Cierre oficial. En la eliminación directa, un empate exige indicar el ganador por penales (`winner_side`)."""
     match = Match.objects.select_for_update().get(pk=match.pk)
     if match.status != Match.Status.FINISHED:
         raise ValidationError("Solo se cierran partidos finalizados.")
@@ -120,7 +121,17 @@ def close_match(match: Match, user, notes: str = "") -> MatchClosure:
     )
     match.status = Match.Status.CLOSED
     match.home_score, match.away_score = delegate.home_score, delegate.away_score
+    if match.is_knockout:
+        if match.home_score != match.away_score:
+            winner_side = "home" if match.home_score > match.away_score else "away"
+        elif winner_side not in ("home", "away"):
+            raise ValidationError({"winner": "Empate en eliminación directa: indique quién ganó por penales."})
+        match.winner = match.home if winner_side == "home" else match.away
     match.save()
+    if match.is_knockout:
+        from .bracket import advance_winner
+
+        advance_winner(match)
     record("close_match", match, user=user, changes={"resultado": f"{match.home_score}-{match.away_score}"})
     notify(involved_users(match), "Partido cerrado",
            f"{match} cerrado oficialmente: {match.home_score}-{match.away_score}.", level="success",

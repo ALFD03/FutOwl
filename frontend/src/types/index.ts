@@ -254,6 +254,39 @@ export interface Matchday {
 export type MatchStatus = "draft" | "pending" | "confirmed" | "in_progress" | "finished" | "closed" | "suspended";
 export type MatchPhase = "not_started" | "playing" | "break" | "ended";
 
+export type MatchStage = "regular" | "r64" | "r32" | "r16" | "qf" | "sf" | "final";
+
+export interface KnockoutSide {
+  team: { id: ID; name: string; logo: string | null } | null;
+  source: string;
+  projected: { id: ID; name: string; logo: string | null; points: number } | null;
+}
+
+export interface KnockoutMatch {
+  id: ID;
+  position: number;
+  status: MatchStatus;
+  status_display: string;
+  home: KnockoutSide;
+  away: KnockoutSide;
+  home_score: number | null;
+  away_score: number | null;
+  winner: ID | null;
+  scheduled_start: string | null;
+  field_name: string | null;
+  matchday_label: string | null;
+}
+
+export interface KnockoutOption { stage: MatchStage; label: string; slots: number; per_group: number; best_extra: number; byes: number }
+
+export interface KnockoutView {
+  modality: string;
+  bracket: { start_stage: MatchStage; per_group: number; best_extra: number; filled: boolean } | null;
+  options: KnockoutOption[];
+  group_stage_finished: boolean;
+  stages: { stage: MatchStage; label: string; matches: KnockoutMatch[] }[];
+}
+
 export interface Match {
   id: ID;
   tournament: ID;
@@ -263,13 +296,20 @@ export interface Match {
   group: ID | null;
   group_name: string | null;
   round_number: number;
-  home: ID;
+  stage: MatchStage;
+  stage_display: string;
+  bracket_position: number | null;
+  home_source: string;
+  away_source: string;
+  winner: ID | null;
+  /** En la eliminación directa puede no estar definido aún (ver home_source). */
+  home: ID | null;
   home_name: string;
-  home_team_id: ID;
+  home_team_id: ID | null;
   home_logo: string | null;
-  away: ID;
+  away: ID | null;
   away_name: string;
-  away_team_id: ID;
+  away_team_id: ID | null;
   away_logo: string | null;
   matchday: ID | null;
   matchday_label: string | null;

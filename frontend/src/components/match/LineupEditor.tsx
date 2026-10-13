@@ -28,7 +28,8 @@ export function LineupEditor({ match, side, lineup, maxPlayers, starters }: {
   const registration = side === "home" ? match.home : match.away;
   const teamId = side === "home" ? match.home_team_id : match.away_team_id;
   const teamName = side === "home" ? match.home_name : match.away_name;
-  const manages = Boolean(user?.profiles.team_ids.includes(teamId)) || can("competition.operate_any_match");
+  // Las alineaciones solo existen en partidos enviados, que siempre tienen ambos equipos definidos.
+  const manages = Boolean(teamId && user?.profiles.team_ids.includes(teamId)) || can("competition.operate_any_match");
   const editable = manages && can("competition.submit_lineup") && ["pending", "confirmed"].includes(match.status)
     && match.phase === "not_started" && lineup?.status !== "verified";
 

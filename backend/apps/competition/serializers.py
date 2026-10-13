@@ -56,12 +56,14 @@ class MatchSerializer(serializers.ModelSerializer):
     tournament_name = serializers.CharField(source="tournament.name", read_only=True)
     category_name = serializers.CharField(source="category.name", read_only=True)
     group_name = serializers.CharField(source="group.name", read_only=True, default=None)
-    home_name = serializers.CharField(source="home.team.name", read_only=True)
-    away_name = serializers.CharField(source="away.team.name", read_only=True)
-    home_team_id = serializers.IntegerField(source="home.team_id", read_only=True)
-    away_team_id = serializers.IntegerField(source="away.team_id", read_only=True)
-    home_logo = serializers.ImageField(source="home.team.logo", read_only=True)
-    away_logo = serializers.ImageField(source="away.team.logo", read_only=True)
+    # En la eliminación directa el equipo puede no estar definido: se muestra su origen ("1º Grupo A").
+    home_name = serializers.CharField(source="home_label", read_only=True)
+    away_name = serializers.CharField(source="away_label", read_only=True)
+    home_team_id = serializers.IntegerField(source="home.team_id", read_only=True, default=None)
+    away_team_id = serializers.IntegerField(source="away.team_id", read_only=True, default=None)
+    home_logo = serializers.ImageField(source="home.team.logo", read_only=True, default=None)
+    away_logo = serializers.ImageField(source="away.team.logo", read_only=True, default=None)
+    stage_display = serializers.CharField(source="get_stage_display", read_only=True)
     matchday_label = serializers.SerializerMethodField()
     field_name = serializers.CharField(source="field.name", read_only=True, default=None)
     delegate_name = serializers.SerializerMethodField()
@@ -79,7 +81,8 @@ class MatchSerializer(serializers.ModelSerializer):
         model = Match
         fields = [
             "id", "tournament", "tournament_name", "category", "category_name", "group", "group_name",
-            "round_number", "home", "home_name", "home_team_id", "home_logo", "away", "away_name", "away_team_id",
+            "round_number", "stage", "stage_display", "bracket_position", "home_source", "away_source", "winner",
+            "home", "home_name", "home_team_id", "home_logo", "away", "away_name", "away_team_id",
             "away_logo", "matchday",
             "matchday_label", "field", "field_name", "sub_field", "scheduled_start", "scheduled_end", "delegate",
             "delegate_name", "referee", "referee_name", "assistant_referee_1", "assistant_referee_1_name",

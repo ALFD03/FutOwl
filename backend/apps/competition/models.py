@@ -75,6 +75,22 @@ class Matchday(TimeStampedModel):
         super().delete(*args, **kwargs)
 
 
+class Stage(models.TextChoices):
+    """Fase del partido: liga / fase de grupos, o una ronda de la eliminación directa."""
+
+    REGULAR = "regular", "Fase regular"
+    R64 = "r64", "32avos de final"
+    R32 = "r32", "16avos de final"
+    R16 = "r16", "Octavos de final"
+    QF = "qf", "Cuartos de final"
+    SF = "sf", "Semifinal"
+    FINAL = "final", "Final"
+
+
+# Rondas de la llave en orden, con la cantidad de partidos de cada una.
+KNOCKOUT_STAGES = [(Stage.R64, 32), (Stage.R32, 16), (Stage.R16, 8), (Stage.QF, 4), (Stage.SF, 2), (Stage.FINAL, 1)]
+
+
 class Match(TimeStampedModel):
     class Status(models.TextChoices):
         DRAFT = "draft", "Borrador"
@@ -100,10 +116,17 @@ class Match(TimeStampedModel):
     category = models.ForeignKey("registry.Category", on_delete=models.PROTECT, related_name="+")
     group = models.ForeignKey(Group, on_delete=models.PROTECT, null=True, blank=True, related_name="matches")
     round_number = models.PositiveSmallIntegerField("fecha / ronda", default=1)
-    home = models.ForeignKey(TournamentTeam, verbose_name="local", on_delete=models.PROTECT,
+    # En la eliminación directa los equipos se conocen después: hasta entonces se muestra su origen.
+    home = models.ForeignKey(TournamentTeam, verbose_name="local", on_delete=models.PROTECT, null=True, blank=True,
                              related_name="home_matches")
-    away = models.ForeignKey(TournamentTeam, verbose_name="visitante", on_delete=models.PROTECT,
-                             related_name="away_matches")
+    away = models.ForeignKey(TournamentTeam, verbose_name="visitante", on_delete=models.PROTECT, null=True,
+                             blank=True, related_name="away_matches")
+    stage = models.CharField("fase", max_length=8, choices=Stage.choices, default=Stage.REGULAR, db_index=True)
+    bracket_position = models.PositiveSmallIntegerField("posición en la llave", null=True, blank=True)
+    home_source = models.CharField("origen del local", max_length=60, blank=True, help_text="Ej.: 1º Grupo A")
+    away_source = models.CharField("origen del visitante", max_length=60, blank=True)
+    winner = models.ForeignKey(TournamentTeam, verbose_name="ganador (eliminación directa)", on_delete=models.PROTECT,
+                               null=True, blank=True, related_name="+")
     matchday = models.ForeignKey(Matchday, on_delete=models.PROTECT, null=True, blank=True, related_name="matches")
 
     field = models.ForeignKey(Field, verbose_name="cancha", on_delete=models.PROTECT, null=True, blank=True,
@@ -150,7 +173,19 @@ class Match(TimeStampedModel):
         ]
 
     def __str__(self):
-        return f"{self.home.team.name} vs {self.away.team.name}"
+        return f"{self.home_label} vs {self.away_label}"
+
+    @property
+    def home_label(self) -> str:
+        return self.home.team.name if self.home_id else (self.home_source or "Por definir")
+
+    @property
+    def away_label(self) -> str:
+        return self.away.team.name if self.away_id else (self.away_source or "Por definir")
+
+    @property
+    def is_knockout(self) -> bool:
+        return self.stage != Stage.REGULAR
 
     @property
     def local_start(self):
@@ -194,6 +229,29 @@ class Match(TimeStampedModel):
 
     def team_for(self, party: str) -> TournamentTeam | None:
         return {Party.HOME: self.home, Party.AWAY: self.away}.get(party)
+
+
+class Bracket(TimeStampedModel):
+    """Configuración de la eliminación directa de una categoría en un torneo."""
+
+    tournament = models.ForeignKey(Tournament, on_delete=models.PROTECT, related_name="brackets")
+    category = models.ForeignKey("registry.Category", on_delete=models.PROTECT, related_name="+")
+    start_stage = models.CharField("ronda inicial", max_length=8, choices=Stage.choices)
+    per_group = models.PositiveSmallIntegerField("clasificados por grupo", default=0)
+    best_extra = models.PositiveSmallIntegerField("mejores siguientes", default=0,
+                                                  help_text="Cupos que completan los mejores del siguiente puesto")
+    # Origen de cada cupo de la primera ronda: [{"position", "side", "kind": group|best|team, "group", "place", "rank"}]
+    slots = models.JSONField("cupos de la primera ronda", default=list, blank=True)
+    filled_at = models.DateTimeField("llave completada", null=True, blank=True)
+    created_by = models.ForeignKey(User, on_delete=models.PROTECT, null=True, blank=True, related_name="+")
+
+    class Meta:
+        verbose_name = "llave de eliminación"
+        verbose_name_plural = "llaves de eliminación"
+        constraints = [models.UniqueConstraint(fields=["tournament", "category"], name="unique_bracket")]
+
+    def __str__(self):
+        return f"Llave {self.category} · {self.tournament}"
 
 
 class MatchConfirmation(ImmutableModel):

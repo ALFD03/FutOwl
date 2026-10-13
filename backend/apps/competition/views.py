@@ -1,5 +1,6 @@
 import json
 
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from rest_framework import mixins, status, viewsets
@@ -15,7 +16,7 @@ from apps.tournaments.models import Tournament
 
 from . import serializers as s
 from .models import Match, Matchday, MatchNote, MatchReport, ReviewCase
-from .services import confirmations, fixtures, lineups, live, reports, reviews, scheduling, standings
+from .services import bracket, confirmations, fixtures, lineups, live, reports, reviews, scheduling, standings
 from .services.parties import confirmation_summary, parties_for_user
 
 PROTECTED = [ModelActionPermission]
@@ -272,7 +273,8 @@ class MatchViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"])
     @require_perms("competition.close_match")
     def close(self, request, pk=None):
-        reports.close_match(self.get_object(), request.user, request.data.get("notes", ""))
+        reports.close_match(self.get_object(), request.user, request.data.get("notes", ""),
+                            winner_side=request.data.get("winner"))
         return Response(s.MatchSerializer(self.get_object(), context={"request": request}).data)
 
     # ------------------------------------------------------ notas y apelaciones
@@ -290,7 +292,7 @@ class MatchViewSet(viewsets.ModelViewSet):
         # Notas y apelaciones: oficiales del partido, el cuerpo de los dos equipos, autoridades y jefes de oficiales.
         if not (user.is_superuser or any(user.has_perm(p) for p in ("competition.change_match", *OFFICIAL_FIELDS))
                 or parties_for_user(match, user)
-                or match.home.team.is_staff_user(user) or match.away.team.is_staff_user(user)):
+                or any(side and side.team.is_staff_user(user) for side in (match.home, match.away))):
             raise PermissionDenied("Solo las partes del partido pueden agregar notas o apelaciones.")
         serializer = s.MatchNoteSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
@@ -332,3 +334,61 @@ class StandingsViewSet(viewsets.ViewSet):
             tournament, int(category), request.query_params.get("group") or None,
             include_live=request.query_params.get("live") == "1",
         ))
+
+
+class KnockoutViewSet(viewsets.ViewSet):
+    """
+    Fase de grupos y eliminación directa de una categoría (`tournament`, `category` en la consulta o el cuerpo):
+    sorteo de grupos, fixture de todos los grupos, configuración de la llave, proyección y llenado.
+    """
+
+    permission_classes = viewsets.ViewSet.permission_classes + PROTECTED
+
+    def _target(self, data):
+        tournament = get_object_or_404(Tournament, pk=data.get("tournament"))
+        try:
+            category = int(data.get("category"))
+        except (TypeError, ValueError):
+            raise ValidationError({"category": "Indique la categoría."})
+        if not tournament.categories.filter(pk=category).exists():
+            raise ValidationError({"category": "La categoría no está en el torneo."})
+        return tournament, category
+
+    def _run(self, func, *args):
+        try:
+            return func(*args)
+        except DjangoValidationError as exc:
+            raise ValidationError(exc.message_dict if hasattr(exc, "error_dict") else {"detail": exc.messages})
+
+    @require_perms("competition.view_match")
+    def list(self, request):
+        tournament, category = self._target(request.query_params)
+        return Response(bracket.bracket_view(tournament, category))
+
+    @action(detail=False, methods=["post"], url_path="draw-groups")
+    @require_perms("tournaments.add_group")
+    def draw_groups(self, request):
+        tournament, category = self._target(request.data)
+        groups = self._run(bracket.draw_groups, tournament, category, int(request.data.get("groups") or 0), request.user)
+        return Response({"groups": len(groups)}, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=["post"], url_path="group-fixtures")
+    @require_perms("competition.generate_fixture")
+    def group_fixtures(self, request):
+        tournament, category = self._target(request.data)
+        created = self._run(bracket.generate_group_fixtures, tournament, category, request.user)
+        return Response({"created": created}, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=["post"], url_path="create-bracket")
+    @require_perms("competition.generate_fixture")
+    def create_bracket(self, request):
+        tournament, category = self._target(request.data)
+        self._run(bracket.create_bracket, tournament, category, request.data.get("start_stage"), request.user)
+        return Response(bracket.bracket_view(tournament, category), status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=["post"])
+    @require_perms("competition.generate_fixture")
+    def fill(self, request):
+        tournament, category = self._target(request.data)
+        self._run(bracket.fill_bracket, tournament, category, request.user)
+        return Response(bracket.bracket_view(tournament, category))

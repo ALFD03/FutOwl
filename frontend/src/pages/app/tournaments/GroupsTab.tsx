@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus } from "lucide-react";
+import { CalendarPlus, Plus, Shuffle } from "lucide-react";
 
 import { ResourceForm } from "@/components/forms";
 import { Can } from "@/components/layout/Guards";
 import { TeamCrest } from "@/components/match/TeamCrest";
-import { Badge, Card, CardHeader, EmptyState, Modal, SelectMenu, Spinner } from "@/components/ui";
+import { Alert, Badge, Card, CardHeader, EmptyState, Modal, SelectMenu, Spinner } from "@/components/ui";
 import { useCan, useToast } from "@/hooks";
-import { groups, registrations } from "@/services";
+import { groups, knockout, registrations } from "@/services";
 import type { Registration, Tournament } from "@/types";
 import { errorMessage } from "@/utils/errors";
 
@@ -20,11 +20,28 @@ export function GroupsTab({ tournament }: { tournament: Tournament }) {
   const canAssign = useCan("tournaments.change_tournamentteam");
   const [category, setCategory] = useState<number>(tournament.categories[0]);
   const [creating, setCreating] = useState(false);
+  const [drawing, setDrawing] = useState(false);
+  const [busy, setBusy] = useState(false);
   const regs = useQuery({ queryKey: ["registrations", tournament.id], queryFn: () => registrations.all({ tournament: tournament.id, is_active: true }) });
   const grps = useQuery({ queryKey: ["groups", tournament.id], queryFn: () => groups.all({ tournament: tournament.id, is_active: true }) });
   const refresh = async () => {
     await queryClient.invalidateQueries({ queryKey: ["registrations"] });
     await queryClient.invalidateQueries({ queryKey: ["groups"] });
+    await queryClient.invalidateQueries({ queryKey: ["matches"] });
+    await queryClient.invalidateQueries({ queryKey: ["knockout"] });
+  };
+
+  const generateFixtures = async () => {
+    setBusy(true);
+    try {
+      const res = await knockout.groupFixtures(tournament.id, category);
+      toast.success(`${res.created} partidos de grupos creados en borrador (pestaña Partidos).`);
+      await refresh();
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
   };
 
   const catRegs = (regs.data ?? []).filter((r) => r.category === category);
@@ -61,8 +78,10 @@ export function GroupsTab({ tournament }: { tournament: Tournament }) {
         <div className="w-56"><SelectMenu value={category} onChange={(v) => setCategory(Number(v))}
           options={tournament.categories.map((id, i) => ({ value: id, label: tournament.category_names[i], hint: `${(regs.data ?? []).filter((r) => r.category === id).length} equipos` }))} /></div>
         <span className="text-sm text-slate-500">{catRegs.length} equipos · {catGroups.length} grupos</span>
-        <div className="ml-auto flex gap-2">
+        <div className="ml-auto flex flex-wrap gap-2">
           <Can perm="tournaments.add_group"><button className="btn-outline btn-sm" onClick={() => setCreating(true)}><Plus className="h-4 w-4" /> Grupo</button></Can>
+          <Can perm="tournaments.add_group"><button className="btn-gold btn-sm" disabled={catRegs.length < 2} onClick={() => setDrawing(true)}><Shuffle className="h-4 w-4" /> Sortear grupos</button></Can>
+          {catGroups.length > 0 && <Can perm="competition.generate_fixture"><button className="btn-outline btn-sm" disabled={busy} onClick={generateFixtures}>{busy ? <Spinner className="h-4 w-4" /> : <CalendarPlus className="h-4 w-4" />} Generar fixture de grupos</button></Can>}
         </div>
       </div>
 
@@ -89,6 +108,13 @@ export function GroupsTab({ tournament }: { tournament: Tournament }) {
         </Card>
       )}
 
+      <DrawModal open={drawing} onClose={() => setDrawing(false)} teams={catRegs.length} hasGroups={catGroups.length > 0}
+        onDraw={async (count) => {
+          await knockout.drawGroups(tournament.id, category, count);
+          toast.success(`Sorteo hecho: ${catRegs.length} equipos en ${count} grupos.`);
+          setDrawing(false);
+          await refresh();
+        }} />
       <Modal open={creating} onClose={() => setCreating(false)} title="Nuevo grupo" size="sm" subtitle={tournament.category_names[tournament.categories.indexOf(category)]}>
         <ResourceForm fields={[{ name: "name", label: "Nombre", type: "text", required: true, placeholder: `Grupo ${String.fromCharCode(65 + catGroups.length)}` }]}
           onCancel={() => setCreating(false)} onSubmit={async (v) => {
@@ -99,5 +125,40 @@ export function GroupsTab({ tournament }: { tournament: Tournament }) {
           }} />
       </Modal>
     </div>
+  );
+}
+
+/** Sorteo: cantidad de grupos (sugerida ≈ 4 equipos por grupo) con vista previa de los tamaños resultantes. */
+function DrawModal({ open, onClose, teams, hasGroups, onDraw }: {
+  open: boolean; onClose: () => void; teams: number; hasGroups: boolean; onDraw: (count: number) => Promise<void>;
+}) {
+  const toast = useToast();
+  const max = Math.max(1, Math.floor(teams / 2));
+  const [count, setCount] = useState(Math.min(max, Math.max(1, Math.round(teams / 4))));
+  const [busy, setBusy] = useState(false);
+  const base = Math.floor(teams / count);
+  const bigger = teams % count;
+  const sizes = bigger ? `${bigger} grupo(s) de ${base + 1} y ${count - bigger} de ${base}` : `${count} grupo(s) de ${base}`;
+
+  const submit = async () => {
+    setBusy(true);
+    try { await onDraw(count); } catch (e) { toast.error(errorMessage(e)); } finally { setBusy(false); }
+  };
+
+  return (
+    <Modal open={open} onClose={onClose} title="Sortear grupos" size="sm" footer={<>
+      <button className="btn-ghost" onClick={onClose}>Cancelar</button>
+      <button className="btn-gold" onClick={submit} disabled={busy}>{busy && <Spinner className="h-4 w-4" />}Sortear</button>
+    </>}>
+      <div className="space-y-4">
+        <div>
+          <label className="label" htmlFor="draw-count">Cantidad de grupos</label>
+          <input id="draw-count" type="number" className="input" min={1} max={max} value={count}
+            onChange={(e) => setCount(Math.min(max, Math.max(1, Number(e.target.value) || 1)))} />
+          <p className="help">{teams} equipos → {sizes}. El reparto es al azar y lo más parejo posible.</p>
+        </div>
+        {hasGroups && <Alert tone="warning">Se rehacen los grupos de esta categoría: se borran los actuales, sus partidos en borrador y la llave de eliminación (si existe). No es posible si ya hay partidos enviados.</Alert>}
+      </div>
+    </Modal>
   );
 }

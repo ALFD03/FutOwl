@@ -61,7 +61,8 @@ export function LiveConsole({ match, showScoreboard = true }: { match: Match; sh
   }
   const finished = state.status === "finished";
   const playing = state.phase === "playing";
-  const teams = [{ side: "home" as const, id: match.home, name: match.home_name, st: state.home }, { side: "away" as const, id: match.away, name: match.away_name, st: state.away }];
+  // La mesa técnica solo opera partidos enviados, que siempre tienen ambos equipos definidos.
+  const teams = [{ side: "home" as const, id: match.home!, name: match.home_name, st: state.home }, { side: "away" as const, id: match.away!, name: match.away_name, st: state.away }];
 
   return (
     <div className="space-y-6">
@@ -105,7 +106,7 @@ export function LiveConsole({ match, showScoreboard = true }: { match: Match; sh
 
       <Card>
         <CardHeader title="Cronología completa" subtitle="Los eventos no se editan ni se borran: se anulan con motivo" />
-        <div className="card-body"><EventTimeline events={eventsQ.data ?? []} homeTeamId={match.home} showInternal onAnnul={(e) => setAnnulling(e)} /></div>
+        <div className="card-body"><EventTimeline events={eventsQ.data ?? []} homeTeamId={match.home ?? undefined} showInternal onAnnul={(e) => setAnnulling(e)} /></div>
       </Card>
 
       {pending && <EventModal pending={pending} state={state} players={players} finished={finished} busy={busy} onClose={() => setPending(null)}

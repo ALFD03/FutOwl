@@ -29,6 +29,10 @@ La pestaña **Grupos** solo aparece si la modalidad del torneo es *Fase de grupo
 - **+ Grupo**: crea un grupo (*Grupo A*); el nombre es único por torneo y categoría.
 - Cada tarjeta muestra los equipos del grupo; el selector junto a cada equipo lo cambia de grupo o lo deja sin grupo.
 - **Equipos sin grupo**: los inscritos que aún no tienen grupo.
+- **Sortear grupos**: indique la cantidad de grupos (se sugiere uno cada 4 equipos y se muestra cómo quedarían) y FutOwl reparte **al azar** los equipos de la categoría, con grupos lo más parejos posible. Rehacer el sorteo borra los grupos actuales, sus partidos en borrador y la llave; no es posible si ya hay partidos enviados.
+- **Generar fixture de grupos**: crea de una vez los partidos (todos contra todos) de cada grupo que aún no los tenga.
+
+Si el torneo tiene eliminación directa, la llave se configura en su propia pestaña: vea [Eliminación directa](/app/ayuda/eliminacion-directa).
 
 Los grupos se usan para:
 

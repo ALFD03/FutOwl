@@ -37,6 +37,7 @@ router.register("roster", tournaments.RosterViewSet)
 router.register("matchdays", competition.MatchdayViewSet)
 router.register("matches", competition.MatchViewSet)
 router.register("review-cases", competition.ReviewCaseViewSet)
+router.register("knockout", competition.KnockoutViewSet, basename="knockout")
 router.register("standings", competition.StandingsViewSet, basename="standings")
 # Transversales
 router.register("notifications", NotificationViewSet, basename="notification")

@@ -3,7 +3,7 @@ from django.db.models import Count, Q
 
 from apps.tournaments.models import Tournament, TournamentTeam
 
-from ..models import Match, MatchEvent
+from ..models import Match, MatchEvent, Stage
 from .live import compute_state
 
 T = MatchEvent.Type
@@ -23,7 +23,9 @@ def standings(tournament: Tournament, category_id: int, group_id: int | None = N
     statuses = [Match.Status.CLOSED]
     if include_live:
         statuses += [Match.Status.IN_PROGRESS, Match.Status.FINISHED]
-    matches = Match.objects.filter(tournament=tournament, category_id=category_id, status__in=statuses)
+    # Solo liga / fase de grupos: la eliminación directa no suma puntos.
+    matches = Match.objects.filter(tournament=tournament, category_id=category_id, status__in=statuses,
+                                   stage=Stage.REGULAR)
     if group_id:
         matches = matches.filter(group_id=group_id)
     for match in matches.order_by("scheduled_start"):

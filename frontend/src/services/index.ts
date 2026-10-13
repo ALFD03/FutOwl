@@ -1,7 +1,7 @@
 import { api } from "@/api/client";
 import type {
   Adjustment, AuditLog, CapabilityCatalog, Category, CategoryRules, Coach, Confirmation, DocPage, DocPageSummary, DocRevision, Field, Group, Guardian, ID, Lineup, LiveState, Match,
-  Matchday, MatchEvent, MatchNote, MatchReport, Me, Notification, Official, Paginated, PartyStatus, Permission, PermissionCatalog,
+  KnockoutView, Matchday, MatchEvent, MatchNote, MatchReport, Me, Notification, Official, Paginated, PartyStatus, Permission, PermissionCatalog,
   Player, PlayerStat, PublicMatch, PublicTournament, Registration, ReportComparison, ReviewCase, Role,
   StandingRow, Team, TeamPlayer, Terms, Tournament, User,
 } from "@/types";
@@ -72,9 +72,22 @@ export const matches = {
     (await api.post<MatchReport>(`/matches/${id}/submit-report/`, data)).data,
   returnReport: async (id: ID, report: ID, reason: string) =>
     (await api.post(`/matches/${id}/return-report/`, { report, reason })).data,
-  close: async (id: ID, notes = "") => (await api.post<Match>(`/matches/${id}/close/`, { notes })).data,
+  /** `winner`: en la eliminación directa, ganador por penales si terminó empatado. */
+  close: async (id: ID, notes = "", winner?: "home" | "away") => (await api.post<Match>(`/matches/${id}/close/`, { notes, winner })).data,
   notes: async (id: ID) => (await api.get<MatchNote[]>(`/matches/${id}/notes/`)).data,
   addNote: async (id: ID, data: Record<string, unknown>) => (await api.post<MatchNote>(`/matches/${id}/add-note/`, data)).data,
+};
+
+/** Fase de grupos y eliminación directa de una categoría. */
+export const knockout = {
+  view: async (tournament: ID, category: ID) => (await api.get<KnockoutView>("/knockout/", { params: { tournament, category } })).data,
+  drawGroups: async (tournament: ID, category: ID, groups: number) =>
+    (await api.post<{ groups: number }>("/knockout/draw-groups/", { tournament, category, groups })).data,
+  groupFixtures: async (tournament: ID, category: ID) =>
+    (await api.post<{ created: number }>("/knockout/group-fixtures/", { tournament, category })).data,
+  createBracket: async (tournament: ID, category: ID, start_stage: string) =>
+    (await api.post<KnockoutView>("/knockout/create-bracket/", { tournament, category, start_stage })).data,
+  fill: async (tournament: ID, category: ID) => (await api.post<KnockoutView>("/knockout/fill/", { tournament, category })).data,
 };
 
 export const reviewCases = {

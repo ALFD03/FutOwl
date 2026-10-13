@@ -70,7 +70,7 @@ def validate_schedule(match: Match) -> None:
         ).exists():
             errors[field] = "El árbitro ya tiene otro partido asignado en ese horario."
 
-    teams = [match.home_id, match.away_id]
+    teams = [t for t in (match.home_id, match.away_id) if t]
     if overlapping.filter(Q(home_id__in=teams) | Q(away_id__in=teams)).exists():
         errors["home"] = "Uno de los equipos ya juega otro partido en ese horario."
 

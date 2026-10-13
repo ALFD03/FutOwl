@@ -23,10 +23,18 @@ export function FixtureTab({ tournament }: { tournament: Tournament }) {
   const grps = useQuery({ queryKey: ["groups", tournament.id], queryFn: () => groups.all({ tournament: tournament.id, is_active: true }) });
   const regs = useQuery({ queryKey: ["registrations", tournament.id], queryFn: () => registrations.all({ tournament: tournament.id, is_active: true }) });
 
+  // Fase regular por fecha; la eliminación directa por ronda (después de la fase regular).
   const rounds = useMemo(() => {
-    const map = new Map<number, Match[]>();
-    (list.data ?? []).forEach((m) => map.set(m.round_number, [...(map.get(m.round_number) ?? []), m]));
-    return [...map.entries()].sort((a, b) => a[0] - b[0]);
+    const map = new Map<string, { order: number; label: string; items: Match[] }>();
+    (list.data ?? []).forEach((m) => {
+      const knockout = m.stage !== "regular";
+      const key = knockout ? m.stage : `r${m.round_number}`;
+      const entry = map.get(key) ?? { order: (knockout ? 1000 : 0) + m.round_number, label: knockout ? m.stage_display : `Fecha ${m.round_number}`, items: [] };
+      entry.items.push(m);
+      map.set(key, entry);
+    });
+    return [...map.values()].sort((a, b) => a.order - b.order)
+      .map((r) => ({ ...r, items: r.items.sort((a, b) => (a.bracket_position ?? 0) - (b.bracket_position ?? 0)) }));
   }, [list.data]);
 
   const catOptions = tournament.categories.map((id, i) => ({ value: id, label: tournament.category_names[i] }));
@@ -56,9 +64,9 @@ export function FixtureTab({ tournament }: { tournament: Tournament }) {
         </>} />
       {!rounds.length && !list.isLoading && <EmptyState title="Sin partidos" message="Inscriba los equipos y genere el fixture." />}
       <div className="divide-y divide-slate-100 dark:divide-white/5">
-        {rounds.map(([round, items]) => (
-          <div key={round} className="px-5 py-4">
-            <h4 className="mb-3 text-sm font-bold text-navy-900 dark:text-gold-400">Fecha {round}</h4>
+        {rounds.map(({ label, items }) => (
+          <div key={label} className="px-5 py-4">
+            <h4 className="mb-3 text-sm font-bold text-navy-900 dark:text-gold-400">{label}</h4>
             <div className="grid gap-2 md:grid-cols-2">
               {items.map((m) => (
                 <Link key={m.id} to={`/app/partidos/${m.id}`} className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 px-3 py-2 text-sm transition hover:border-gold-400 hover:shadow-soft dark:border-white/5">

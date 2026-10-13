@@ -5,7 +5,7 @@ from django.db import transaction
 from apps.audit.services import record
 from apps.tournaments.models import Tournament, TournamentTeam
 
-from ..models import Match
+from ..models import Match, Stage
 
 
 def round_robin(team_ids: list[int], double: bool = False) -> list[list[tuple[int, int]]]:
@@ -37,7 +37,8 @@ def generate_fixture(tournament: Tournament, category_id: int, user, *, group_id
     ids = list(registrations.order_by("id").values_list("id", flat=True))
     if len(ids) < 2:
         raise ValidationError("Se requieren al menos 2 equipos inscritos para generar el fixture.")
-    existing = Match.objects.filter(tournament=tournament, category_id=category_id, group_id=group_id)
+    existing = Match.objects.filter(tournament=tournament, category_id=category_id, group_id=group_id,
+                                    stage=Stage.REGULAR)
     if existing.exists():
         raise ValidationError("Ya existe un fixture para esta categoría/grupo.")
     double = tournament.modality == Tournament.Modality.LEAGUE_DOUBLE if double is None else double

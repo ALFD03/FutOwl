@@ -23,6 +23,7 @@ export function ReportsPanel({ match }: { match: Match }) {
   const queryClient = useQueryClient();
   const [returning, setReturning] = useState<MatchReport | null>(null);
   const [closing, setClosing] = useState(false);
+  const [penaltyWinner, setPenaltyWinner] = useState<"home" | "away" | undefined>();
   const { data } = useQuery({ queryKey: ["matches", match.id, "reports"], queryFn: () => matches.reports(match.id), refetchInterval: 15_000 });
 
   const current = (role: Role) => data?.reports.filter((r) => r.role === role).sort((a, b) => b.version - a.version)[0];
@@ -109,9 +110,22 @@ export function ReportsPanel({ match }: { match: Match }) {
           catch (e) { toast.error(errorMessage(e)); throw e; }
         }} />
       <ConfirmDialog open={closing} onClose={() => setClosing(false)} title="Cerrar partido" confirmLabel="Cerrar definitivamente"
-        message="El resultado quedará oficial e inalterable. Solo se podrán agregar notas o apelaciones."
+        message={<>
+          <p>El resultado quedará oficial e inalterable. Solo se podrán agregar notas o apelaciones.</p>
+          {match.stage !== "regular" && (
+            <div className="mt-3">
+              <p className="label">Si terminó empatado: ganador por penales</p>
+              <div className="flex gap-2">
+                {(["home", "away"] as const).map((side) => (
+                  <button key={side} type="button" onClick={() => setPenaltyWinner(side)}
+                    className={penaltyWinner === side ? "btn-gold btn-sm" : "btn-outline btn-sm"}>{side === "home" ? match.home_name : match.away_name}</button>
+                ))}
+              </div>
+            </div>
+          )}
+        </>}
         onConfirm={async () => {
-          try { await matches.close(match.id); toast.success("Partido cerrado oficialmente."); await refresh(); }
+          try { await matches.close(match.id, "", penaltyWinner); toast.success("Partido cerrado oficialmente."); await refresh(); }
           catch (e) { toast.error(errorMessage(e)); throw e; }
         }} />
     </div>
