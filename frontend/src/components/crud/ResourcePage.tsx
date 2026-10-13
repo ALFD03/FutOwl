@@ -122,6 +122,7 @@ export function ResourcePage<T extends { id: number; is_active?: boolean }>(prop
             {props.embedded && canAdd && <button className="btn-gold btn-sm" onClick={() => setEditing(null)}><Plus className="h-4 w-4" />{props.createLabel ?? "Nuevo"}</button>}
           </div>
         </div>
+        <Pagination page={page} count={data?.count ?? 0} onChange={setPage} position="top" />
         <DataTable columns={allColumns} rows={data?.results ?? []} loading={isLoading} onRowClick={props.onRowClick}
           rowClassName={(row) => cn(row.is_active === false && "opacity-60", props.rowClassName?.(row)) || undefined} />
         <Pagination page={page} count={data?.count ?? 0} onChange={setPage} />

@@ -24,6 +24,7 @@ export function NotificationsPage() {
         <button className="btn-outline" onClick={async () => { await notifications.readAll(); await refresh(); }}><CheckCheck className="h-4 w-4" /> Marcar todas</button>
       </>} />
       <Card>
+        <Pagination page={page} count={data?.count ?? 0} onChange={setPage} position="top" />
         <ul className="divide-y divide-slate-100 dark:divide-white/5">
           {(data?.results ?? []).map((n) => (
             <li key={n.id}>

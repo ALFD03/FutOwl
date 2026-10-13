@@ -46,6 +46,7 @@ export function MatchesPage() {
             options={[["draft", "Borrador"], ["pending", "Pendiente"], ["confirmed", "Confirmado"], ["in_progress", "En juego"], ["finished", "Finalizado"], ["closed", "Cerrado"], ["suspended", "Suspendido"]]
               .map(([v, l]) => ({ value: v, label: l }))} /></div>
         </div>
+        <Pagination page={page} count={data?.count ?? 0} onChange={setPage} position="top" />
         <DataTable<Match> columns={MATCH_COLUMNS} rows={data?.results ?? []} loading={isLoading} onRowClick={(m) => navigate(`/app/partidos/${m.id}`)} />
         <Pagination page={page} count={data?.count ?? 0} onChange={setPage} />
       </Card>

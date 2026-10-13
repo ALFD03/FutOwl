@@ -29,6 +29,7 @@ export function MyMatchesPage() {
         { id: "pending", label: "Por confirmar" }, { id: "upcoming", label: "Confirmados" }, { id: "history", label: "Todos" },
       ]} />
       <Card>
+        <Pagination page={page} count={data?.count ?? 0} onChange={setPage} position="top" />
         <DataTable<Match> columns={MATCH_COLUMNS} rows={data?.results ?? []} loading={isLoading} onRowClick={(m) => navigate(`/app/partidos/${m.id}`)}
           empty={<EmptyState title="Nada por aquí" message="No tienes partidos en esta sección." />} />
         <Pagination page={page} count={data?.count ?? 0} onChange={setPage} />

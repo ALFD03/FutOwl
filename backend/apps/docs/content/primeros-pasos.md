@@ -47,7 +47,7 @@ La nueva contraseña debe tener **al menos 10 caracteres**, no puede ser una con
 
 ### Elementos comunes en las pantallas
 
-- **Listados** con buscador, paginación y el interruptor **Mostrar inactivos**.
+- **Listados** con buscador, el interruptor **Mostrar inactivos** y paginación **arriba y abajo**, que indica cuántos registros hay («Mostrando 26–50 de 8.800 registros») y permite saltar a la primera, la última o a una página concreta.
 - Botón dorado **Nuevo…** para crear (solo si tiene permiso de crear).
 - Íconos de **lápiz** (editar) y **encendido/apagado** (desactivar/reactivar) en cada fila (solo con permiso de editar).
 - **Pestañas** dentro de las fichas (torneo, equipo, partido).

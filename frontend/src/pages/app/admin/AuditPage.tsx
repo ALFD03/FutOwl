@@ -47,6 +47,7 @@ export function AuditPage() {
           <div className="sm:w-56"><SelectMenu value={action || null} clearable placeholder="Todas las acciones" onChange={(v) => { setAction(v == null ? "" : String(v)); setPage(1); }}
             options={["create", "update", "deactivate", "activate", "login", "login_failed", "login_blocked", "logout", "submit_matchday", "confirmation_accepted", "confirmation_rejected", "match_event", "submit_lineup", "close_match", "close_matchday", "suspend_match", "update_permissions", "accept_terms", "export_document"].map((a) => ({ value: a, label: a }))} /></div>
         </div>
+        <Pagination page={page} count={data?.count ?? 0} onChange={setPage} position="top" />
         <DataTable<AuditLog> loading={isLoading} rows={data?.results ?? []} onRowClick={setSelected} columns={[
           { key: "id", header: "#", render: (r) => <span className="font-mono text-xs">{r.id}</span> },
           { key: "t", header: "Fecha (VET)", render: (r) => <span className="whitespace-nowrap text-xs">{formatDateTime(r.created_at)}</span> },
