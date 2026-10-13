@@ -7,6 +7,7 @@ import { ResourcePage } from "@/components/crud/ResourcePage";
 import { accountField, DOCUMENT_ACCEPT, guardianField, IMAGE_ACCEPT, LICENSE_OPTIONS, type FieldDef } from "@/components/forms";
 import { TeamCrest } from "@/components/match/TeamCrest";
 import { Avatar, Badge, StatusBadge } from "@/components/ui";
+import { RULE_FIELDS, rulesLine } from "@/config/gameRules";
 import { useAuth } from "@/hooks";
 import { categories, coaches, delegates, fields as fieldsService, guardians, players, referees, teams } from "@/services";
 import type { Category, Coach, Field, Guardian, Official, Player, Team, WithAccount } from "@/types";
@@ -52,18 +53,21 @@ const personColumn = <T extends { photo: string | null; full_name: string; vat_d
 // ------------------------------------------------------------------- Categorías
 export function CategoriesPage() {
   return (
-    <ResourcePage<Category> title="Categorías" subtitle="Rangos de edad por año de nacimiento" icon={<LayoutGrid className="h-6 w-6" />}
-      service={categories} model="registry.category" createLabel="Nueva categoría" formSize="sm"
+    <ResourcePage<Category> title="Categorías" subtitle="Rangos de edad y reglas de juego de cada categoría" icon={<LayoutGrid className="h-6 w-6" />}
+      service={categories} model="registry.category" createLabel="Nueva categoría" formSize="md"
       fields={[
         { name: "name", label: "Nombre", type: "text", required: true, placeholder: "Sub 12", wide: true },
         { name: "max_age", label: "Tope de edad", type: "number", required: true, min: 1, max: 99, placeholder: "11", wide: true,
           help: (v) => typeof v.max_age === "number" && v.max_age > 0
             ? `Este año (${new Date().getFullYear()}) admite nacidos desde ${new Date().getFullYear() - v.max_age}. El año tope se recalcula solo cada año.`
             : "El año de nacimiento tope se calcula contra el año en curso." },
+        // Reglas base de la categoría: cada torneo las usa y puede ajustarlas solo para sí mismo.
+        ...RULE_FIELDS.map((f) => ({ ...f, section: "Reglas de juego" })),
       ]}
       columns={[
         { key: "name", header: "Nombre", render: (r) => <b>{r.name}</b> },
         { key: "max_age", header: "Tope de edad", render: (r) => `${r.max_age} años` },
+        { key: "rules", header: "Reglas de juego", render: (r) => <span className="text-xs text-slate-500">{rulesLine(r)}</span> },
         { key: "birth_year_limit", header: `Nacidos desde (${new Date().getFullYear()})`, render: (r) => <Badge tone="gold">{r.birth_year_limit}</Badge> },
       ]} />
   );

@@ -35,10 +35,11 @@ def user(username: str, *, role: str | None = None, superuser: bool = False, pas
     return obj
 
 
-def category(name="Sub 12", max_age=11):
+def category(name="Sub 12", max_age=11, **rules):
+    """Categoría con sus reglas de juego (`rules`: duración, tiempos, cambios…; por defecto las del modelo)."""
     from apps.registry.models import Category
 
-    return Category.objects.get_or_create(name=name, defaults={"max_age": max_age})[0]
+    return Category.objects.get_or_create(name=name, defaults={"max_age": max_age, **rules})[0]
 
 
 def field(name="Cancha Principal", divisible=False, mini=1):

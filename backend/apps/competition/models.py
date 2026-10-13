@@ -158,8 +158,8 @@ class Match(TimeStampedModel):
 
     @property
     def rules(self):
-        """Reglas de juego que aplican al partido (las de su categoría o las generales del torneo)."""
-        return self.tournament.rules_for(self.category_id)
+        """Reglas de juego que aplican al partido (el ajuste del torneo para su categoría, o las de la categoría)."""
+        return self.tournament.rules_for(self.category)
 
     @property
     def is_locked(self) -> bool:

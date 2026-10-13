@@ -5,7 +5,7 @@ from django.db import models
 from apps.core.models import BaseEntity
 from apps.core.uploads import UploadTo
 from apps.core.validators import validate_document_upload, validate_image_upload
-from apps.registry.models import Category, Field, Player, Team
+from apps.registry.models import Category, Field, GameRules, Player, Team
 
 
 class Tournament(BaseEntity):
@@ -33,20 +33,7 @@ class Tournament(BaseEntity):
     start_date = models.DateField("fecha de inicio", null=True, blank=True)
     end_date = models.DateField("fecha de fin", null=True, blank=True)
 
-    # Reglas de juego
-    match_duration_minutes = models.PositiveSmallIntegerField(
-        "duración del partido (min)", default=60, validators=[MinValueValidator(10), MaxValueValidator(150)]
-    )
-    periods = models.PositiveSmallIntegerField("tiempos", default=2, validators=[MinValueValidator(1),
-                                                                                  MaxValueValidator(4)])
-    break_minutes = models.PositiveSmallIntegerField("descanso (min)", default=10)
-    max_substitutions = models.PositiveSmallIntegerField("cambios máximos", null=True, blank=True,
-                                                         help_text="Vacío = ilimitados")
-    max_lineup_players = models.PositiveSmallIntegerField("jugadores por planilla", default=18)
-    starters_count = models.PositiveSmallIntegerField("titulares", default=11)
-    referees_required = models.PositiveSmallIntegerField(
-        "árbitros requeridos (terna)", default=3, validators=[MinValueValidator(1), MaxValueValidator(3)]
-    )
+    # Puntuación (las reglas de juego son de cada categoría; ver CategoryRules para ajustes del torneo)
     points_win = models.PositiveSmallIntegerField("puntos por victoria", default=3)
     points_draw = models.PositiveSmallIntegerField("puntos por empate", default=1)
     points_loss = models.PositiveSmallIntegerField("puntos por derrota", default=0)
@@ -73,44 +60,21 @@ class Tournament(BaseEntity):
     def clean(self):
         if self.start_date and self.end_date and self.end_date < self.start_date:
             raise ValidationError({"end_date": "La fecha de fin no puede ser anterior a la de inicio."})
-        validate_rules(self)
 
-    def rules_for(self, category_id) -> "Tournament | CategoryRules":
-        """Reglas de juego de una categoría: las propias si las tiene, si no las generales del torneo."""
+    def rules_for(self, category: Category) -> "Category | CategoryRules":
+        """Reglas de juego de una categoría en el torneo: el ajuste del torneo si lo hay, si no las de la categoría."""
         for rules in self.category_rules.all():  # aprovecha prefetch_related("category_rules")
-            if rules.category_id == category_id and rules.is_active:
+            if rules.category_id == category.pk and rules.is_active:
                 return rules
-        return self
+        return category
 
 
-RULE_FIELDS = ["match_duration_minutes", "periods", "break_minutes", "max_substitutions", "max_lineup_players",
-               "starters_count", "referees_required"]
-
-
-def validate_rules(rules):
-    if rules.starters_count and rules.max_lineup_players and rules.starters_count > rules.max_lineup_players:
-        raise ValidationError({"starters_count": "Los titulares no pueden superar el máximo de la planilla."})
-
-
-class CategoryRules(BaseEntity):
-    """Reglas de juego propias de una categoría dentro de un torneo (reemplazan a las generales)."""
+class CategoryRules(BaseEntity, GameRules):
+    """Ajuste de las reglas de juego de una categoría solo para este torneo (reemplaza a las de la categoría)."""
 
     tournament = models.ForeignKey(Tournament, verbose_name="torneo", on_delete=models.PROTECT,
                                    related_name="category_rules")
     category = models.ForeignKey(Category, verbose_name="categoría", on_delete=models.PROTECT, related_name="+")
-    match_duration_minutes = models.PositiveSmallIntegerField(
-        "duración del partido (min)", default=60, validators=[MinValueValidator(10), MaxValueValidator(150)]
-    )
-    periods = models.PositiveSmallIntegerField("tiempos", default=2, validators=[MinValueValidator(1),
-                                                                                  MaxValueValidator(4)])
-    break_minutes = models.PositiveSmallIntegerField("descanso (min)", default=10)
-    max_substitutions = models.PositiveSmallIntegerField("cambios máximos", null=True, blank=True,
-                                                         help_text="Vacío = ilimitados")
-    max_lineup_players = models.PositiveSmallIntegerField("jugadores por planilla", default=18)
-    starters_count = models.PositiveSmallIntegerField("titulares", default=11)
-    referees_required = models.PositiveSmallIntegerField(
-        "árbitros requeridos (terna)", default=3, validators=[MinValueValidator(1), MaxValueValidator(3)]
-    )
 
     class Meta:
         ordering = ["tournament", "category__name"]
@@ -128,7 +92,7 @@ class CategoryRules(BaseEntity):
             pk=self.category_id
         ).exists():
             raise ValidationError({"category": "La categoría no está permitida en este torneo."})
-        validate_rules(self)
+        self.clean_rules()
 
 
 class Group(BaseEntity):

@@ -1,4 +1,4 @@
-"""Reglas de juego por categoría: reemplazan a las generales del torneo y vuelven a ellas al desactivarse."""
+"""Reglas de juego: las de la categoría son la base; un torneo puede ajustarlas y volver a ellas al desactivar."""
 from datetime import datetime, time, timedelta
 
 from django.core.management import call_command
@@ -20,8 +20,7 @@ class CategoryRulesTests(TestCase):
         cls.sub12 = f.category("Sub 12", 11)
         cls.sub8 = f.category("Sub 8", 7)
         cls.other = f.category("Sub 16", 15)
-        cls.tournament = f.tournament(categories=[cls.sub12, cls.sub8], match_duration_minutes=60, periods=2,
-                                      break_minutes=10, referees_required=3)
+        cls.tournament = f.tournament(categories=[cls.sub12, cls.sub8])
         home = f.register(cls.tournament, f.team("Halcones FC", cls.sub8, players=0), cls.sub8, with_roster=False)
         away = f.register(cls.tournament, f.team("Lobos FC", cls.sub8, players=0), cls.sub8, with_roster=False)
         cls.match = Match.objects.create(tournament=cls.tournament, category=cls.sub8, home=home, away=away)
@@ -36,7 +35,7 @@ class CategoryRulesTests(TestCase):
                    "referees_required": 1, **values}
         return self.api.post("/api/category-rules/", payload, format="json")
 
-    def test_category_without_own_rules_uses_tournament_rules(self):
+    def test_category_without_adjustment_uses_category_rules(self):
         res = self.api.get(f"/api/matches/{self.match.id}/")
         self.assertEqual(res.data["rules"]["match_duration_minutes"], 60)
         self.assertEqual(res.data["rules"]["referees_required"], 3)
@@ -56,7 +55,7 @@ class CategoryRulesTests(TestCase):
         match.refresh_from_db()
         self.assertEqual(match.scheduled_end - match.scheduled_start, timedelta(minutes=45))
 
-    def test_deactivated_rules_fall_back_to_tournament(self):
+    def test_deactivated_rules_fall_back_to_category(self):
         rules_id = self.create_rules(self.sub8).data["id"]
         self.api.post(f"/api/category-rules/{rules_id}/deactivate/")
         res = self.api.get(f"/api/matches/{self.match.id}/")

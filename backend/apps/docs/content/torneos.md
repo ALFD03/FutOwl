@@ -25,10 +25,11 @@ Las **reglas de juego** no se piden al crear el torneo: se configuran después, 
 
 ## Reglas de juego
 
-Pestaña **Reglas de juego** de la ficha del torneo:
+Las reglas de juego son de cada **categoría** (Registro → Categorías): todos los torneos las usan tal cual. En la pestaña **Reglas de juego** de la ficha del torneo:
 
-- **Reglas generales**: valen para todas las categorías que no tengan reglas propias. Se editan con **Editar** en esa tarjeta (*Gestionar torneos*).
-- **Por categoría**: botón **Personalizar** en la categoría para darle reglas propias (parten de las generales); **Usar generales** la devuelve a las reglas generales (*Gestionar torneos*).
+- Cada fila es una categoría del torneo con las reglas que se aplican.
+- **Ajustar para este torneo** cambia las reglas de esa categoría **solo en este torneo** (parte de las de la categoría); la categoría no se modifica.
+- **Usar las de la categoría** quita el ajuste y vuelve a las reglas de la categoría (*Gestionar torneos*).
 
 | Regla | Valor por defecto / notas |
 |-------|---------------------------|
@@ -42,7 +43,7 @@ Pestaña **Reglas de juego** de la ficha del torneo:
 
 ## Cómo influyen las reglas
 
-Cada partido usa las reglas de **su categoría** (o las generales si la categoría no tiene propias).
+Cada partido usa las reglas de **su categoría**, con el ajuste del torneo si lo tiene.
 
 | Regla | Dónde se aplica |
 |-------|-----------------|
@@ -69,7 +70,7 @@ El estado se cambia con **Editar** en el encabezado del torneo.
 | Pestaña | Contenido | Capítulo |
 |---------|-----------|----------|
 | **Resumen** | Configuración y el flujo del torneo en 8 pasos. | — |
-| **Reglas de juego** | Reglas generales y reglas propias por categoría. | — |
+| **Reglas de juego** | Reglas de cada categoría y su ajuste para este torneo. | — |
 | **Equipos y grupos** | Inscripciones por categoría y grupos. | [Inscripciones, grupos y nómina](/app/ayuda/inscripciones-grupos-y-nomina) |
 | **Partidos** | Fixture por fecha; generar o crear partidos. | [Fixture y partidos](/app/ayuda/fixture-y-partidos) |
 | **Jornadas** | Jornadas del torneo. | [Jornadas](/app/ayuda/jornadas) |

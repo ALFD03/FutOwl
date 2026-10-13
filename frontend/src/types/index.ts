@@ -59,7 +59,7 @@ export interface Me {
   must_change_password: boolean;
 }
 
-export interface Category extends BaseEntity {
+export interface Category extends BaseEntity, GameRules {
   name: string;
   max_age: number;
   birth_year_limit: number;
@@ -188,7 +188,7 @@ export interface CategoryRules extends BaseEntity, GameRules {
   category_name: string;
 }
 
-export interface Tournament extends BaseEntity, GameRules {
+export interface Tournament extends BaseEntity {
   name: string;
   logo: string | null;
   modality: string;

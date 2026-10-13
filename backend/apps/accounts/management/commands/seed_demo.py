@@ -42,7 +42,7 @@ class Command(BaseCommand):
         f.user("jefearbitros", role=roles.HEAD_REFEREE, password=pwd)
         f.user("jefedelegados", role=roles.HEAD_DELEGATE, password=pwd)
 
-        sub12 = f.category("Sub 12", 11)
+        sub12 = f.category("Sub 12", 11, max_substitutions=5, starters_count=7, max_lineup_players=14)
         f.category("Sub 14", 13)
         main = f.field("Estadio Misael Delgado")
         f.field("Complejo Los Guayos", divisible=True, mini=3)
@@ -52,8 +52,7 @@ class Command(BaseCommand):
         referees = [f.official("Referee", n, "Árbitro", f.user(f"arbitro{i}", role=roles.REFEREE, password=pwd))
                     for i, n in enumerate(["Luis", "Marta", "Pedro", "Rosa", "Iván", "Elena"], start=1)]
 
-        tournament = f.tournament(DEMO_TOURNAMENT, categories=[sub12], fields=[main], max_substitutions=5,
-                                  starters_count=7, max_lineup_players=14,
+        tournament = f.tournament(DEMO_TOURNAMENT, categories=[sub12], fields=[main],
                                   regulation_text="# Disposiciones generales\n- Partidos de 2 tiempos de 30 "
                                                   "minutos.\n- Cambios ilimitados en el entretiempo.")
         group_a = Group.objects.create(tournament=tournament, category=sub12, name="Grupo A")

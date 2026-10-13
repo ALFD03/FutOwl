@@ -7,7 +7,7 @@ from rest_framework import serializers
 from apps.accounts import roles
 from apps.core.serializers import CleanModelSerializer, IdentityFieldsMixin
 
-from .models import Category, Coach, Delegate, Field, Guardian, Player, Referee, Team
+from .models import RULE_FIELDS, Category, Coach, Delegate, Field, Guardian, Player, Referee, Team
 
 BASE_READONLY = ["id", "is_active", "created_at", "updated_at"]
 IDENTITY = ["vat_id", "vat_number", "vat_display", "document_photo"]
@@ -22,7 +22,7 @@ class CategorySerializer(CleanModelSerializer):
 
     class Meta:
         model = Category
-        fields = BASE_READONLY + ["name", "max_age", "birth_year_limit"]
+        fields = BASE_READONLY + ["name", "max_age", "birth_year_limit", *RULE_FIELDS]
         read_only_fields = BASE_READONLY
 
 

@@ -13,7 +13,7 @@ import { formatDate } from "@/utils/datetime";
 import { MatchdaysList } from "../competition/MatchdaysPage";
 import { DocumentsTab } from "./DocumentsTab";
 import { FixtureTab } from "./FixtureTab";
-import { RulesTab, rulesSummary } from "./RulesTab";
+import { RulesTab } from "./RulesTab";
 import { StandingsTab } from "./StandingsTab";
 import { TeamsTab } from "./TeamsTab";
 import { TOURNAMENT_FIELDS } from "./TournamentsPage";
@@ -73,7 +73,7 @@ function Summary({ t }: { t: Tournament }) {
           { label: "Categorías", value: t.category_names.map((c) => <Badge key={c} tone="gold" className="mr-1">{c}</Badge>) },
           { label: "Canchas", value: t.field_names.join(", ") || "—" },
           { label: "Equipos inscritos", value: t.team_count },
-          ...rulesSummary(t).map((item) => ({ ...item, label: `${item.label} (general)` })),
+          { label: "Reglas de juego", value: "Las de cada categoría (ajustables en la pestaña Reglas de juego)" },
           { label: "Puntos", value: `G ${t.points_win} · E ${t.points_draw} · P ${t.points_loss}` },
         ]} />
       </div></Card>

@@ -22,13 +22,13 @@ class MatchdayFlowTests(TestCase):
         cls.home_manager = f.user("gestor_local", role=roles.TEAM_MANAGER)
         cls.away_manager = f.user("gestor_visita", role=roles.TEAM_MANAGER)
 
-        cls.cat = f.category()
+        cls.cat = f.category(max_substitutions=3)
         cls.field = f.field()
         cls.delegate = f.official("Delegate", "Ana", "Delegada", cls.delegate_user)
         cls.referees = [f.official("Referee", f"Árbitro{i}", "Pérez", u) for i, u in enumerate(cls.ref_users)]
         cls.home_team = f.team("Halcones FC", cls.cat, manager=cls.home_manager)
         cls.away_team = f.team("Lobos FC", cls.cat, manager=cls.away_manager)
-        cls.tournament = f.tournament(categories=[cls.cat], fields=[cls.field], max_substitutions=3)
+        cls.tournament = f.tournament(categories=[cls.cat], fields=[cls.field])
         cls.reg_home = f.register(cls.tournament, cls.home_team, cls.cat)
         cls.reg_away = f.register(cls.tournament, cls.away_team, cls.cat)
 

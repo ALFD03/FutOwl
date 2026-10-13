@@ -27,7 +27,36 @@ class LicenseStatus(models.TextChoices):
     NOT_ENDORSED = "not_endorsed", "No avalado"
 
 
-class Category(BaseEntity):
+RULE_FIELDS = ["match_duration_minutes", "periods", "break_minutes", "max_substitutions", "max_lineup_players",
+               "starters_count", "referees_required"]
+
+
+class GameRules(models.Model):
+    """Reglas de juego: las define cada categoría y un torneo puede ajustarlas para sí mismo."""
+
+    match_duration_minutes = models.PositiveSmallIntegerField(
+        "duración del partido (min)", default=60, validators=[MinValueValidator(10), MaxValueValidator(150)]
+    )
+    periods = models.PositiveSmallIntegerField("tiempos", default=2, validators=[MinValueValidator(1),
+                                                                                  MaxValueValidator(4)])
+    break_minutes = models.PositiveSmallIntegerField("descanso (min)", default=10)
+    max_substitutions = models.PositiveSmallIntegerField("cambios máximos", null=True, blank=True,
+                                                         help_text="Vacío = ilimitados")
+    max_lineup_players = models.PositiveSmallIntegerField("jugadores por planilla", default=18)
+    starters_count = models.PositiveSmallIntegerField("titulares", default=11)
+    referees_required = models.PositiveSmallIntegerField(
+        "árbitros requeridos (terna)", default=3, validators=[MinValueValidator(1), MaxValueValidator(3)]
+    )
+
+    class Meta:
+        abstract = True
+
+    def clean_rules(self):
+        if self.starters_count and self.max_lineup_players and self.starters_count > self.max_lineup_players:
+            raise ValidationError({"starters_count": "Los titulares no pueden superar el máximo de la planilla."})
+
+
+class Category(BaseEntity, GameRules):
     name = models.CharField("nombre", max_length=60, unique=True, help_text="Ej.: Sub 12")
     max_age = models.PositiveSmallIntegerField("tope de edad", validators=[MinValueValidator(1), MaxValueValidator(99)])
 
@@ -38,6 +67,9 @@ class Category(BaseEntity):
 
     def __str__(self):
         return self.name
+
+    def clean(self):
+        self.clean_rules()
 
     @property
     def birth_year_limit(self) -> int:

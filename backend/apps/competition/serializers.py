@@ -5,7 +5,7 @@ from rest_framework import serializers
 
 from apps.core.serializers import CleanModelSerializer
 from apps.registry.models import Coach, Delegate, Field, Referee
-from apps.tournaments.models import RULE_FIELDS
+from apps.registry.models import RULE_FIELDS
 
 from .models import (
     Lineup,
@@ -135,7 +135,7 @@ class MatchWriteSerializer(CleanModelSerializer):
         if start and not attrs.get("scheduled_end") and (start_changed or not getattr(self.instance, "scheduled_end", None)):
             tournament = attrs.get("tournament") or self.instance.tournament
             category = attrs.get("category") or self.instance.category
-            rules = tournament.rules_for(category.pk)
+            rules = tournament.rules_for(category)
             attrs["scheduled_end"] = start + timedelta(
                 minutes=rules.match_duration_minutes + rules.break_minutes * (rules.periods - 1)
             )
