@@ -6,12 +6,12 @@ order: 130
 ---
 ## Inscribir equipos
 
-**Torneo → Equipos → Inscribir equipo** (capacidad *Inscripciones y grupos*):
+**Torneo → Equipos → Inscribir equipos** (capacidad *Inscripciones y grupos*). Se pueden inscribir **varios equipos a la vez**:
 
-1. **Equipo**: el buscador solo muestra equipos que tienen alguna categoría del torneo, con sus categorías y en cuántas ya está inscrito.
-2. **Categorías**: aparecen todas las del torneo. Marque **una o varias** de las que el equipo puede jugar (o **Marcar todas**); las que ya tiene inscritas salen como *Ya inscrito* y las que el equipo no tiene registradas aparecen desactivadas.
-3. **Grupo** (opcional): junto a cada categoría marcada, si esa categoría ya tiene grupos.
-4. Pulse **Inscribir**: se crea una inscripción por categoría. Si alguna falla, se avisa el motivo y esa categoría queda marcada para reintentar; las demás quedan inscritas.
+1. **Lista de equipos**: aparecen los que tienen alguna categoría del torneo. Use el **buscador** o los botones de **Categoría** para acotarla. Los que ya están inscritos en todas sus categorías salen al final, desactivados.
+2. **Marque los equipos**: al marcar uno quedan marcadas **todas las categorías del torneo que tiene disponibles**. Pulse una categoría para quitarla o volver a ponerla; las que ya tiene inscritas salen en verde. Si quita algunas, la casilla del equipo queda a medias (—).
+3. **Marcar todos**: marca todos los equipos de la lista. Con una categoría elegida en el filtro, marca a los equipos visibles **solo en esa categoría**.
+4. Pulse **Inscribir (n)**: abajo se ve cuántos equipos e inscripciones se van a crear. Si alguna falla, se avisa el motivo y solo esa queda marcada para reintentar; las demás quedan inscritas. Una inscripción que se había desactivado se reactiva.
 
 FutOwl valida que:
 

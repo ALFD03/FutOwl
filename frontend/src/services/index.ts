@@ -27,7 +27,13 @@ export const tournaments = {
 };
 export const categoryRules = createResource<CategoryRules>("category-rules");
 export const groups = createResource<Group>("groups");
-export const registrations = createResource<Registration>("registrations");
+export const registrations = {
+  ...createResource<Registration>("registrations"),
+  /** Inscribe varios equipos a la vez; cada inscripción que falle se informa sin frenar a las demás. */
+  bulk: async (data: { tournament: ID; teams: { team: ID; categories: ID[] }[] }) =>
+    (await api.post<{ created: number; errors: { team: ID; category: ID; label: string; message: string }[] }>(
+      "/registrations/bulk/", data)).data,
+};
 
 // ---------------------------------------------------------------- Competición
 export const matchdays = {

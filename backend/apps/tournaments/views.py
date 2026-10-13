@@ -9,12 +9,13 @@ from rest_framework.response import Response
 
 from apps.audit.services import record
 from apps.core.mixins import NoDeleteModelViewSet
+from apps.core.permissions import require_perms
 from apps.registry.models import Category, Team
 
 from . import documents, services
 from .models import CategoryRules, Group, TeamPlayer, Tournament, TournamentTeam
 from .serializers import (
-    CategoryRulesSerializer, GroupSerializer, TeamPlayerSerializer, TournamentSerializer, TournamentTeamSerializer,
+    BulkRegistrationSerializer, CategoryRulesSerializer, GroupSerializer, TeamPlayerSerializer, TournamentSerializer, TournamentTeamSerializer,
 )
 
 
@@ -108,6 +109,16 @@ class TournamentTeamViewSet(NoDeleteModelViewSet):
     serializer_class = TournamentTeamSerializer
     filterset_fields = ["tournament", "category", "group", "team", "is_active"]
     search_fields = ["team__name"]
+
+    @action(detail=False, methods=["post"])
+    @require_perms("tournaments.add_tournamentteam")
+    def bulk(self, request):
+        """Inscribe varios equipos a la vez, cada uno en las categorías indicadas."""
+        serializer = BulkRegistrationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        tournament = get_object_or_404(Tournament, pk=serializer.validated_data["tournament"])
+        result = services.register_teams(tournament, serializer.validated_data["teams"], request.user)
+        return Response(result, status=status.HTTP_201_CREATED if result["created"] else status.HTTP_200_OK)
 
 
 class RosterViewSet(NoDeleteModelViewSet):

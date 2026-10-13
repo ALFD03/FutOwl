@@ -73,6 +73,16 @@ class TournamentTeamSerializer(CleanModelSerializer):
         return sum(1 for entry in obj.roster.all() if entry.is_active)
 
 
+class BulkRegistrationEntrySerializer(serializers.Serializer):
+    team = serializers.IntegerField()
+    categories = serializers.ListField(child=serializers.IntegerField(), allow_empty=False)
+
+
+class BulkRegistrationSerializer(serializers.Serializer):
+    tournament = serializers.IntegerField()
+    teams = BulkRegistrationEntrySerializer(many=True, allow_empty=False)
+
+
 class RosterPlayerSerializer(serializers.Serializer):
     """Datos del jugador que muestra la nómina (sin estadísticas ni historial)."""
 

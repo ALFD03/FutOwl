@@ -48,7 +48,7 @@ Antes del torneo deben existir:
 
 ## Paso 2 — Inscribir equipos y cargar nóminas
 
-1. En el torneo, pestaña **Equipos → Inscribir equipo**: elija el equipo y marque la categoría *Sub 12*. Repita para los 4.
+1. En el torneo, pestaña **Equipos → Inscribir equipos**: elija la categoría *Sub 12* en el filtro, pulse **Marcar todos** e **Inscribir**: los 4 quedan inscritos de una vez.
 2. Cada **gestor** entra a su equipo (**Registro → Equipos →** su equipo) → pestaña **Nómina por torneo**, elige *Copa Apertura 2026 · Sub 12* e **inscribe a sus jugadores** con su dorsal. FutOwl solo ofrece jugadores nacidos desde 2015 y que no estén ya en otro equipo de ese torneo.
 
 [Detalle en Inscripciones, grupos y nómina](/app/ayuda/inscripciones-grupos-y-nomina).
