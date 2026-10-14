@@ -36,7 +36,7 @@ export function MatchdaysList({ tournamentId }: { tournamentId?: number }) {
             options={[{ value: "draft", label: "Borrador" }, { value: "submitted", label: "Enviada" }, { value: "confirmed", label: "Válida" }, { value: "closed", label: "Cerrada" }]} /></div>
           <Can perm="competition.add_matchday"><button className="btn-gold btn-sm" onClick={() => setCreating(true)}><Plus className="h-4 w-4" /> Jornada</button></Can>
         </>} />
-      <DataTable<Matchday> loading={isLoading} rows={data ?? []} onRowClick={(r) => navigate(`/app/jornadas/${r.id}`)} columns={[
+      <DataTable<Matchday> paginate loading={isLoading} rows={data ?? []} onRowClick={(r) => navigate(`/app/jornadas/${r.id}`)} columns={[
         { key: "n", header: "Jornada", render: (r) => <span><b>{r.name || `Jornada ${r.number}`}</b><span className="block text-xs text-slate-500">N.º {r.number}</span></span> },
         ...(tournamentId ? [] : [{ key: "t", header: "Torneo", render: (r: Matchday) => r.tournament_name }]),
         { key: "d", header: "Día", render: (r) => formatDate(r.date) },

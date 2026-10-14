@@ -1,10 +1,21 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 
 import { cn } from "@/utils/cn";
 
 import { EmptyState } from "./misc";
 import { Skeleton } from "./Spinner";
+
+/** Registros por página en todos los listados (igual al PAGE_SIZE del backend). */
+export const PAGE_SIZE = 20;
+
+/** Pagina en el cliente una lista completa; si la lista se achica, la página se ajusta sola. */
+export function usePaged<T>(items: T[], pageSize = PAGE_SIZE) {
+  const [requested, setPage] = useState(1);
+  const pages = Math.max(1, Math.ceil(items.length / pageSize));
+  const page = Math.min(requested, pages);
+  return { page, setPage, count: items.length, rows: items.slice((page - 1) * pageSize, page * pageSize) };
+}
 
 export interface Column<T> {
   key: string;
@@ -13,10 +24,28 @@ export interface Column<T> {
   className?: string;
 }
 
-export function DataTable<T extends { id: number | string }>({ columns, rows, loading, onRowClick, empty, rowClassName }: {
+/** Tabla de datos. Con `paginate` recibe la lista completa y la muestra de 20 en 20 (paginado en el cliente). */
+export function DataTable<T extends { id: number | string }>({ paginate, ...props }: DataTableProps<T> & { paginate?: boolean }) {
+  return paginate ? <PagedTable {...props} /> : <Table {...props} />;
+}
+
+interface DataTableProps<T> {
   columns: Column<T>[]; rows: T[]; loading?: boolean; onRowClick?: (row: T) => void; empty?: ReactNode;
   rowClassName?: (row: T) => string | undefined;
-}) {
+}
+
+function PagedTable<T extends { id: number | string }>({ rows, ...props }: DataTableProps<T>) {
+  const paged = usePaged(rows);
+  return (
+    <>
+      {paged.count > PAGE_SIZE && <Pagination page={paged.page} count={paged.count} onChange={paged.setPage} position="top" />}
+      <Table rows={paged.rows} {...props} />
+      {!props.loading && paged.count > 0 && <Pagination page={paged.page} count={paged.count} onChange={paged.setPage} />}
+    </>
+  );
+}
+
+function Table<T extends { id: number | string }>({ columns, rows, loading, onRowClick, empty, rowClassName }: DataTableProps<T>) {
   return (
     <div className="table-wrap">
       <table className="table">
@@ -55,7 +84,7 @@ function pageWindow(page: number, pages: number): (number | "…")[] {
  * Paginación con el total de registros. Úsela arriba (`position="top"`) y abajo de cada listado:
  * siempre muestra cuántos elementos hay; los controles aparecen si hay más de una página.
  */
-export function Pagination({ page, count, pageSize = 25, onChange, position = "bottom" }: {
+export function Pagination({ page, count, pageSize = PAGE_SIZE, onChange, position = "bottom" }: {
   page: number; count: number; pageSize?: number; onChange: (p: number) => void; position?: "top" | "bottom";
 }) {
   const pages = Math.max(1, Math.ceil(count / pageSize));

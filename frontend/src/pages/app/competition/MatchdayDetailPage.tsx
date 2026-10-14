@@ -5,7 +5,9 @@ import { AlertTriangle, ArrowLeft, CheckCircle2, Lock, Plus, Send, Trash2, X } f
 
 import { DateTimeInput } from "@/components/forms";
 import { Can } from "@/components/layout/Guards";
-import { Alert, Badge, ConfirmDialog, EmptyState, Modal, PageHeader, PageLoader, SelectMenu, Spinner, StatusBadge, Toggle } from "@/components/ui";
+import {
+  Alert, Badge, ConfirmDialog, EmptyState, Modal, PageHeader, PAGE_SIZE, PageLoader, Pagination, SelectMenu, Spinner, StatusBadge, Toggle, usePaged,
+} from "@/components/ui";
 import { useCan, useToast } from "@/hooks";
 import { delegates, fields as fieldsService, matchdays, matches, referees } from "@/services";
 import type { Match } from "@/types";
@@ -30,6 +32,7 @@ export function MatchdayDetailPage() {
 
   const md = useQuery({ queryKey: ["matchdays", id], queryFn: () => matchdays.get(id) });
   const list = useQuery({ queryKey: ["matches", "matchday", id], queryFn: () => matches.all({ matchday: id, ordering: "scheduled_start" }), refetchInterval: 20_000 });
+  const paged = usePaged(list.data ?? []);
   const completeness = useQuery({ queryKey: ["matchdays", id, "completeness", list.data], queryFn: () => matchdays.completeness(id), enabled: md.data?.status === "draft" });
 
   const refresh = async () => {
@@ -81,11 +84,13 @@ export function MatchdayDetailPage() {
 
       {!list.data?.length && !list.isLoading ? <div className="card"><EmptyState title="Sin partidos" message="Agregue partidos del fixture a esta jornada." /></div> : (
         <div className="space-y-4">
-          {(list.data ?? []).map((m) => draft && canEditRows
+          {paged.count > PAGE_SIZE && <div className="card"><Pagination page={paged.page} count={paged.count} onChange={paged.setPage} position="top" /></div>}
+          {paged.rows.map((m) => draft && canEditRows
             ? <ScheduleRow key={m.id} match={m} scope={scope} referees_required={m.rules.referees_required} incomplete={completeness.data?.incomplete[m.id]} onSaved={refresh} />
             : m.status === "pending" && (scope.delegate || scope.referees)
               ? <AssignRow key={m.id} match={m} scope={scope} onSaved={refresh} />
               : <ReadOnlyRow key={m.id} match={m} />)}
+          <div className="card"><Pagination page={paged.page} count={paged.count} onChange={paged.setPage} /></div>
         </div>
       )}
 
@@ -288,6 +293,7 @@ function AddMatchesModal({ open, onClose, tournament, matchday, onAdded }: { ope
   const [selected, setSelected] = useState<number[]>([]);
   const [busy, setBusy] = useState(false);
   const { data = [] } = useQuery({ queryKey: ["matches", "unscheduled", tournament], queryFn: () => matches.all({ tournament, unscheduled: 1, status: "draft", ordering: "round_number" }), enabled: open });
+  const paged = usePaged(data);
   const add = async () => {
     setBusy(true);
     try {
@@ -307,18 +313,21 @@ function AddMatchesModal({ open, onClose, tournament, matchday, onAdded }: { ope
       <><button className="btn-ghost" onClick={onClose}>Cancelar</button><button className="btn-primary" disabled={!selected.length || busy} onClick={add}>{busy && <Spinner className="h-4 w-4" />}Agregar {selected.length || ""}</button></>
     }>
       {!data.length ? <EmptyState title="No hay partidos pendientes" message="Genere el fixture desde el torneo." /> : (
-        <ul className="space-y-2">
-          {data.map((m) => (
-            <li key={m.id}>
-              <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-slate-200 px-3 py-2 text-sm transition hover:border-gold-400 dark:border-white/10">
-                <Toggle checked={selected.includes(m.id)} label="Agregar a la jornada"
-                  onChange={(on) => setSelected((s) => on ? [...s, m.id] : s.filter((x) => x !== m.id))} />
-                <span className="flex-1"><b>{m.home_name}</b> vs <b>{m.away_name}</b></span>
-                <Badge tone="gold">{m.category_name}</Badge><Badge>Fecha {m.round_number}</Badge>
-              </label>
-            </li>
-          ))}
-        </ul>
+        <>
+          <ul className="space-y-2">
+            {paged.rows.map((m) => (
+              <li key={m.id}>
+                <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-slate-200 px-3 py-2 text-sm transition hover:border-gold-400 dark:border-white/10">
+                  <Toggle checked={selected.includes(m.id)} label="Agregar a la jornada"
+                    onChange={(on) => setSelected((s) => on ? [...s, m.id] : s.filter((x) => x !== m.id))} />
+                  <span className="flex-1"><b>{m.home_name}</b> vs <b>{m.away_name}</b></span>
+                  <Badge tone="gold">{m.category_name}</Badge><Badge>Fecha {m.round_number}</Badge>
+                </label>
+              </li>
+            ))}
+          </ul>
+          <Pagination page={paged.page} count={paged.count} onChange={paged.setPage} />
+        </>
       )}
     </Modal>
   );

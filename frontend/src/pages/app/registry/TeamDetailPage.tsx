@@ -161,7 +161,7 @@ function RosterTab({ team, canManage, canEditPlayers }: { team: Team; canManage:
             )}
           </div>
         } />
-      <DataTable<TeamPlayer> loading={rosterQ.isLoading} rows={rosterQ.data ?? []} empty="Nadie inscrito todavía en la nómina de este torneo." columns={[
+      <DataTable<TeamPlayer> key={registration?.id} paginate loading={rosterQ.isLoading} rows={rosterQ.data ?? []} empty="Nadie inscrito todavía en la nómina de este torneo." columns={[
         { key: "n", header: "Dorsal", render: (r) => <span className="grid h-8 w-8 place-items-center rounded-lg bg-navy-900 font-display font-bold text-gold-400">{r.shirt_number ?? "–"}</span> },
         { key: "p", header: "Jugador", render: (r) => playerCell(r.player_detail) },
         { key: "age", header: "Edad", render: (r) => `${r.player_detail.age} años (${formatDate(r.player_detail.birth_date)})` },
@@ -224,11 +224,11 @@ function PlayersTab({ team, canCreate, canEdit, canEditFormer }: { team: Team; c
       <Card>
         <CardHeader title="Plantel actual" subtitle="Jugadores cuyo equipo actual es este: el equipo puede actualizar su ficha (fotos, documento…)."
           actions={canCreate && <button className="btn-gold btn-sm" onClick={() => setCreating(true)}><UserPlus className="h-4 w-4" /> Nuevo jugador</button>} />
-        <DataTable<Player> loading={isLoading} rows={current} onRowClick={(r) => setProfile(r.id)} empty="Sin jugadores actuales." columns={[...columns, editColumn(canEdit)]} />
+        <DataTable<Player> paginate loading={isLoading} rows={current} onRowClick={(r) => setProfile(r.id)} empty="Sin jugadores actuales." columns={[...columns, editColumn(canEdit)]} />
       </Card>
       <Card>
         <CardHeader title="Han jugado con el equipo" subtitle="Registro histórico: jugadores que estuvieron en la nómina de algún torneo y hoy están en otro equipo o libres." />
-        <DataTable<Player> loading={isLoading} rows={former} onRowClick={(r) => setProfile(r.id)} empty="Sin registros históricos." columns={[
+        <DataTable<Player> paginate loading={isLoading} rows={former} onRowClick={(r) => setProfile(r.id)} empty="Sin registros históricos." columns={[
           ...columns.slice(0, 1),
           { key: "now", header: "Equipo actual", render: (r: Player) => r.current_team_name ? <Badge tone="navy">{r.current_team_name}</Badge> : <span className="text-slate-400">Libre</span> },
           ...columns.slice(2),
@@ -286,7 +286,7 @@ function CoachesTab({ team, canManage, canCreate }: { team: Team; canManage: boo
           </button>
         </div>
       )}
-      <DataTable<Coach> loading={isLoading} rows={data} empty="El equipo no tiene entrenadores asignados." columns={[
+      <DataTable<Coach> paginate loading={isLoading} rows={data} empty="El equipo no tiene entrenadores asignados." columns={[
         { key: "n", header: "Entrenador", render: (c) => playerCell(c) },
         { key: "l", header: "Licencia", render: (c) => <span>{c.license_number} <StatusBadge status={c.license_valid ? "confirmed" : "rejected"} label={c.license_valid ? `Vigente ${c.license_expiry_year}` : `Vencida ${c.license_expiry_year}`} /></span> },
         { key: "u", header: "Usuario", render: (c) => c.username ? <Badge tone="navy">@{c.username}</Badge> : <span className="text-slate-400">Sin acceso</span> },

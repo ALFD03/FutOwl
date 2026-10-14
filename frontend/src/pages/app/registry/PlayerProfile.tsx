@@ -60,7 +60,7 @@ export function PlayerProfile({ playerId, onClose }: { playerId: number | null; 
           <section>
             <h4 className="mb-2 flex items-center gap-2 text-sm font-bold text-navy-900 dark:text-gold-400"><Trophy className="h-4 w-4" /> Trayectoria</h4>
             <div className="overflow-hidden rounded-2xl border border-slate-200 dark:border-white/10">
-              <DataTable<PlayerHistory> rows={player.history} empty="Aún no ha sido inscrito en ningún torneo." columns={[
+              <DataTable<PlayerHistory> paginate rows={player.history} empty="Aún no ha sido inscrito en ningún torneo." columns={[
                 { key: "t", header: "Torneo", render: (h) => <b>{h.tournament_name}</b> },
                 { key: "e", header: "Equipo", render: (h) => h.team_name },
                 { key: "c", header: "Categoría", render: (h) => h.category_name },

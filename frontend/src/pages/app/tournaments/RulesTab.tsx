@@ -65,7 +65,7 @@ export function RulesTab({ tournament }: { tournament: Tournament }) {
     <Card>
       <CardHeader title="Reglas de juego por categoría" icon={<SlidersHorizontal className="h-4 w-4" />}
         subtitle="Cada categoría trae sus reglas (Registro → Categorías). Aquí puede ajustarlas solo para este torneo." />
-      <DataTable<Row> loading={rules.isLoading || cats.isLoading} rows={rows} columns={[
+      <DataTable<Row> paginate loading={rules.isLoading || cats.isLoading} rows={rows} columns={[
         { key: "cat", header: "Categoría", render: (r) => <span className="flex flex-wrap items-center gap-2"><Badge tone="gold">{r.name}</Badge>
           {r.own ? <Badge tone="navy">Ajustadas en este torneo</Badge> : <span className="text-xs text-slate-500">Las de la categoría</span>}</span> },
         { key: "duration", header: "Duración", render: (r) => cell(r, (x) => `${x.match_duration_minutes} min · ${x.periods} T · ${x.break_minutes}′ desc.`) },

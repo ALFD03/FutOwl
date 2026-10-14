@@ -27,7 +27,7 @@ curl https://<dominio>/api/matches/?tournament=3&status=confirmed \
 
 ## Convenciones
 
-- Listados paginados: `?page=2&page_size=50` → `{"count", "next", "previous", "results"}`.
+- Listados paginados de 20 en 20 por defecto (`?page=2`; `page_size` admite hasta 200) → `{"count", "next", "previous", "results"}`.
 - Búsqueda: `?search=texto`; orden: `?ordering=-scheduled_start`; filtros por campo: `?status=pending`.
 - Crear `POST`, editar `PATCH`; activar/desactivar: `POST …/<id>/activate/` y `…/<id>/deactivate/`.
 - Errores de validación: `400` con `{"campo": ["mensaje"]}`; sin permiso: `403`; sin sesión: `401`; cuenta bloqueada: `423`.

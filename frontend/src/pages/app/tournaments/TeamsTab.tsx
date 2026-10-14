@@ -5,7 +5,7 @@ import { Check, ChevronRight, Minus, Plus, Search } from "lucide-react";
 
 import { Can } from "@/components/layout/Guards";
 import { TeamCrest } from "@/components/match/TeamCrest";
-import { Alert, Badge, Card, CardHeader, Modal, Spinner } from "@/components/ui";
+import { Alert, Badge, Card, CardHeader, Modal, Pagination, Spinner, usePaged } from "@/components/ui";
 import { useToast } from "@/hooks";
 import { registrations, teams } from "@/services";
 import type { Registration, Tournament } from "@/types";
@@ -25,6 +25,7 @@ export function TeamsTab({ tournament }: { tournament: Tournament }) {
   const byTeam = new Map<number, Registration[]>();
   (regs.data ?? []).forEach((r) => byTeam.set(r.team, [...(byTeam.get(r.team) ?? []), r]));
   const teamsList = [...byTeam.values()].sort((a, b) => a[0].team_name.localeCompare(b[0].team_name));
+  const paged = usePaged(teamsList);
   const toggle = (id: number) => setOpen((o) => { const n = new Set(o); if (n.has(id)) n.delete(id); else n.add(id); return n; });
 
   return (
@@ -34,42 +35,46 @@ export function TeamsTab({ tournament }: { tournament: Tournament }) {
       {regs.isLoading ? <div className="grid h-24 place-items-center"><Spinner /></div> : !teamsList.length ? (
         <p className="px-5 py-10 text-center text-sm text-slate-400">Todavía no hay equipos inscritos.</p>
       ) : (
-        <ul className="divide-y divide-slate-100 dark:divide-white/5">
-          {teamsList.map((items) => {
-            const team = items[0];
-            const expanded = open.has(team.team);
-            return (
-              <li key={team.team}>
-                <button type="button" onClick={() => toggle(team.team)} aria-expanded={expanded}
-                  className="flex w-full items-center gap-3 px-5 py-3 text-left transition hover:bg-slate-50 dark:hover:bg-white/[.03]">
-                  <ChevronRight className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${expanded ? "rotate-90" : ""}`} />
-                  <TeamCrest src={team.team_logo} name={team.team_name} size="sm" />
-                  <b className="min-w-0 flex-1 truncate">{team.team_name}</b>
-                  <Badge tone="gold">{items.length} categoría(s)</Badge>
-                  <span className="hidden text-xs text-slate-500 sm:inline">{items.reduce((n, r) => n + r.roster_count, 0)} jugadores en nómina</span>
-                </button>
-                {expanded && (
-                  <div className="bg-slate-50/60 px-5 pb-4 pt-1 dark:bg-white/[.02]">
-                    <table className="w-full text-sm">
-                      <thead><tr className="text-left text-xs uppercase tracking-wide text-slate-400">
-                        <th className="py-2 pl-7">Categoría</th><th className="py-2">Grupo</th><th className="py-2">Nómina</th>
-                      </tr></thead>
-                      <tbody>
-                        {items.sort((a, b) => a.category_name.localeCompare(b.category_name)).map((r) => (
-                          <tr key={r.id} className="border-t border-slate-200/70 dark:border-white/5">
-                            <td className="py-2 pl-7"><Badge tone="gold">{r.category_name}</Badge></td>
-                            <td className="py-2 text-slate-600 dark:text-slate-300">{r.group_name ?? "—"}</td>
-                            <td className="py-2"><Link to={`/app/equipos/${r.team}`} className="font-semibold text-navy-700 hover:underline dark:text-gold-400">{r.roster_count} jugadores</Link></td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </li>
-            );
-          })}
-        </ul>
+        <>
+          <Pagination page={paged.page} count={paged.count} onChange={paged.setPage} position="top" />
+          <ul className="divide-y divide-slate-100 dark:divide-white/5">
+            {paged.rows.map((items) => {
+              const team = items[0];
+              const expanded = open.has(team.team);
+              return (
+                <li key={team.team}>
+                  <button type="button" onClick={() => toggle(team.team)} aria-expanded={expanded}
+                    className="flex w-full items-center gap-3 px-5 py-3 text-left transition hover:bg-slate-50 dark:hover:bg-white/[.03]">
+                    <ChevronRight className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${expanded ? "rotate-90" : ""}`} />
+                    <TeamCrest src={team.team_logo} name={team.team_name} size="sm" />
+                    <b className="min-w-0 flex-1 truncate">{team.team_name}</b>
+                    <Badge tone="gold">{items.length} categoría(s)</Badge>
+                    <span className="hidden text-xs text-slate-500 sm:inline">{items.reduce((n, r) => n + r.roster_count, 0)} jugadores en nómina</span>
+                  </button>
+                  {expanded && (
+                    <div className="bg-slate-50/60 px-5 pb-4 pt-1 dark:bg-white/[.02]">
+                      <table className="w-full text-sm">
+                        <thead><tr className="text-left text-xs uppercase tracking-wide text-slate-400">
+                          <th className="py-2 pl-7">Categoría</th><th className="py-2">Grupo</th><th className="py-2">Nómina</th>
+                        </tr></thead>
+                        <tbody>
+                          {items.sort((a, b) => a.category_name.localeCompare(b.category_name)).map((r) => (
+                            <tr key={r.id} className="border-t border-slate-200/70 dark:border-white/5">
+                              <td className="py-2 pl-7"><Badge tone="gold">{r.category_name}</Badge></td>
+                              <td className="py-2 text-slate-600 dark:text-slate-300">{r.group_name ?? "—"}</td>
+                              <td className="py-2"><Link to={`/app/equipos/${r.team}`} className="font-semibold text-navy-700 hover:underline dark:text-gold-400">{r.roster_count} jugadores</Link></td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+          <Pagination page={paged.page} count={paged.count} onChange={paged.setPage} />
+        </>
       )}
       <RegisterTeamModal open={registering} onClose={() => setRegistering(false)} tournament={tournament}
         registered={regs.data ?? []} onDone={refresh} />
@@ -103,6 +108,7 @@ function RegisterTeamModal({ open, onClose, tournament, registered, onDone }: {
   const term = search.trim().toLocaleLowerCase();
   const visible = rows.filter((r) => (!term || r.team.name.toLocaleLowerCase().includes(term))
     && (filter == null || r.available.includes(filter) || r.registered.includes(filter)));
+  const paged = usePaged(visible);
   const selectable = visible.filter((r) => filter == null ? r.available.length : r.available.includes(filter));
   const total = [...picked.values()].reduce((n, set) => n + set.size, 0);
 
@@ -130,7 +136,7 @@ function RegisterTeamModal({ open, onClose, tournament, registered, onDone }: {
     next.set(r.team.id, set);
   }));
 
-  const close = () => { setSearch(""); setFilter(null); setPicked(new Map()); onClose(); };
+  const close = () => { setSearch(""); setFilter(null); setPicked(new Map()); paged.setPage(1); onClose(); };
   const submit = async () => {
     setBusy(true);
     try {
@@ -165,13 +171,13 @@ function RegisterTeamModal({ open, onClose, tournament, registered, onDone }: {
       <div className="space-y-4">
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <input className="input pl-9" placeholder="Buscar equipo…" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <input className="input pl-9" placeholder="Buscar equipo…" value={search} onChange={(e) => { setSearch(e.target.value); paged.setPage(1); }} />
         </div>
         {tournament.categories.length > 1 && (
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Categoría</span>
             {[null, ...tournament.categories].map((c) => (
-              <button key={c ?? "all"} type="button" onClick={() => setFilter(c)} aria-pressed={filter === c}
+              <button key={c ?? "all"} type="button" onClick={() => { setFilter(c); paged.setPage(1); }} aria-pressed={filter === c}
                 className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${filter === c
                   ? "border-navy-700 bg-navy-700 text-white dark:border-gold-400 dark:bg-gold-400 dark:text-navy-950"
                   : "border-slate-200 text-slate-600 hover:border-slate-300 dark:border-white/10 dark:text-slate-300"}`}>
@@ -197,42 +203,45 @@ function RegisterTeamModal({ open, onClose, tournament, registered, onDone }: {
               )}
             </div>
             {!visible.length ? <p className="px-3 py-8 text-center text-sm text-slate-400">Ningún equipo coincide con la búsqueda.</p> : (
-              <ul className="max-h-[50vh] divide-y divide-slate-100 overflow-y-auto dark:divide-white/5">
-                {visible.map((row) => {
-                  const set = picked.get(row.team.id);
-                  const state = !set ? "off" : row.available.every((c) => set.has(c)) ? "on" : "some";
-                  const full = !row.available.length;
-                  return (
-                    <li key={row.team.id} className={`flex items-start gap-3 px-3 py-2.5 ${set ? "bg-gold-50/70 dark:bg-gold-500/10" : ""}`}>
-                      <button type="button" onClick={() => toggleTeam(row)} disabled={full} aria-pressed={!!set}
-                        className="flex min-w-0 flex-1 items-center gap-3 text-left disabled:cursor-not-allowed">
-                        <Box state={state} disabled={full} />
-                        <TeamCrest src={row.team.logo} name={row.team.name} size="sm" />
-                        <span className="min-w-0">
-                          <b className={`block truncate text-sm ${full ? "text-slate-400" : ""}`}>{row.team.name}</b>
-                          {full && <span className="text-xs text-slate-400">Ya inscrito en todas sus categorías</span>}
-                        </span>
-                      </button>
-                      <div className="flex max-w-[55%] flex-wrap justify-end gap-1.5">
-                        {row.available.map((c) => {
-                          const on = !!set?.has(c);
-                          return (
-                            <button key={c} type="button" onClick={() => toggleCategory(row.team.id, c)} aria-pressed={on}
-                              className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold transition ${on
-                                ? "border-gold-500 bg-gold-400 text-navy-950"
-                                : "border-slate-300 text-slate-500 hover:border-slate-400 dark:border-white/20 dark:text-slate-400"}`}>
-                              {on && <Check className="h-3 w-3" />}{categoryName.get(c)}
-                            </button>
-                          );
-                        })}
-                        {row.registered.map((c) => (
-                          <Badge key={c} tone="emerald" title="Ya inscrito"><Check className="h-3 w-3" />{categoryName.get(c)}</Badge>
-                        ))}
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
+              <>
+                <ul className="max-h-[50vh] divide-y divide-slate-100 overflow-y-auto dark:divide-white/5">
+                  {paged.rows.map((row) => {
+                    const set = picked.get(row.team.id);
+                    const state = !set ? "off" : row.available.every((c) => set.has(c)) ? "on" : "some";
+                    const full = !row.available.length;
+                    return (
+                      <li key={row.team.id} className={`flex items-start gap-3 px-3 py-2.5 ${set ? "bg-gold-50/70 dark:bg-gold-500/10" : ""}`}>
+                        <button type="button" onClick={() => toggleTeam(row)} disabled={full} aria-pressed={!!set}
+                          className="flex min-w-0 flex-1 items-center gap-3 text-left disabled:cursor-not-allowed">
+                          <Box state={state} disabled={full} />
+                          <TeamCrest src={row.team.logo} name={row.team.name} size="sm" />
+                          <span className="min-w-0">
+                            <b className={`block truncate text-sm ${full ? "text-slate-400" : ""}`}>{row.team.name}</b>
+                            {full && <span className="text-xs text-slate-400">Ya inscrito en todas sus categorías</span>}
+                          </span>
+                        </button>
+                        <div className="flex max-w-[55%] flex-wrap justify-end gap-1.5">
+                          {row.available.map((c) => {
+                            const on = !!set?.has(c);
+                            return (
+                              <button key={c} type="button" onClick={() => toggleCategory(row.team.id, c)} aria-pressed={on}
+                                className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold transition ${on
+                                  ? "border-gold-500 bg-gold-400 text-navy-950"
+                                  : "border-slate-300 text-slate-500 hover:border-slate-400 dark:border-white/20 dark:text-slate-400"}`}>
+                                {on && <Check className="h-3 w-3" />}{categoryName.get(c)}
+                              </button>
+                            );
+                          })}
+                          {row.registered.map((c) => (
+                            <Badge key={c} tone="emerald" title="Ya inscrito"><Check className="h-3 w-3" />{categoryName.get(c)}</Badge>
+                          ))}
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+                <Pagination page={paged.page} count={paged.count} onChange={paged.setPage} />
+              </>
             )}
           </div>
         )}

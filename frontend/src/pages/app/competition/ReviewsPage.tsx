@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Scale } from "lucide-react";
 
-import { Badge, Card, DataTable, Modal, PageHeader, SelectMenu, Spinner, StatusBadge } from "@/components/ui";
+import { Badge, Card, DataTable, Modal, PageHeader, Pagination, SelectMenu, Spinner, StatusBadge } from "@/components/ui";
 import { useCan, useToast } from "@/hooks";
 import { reviewCases } from "@/services";
 import type { ReviewCase } from "@/types";
@@ -16,10 +16,13 @@ export function ReviewsPage() {
   const queryClient = useQueryClient();
   const canResolve = useCan("competition.resolve_reviewcase");
   const [status, setStatus] = useState("open");
+  const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<ReviewCase | null>(null);
   const [resolution, setResolution] = useState("");
   const [busy, setBusy] = useState(false);
-  const { data, isLoading } = useQuery({ queryKey: ["review-cases", status], queryFn: () => reviewCases.list({ status: status || undefined, page_size: 100 }) });
+  const { data, isLoading } = useQuery({
+    queryKey: ["review-cases", status, page], queryFn: () => reviewCases.list({ status: status || undefined, page }), placeholderData: keepPreviousData,
+  });
 
   const resolve = async (result: "resolved" | "dismissed") => {
     setBusy(true);
@@ -39,9 +42,10 @@ export function ReviewsPage() {
   return (
     <div>
       <PageHeader title="Revisiones" subtitle="Rechazos de asignación y apelaciones bajo revisión de las autoridades" icon={<Scale className="h-6 w-6" />}
-        actions={<div className="w-44"><SelectMenu value={status} onChange={(v) => setStatus(String(v ?? ""))}
+        actions={<div className="w-44"><SelectMenu value={status} onChange={(v) => { setStatus(String(v ?? "")); setPage(1); }}
           options={[{ value: "open", label: "Abiertos" }, { value: "resolved", label: "Resueltos" }, { value: "dismissed", label: "Desestimados" }, { value: "", label: "Todos" }]} /></div>} />
       <Card>
+        <Pagination page={page} count={data?.count ?? 0} onChange={setPage} position="top" />
         <DataTable<ReviewCase> loading={isLoading} rows={data?.results ?? []} onRowClick={(r) => setSelected(r)} columns={[
           { key: "k", header: "Tipo", render: (r) => <Badge tone={r.kind === "appeal" ? "crimson" : "amber"}>{r.kind_display}</Badge> },
           { key: "m", header: "Partido", render: (r) => <Link to={`/app/partidos/${r.match}`} onClick={(e) => e.stopPropagation()} className="font-semibold hover:underline">{r.match_label}</Link> },
@@ -50,6 +54,7 @@ export function ReviewsPage() {
           { key: "u", header: "Por", render: (r) => <span className="text-xs">{r.raised_by_name}<span className="block text-slate-400">{formatDateTime(r.created_at)}</span></span> },
           { key: "s", header: "Estado", render: (r) => <StatusBadge status={r.status} label={r.status_display} /> },
         ]} />
+        <Pagination page={page} count={data?.count ?? 0} onChange={setPage} />
       </Card>
       <Modal open={selected !== null} onClose={() => setSelected(null)} title={selected?.kind_display ?? ""} subtitle={selected?.match_label} footer={selected?.status === "open" && canResolve && (
         <>
