@@ -11,9 +11,10 @@ from .models import CategoryRules, Group, TeamPlayer, Tournament, TournamentTeam
 def delete_draft_tournament(tournament: Tournament, user) -> None:
     """
     Borra definitivamente un torneo en borrador con todo lo que cuelga de él (jornadas, partidos,
-    inscripciones, nóminas, grupos y ajustes de reglas). Una vez que algo salió de borrador ya no se borra.
+    inscripciones, nóminas, grupos, llaves de eliminación y ajustes de reglas). Una vez que algo salió de
+    borrador ya no se borra.
     """
-    from apps.competition.models import Match, Matchday
+    from apps.competition.models import Bracket, Match, Matchday
 
     tournament = Tournament.objects.select_for_update().get(pk=tournament.pk)
     if tournament.status != Tournament.Status.DRAFT:
@@ -25,6 +26,7 @@ def delete_draft_tournament(tournament: Tournament, user) -> None:
     # QuerySet.delete() no pasa por el bloqueo de borrado de cada registro (BaseEntity.delete).
     Match.objects.filter(tournament=tournament).delete()
     Matchday.objects.filter(tournament=tournament).delete()
+    Bracket.objects.filter(tournament=tournament).delete()
     TeamPlayer.objects.filter(tournament=tournament).delete()
     TournamentTeam.objects.filter(tournament=tournament).delete()
     Group.objects.filter(tournament=tournament).delete()
