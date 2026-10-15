@@ -57,3 +57,37 @@ class MatchdayPlanningTests(TestCase):
         Matchday.objects.filter(pk=self.matchday.pk).update(status=Matchday.Status.SUBMITTED)
         res = self.api.post(f"/api/matchdays/{self.matchday.id}/add-matches/", {"ids": [self.regular().first().id]}, format="json")
         self.assertEqual(res.status_code, 400)
+
+    def test_matchday_date_must_be_reasonable_and_within_tournament(self):
+        url = "/api/matchdays/"
+        bad_year = self.api.post(url, {"tournament": self.tournament.id, "number": 2, "date": "0006-11-01"}, format="json")
+        self.assertEqual(bad_year.status_code, 400)
+        self.assertIn("año", str(bad_year.data["date"]))
+        too_late = self.api.post(url, {"tournament": self.tournament.id, "number": 2, "date": "2030-01-01"}, format="json")
+        self.assertEqual(too_late.status_code, 400)
+
+    def test_changing_the_date_moves_matches_with_same_time(self):
+        match = self.regular().first()
+        self.api.post(f"/api/matchdays/{self.matchday.id}/add-matches/", {"ids": [match.id], "field": self.field.id}, format="json")
+        self.api.patch(f"/api/matches/{match.id}/", {"scheduled_start": "2026-11-07T09:00:00-04:00", "sub_field": None}, format="json")
+        res = self.api.patch(f"/api/matchdays/{self.matchday.id}/", {"date": "2026-11-14"}, format="json")
+        self.assertEqual(res.status_code, 200, res.data)
+        match.refresh_from_db()
+        self.assertEqual(match.scheduled_start.isoformat(), "2026-11-14T13:00:00+00:00")  # 09:00 UTC-4
+        self.assertEqual(match.scheduled_end.isoformat(), "2026-11-14T14:10:00+00:00")
+
+    def test_fixing_a_mistyped_year_keeps_the_official_time(self):
+        # Caso real: jornada guardada en el año 6; su hora local histórica no era UTC-4.
+        match = self.regular().first()
+        Matchday.objects.filter(pk=self.matchday.pk).update(date=date(6, 11, 1))
+        self.api.post(f"/api/matchdays/{self.matchday.id}/add-matches/", {"ids": [match.id], "field": self.field.id}, format="json")
+        self.api.patch(f"/api/matches/{match.id}/", {"scheduled_start": "0006-11-01T09:00:00-04:00", "sub_field": None}, format="json")
+        res = self.api.patch(f"/api/matchdays/{self.matchday.id}/", {"date": "2026-11-07"}, format="json")
+        self.assertEqual(res.status_code, 200, res.data)
+        match.refresh_from_db()
+        self.assertEqual(match.scheduled_start.isoformat(), "2026-11-07T13:00:00+00:00")
+
+    def test_tournament_dates_reject_mistyped_years(self):
+        res = self.api.patch(f"/api/tournaments/{self.tournament.id}/", {"start_date": "0026-01-01"}, format="json")
+        self.assertEqual(res.status_code, 400)
+

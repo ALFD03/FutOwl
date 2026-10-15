@@ -3,7 +3,7 @@ import { FileText, ImagePlus, X } from "lucide-react";
 
 import { MultiSelectMenu, SelectMenu } from "@/components/ui/SelectMenu";
 import { cn } from "@/utils/cn";
-import { fromCaracasInput, toCaracasInput } from "@/utils/datetime";
+import { DATE_MAX, DATE_MIN, fromCaracasInput, toCaracasInput } from "@/utils/datetime";
 
 import { VAT_TYPES, VENEZUELA_STATES } from "./constants";
 import type { Option } from "./types";
@@ -72,6 +72,7 @@ export function DateTimeInput({ value, onChange, disabled, invalid }: { value: s
   return (
     <div className="relative">
       <input type="datetime-local" className={cn("input pr-16", invalid && "input-error")} value={toCaracasInput(value)} disabled={disabled}
+        min={`${DATE_MIN}T00:00`} max={`${DATE_MAX}T23:59`}
         onChange={(e) => onChange(fromCaracasInput(e.target.value))} />
       <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-slate-400">UTC-4</span>
     </div>

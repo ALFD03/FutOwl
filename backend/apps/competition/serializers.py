@@ -1,9 +1,11 @@
 from datetime import timedelta
 
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db import transaction
 from rest_framework import serializers
 
 from apps.core.serializers import CleanModelSerializer
+from apps.core.validators import reasonable_date_error
 from apps.registry.models import Coach, Delegate, Field, Referee
 from apps.registry.models import RULE_FIELDS
 
@@ -47,7 +49,30 @@ class MatchdaySerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         if self.instance and self.instance.status != Matchday.Status.DRAFT:
             raise serializers.ValidationError("La jornada ya fue enviada y no puede editarse.")
+        day = attrs.get("date")
+        tournament = attrs.get("tournament") or getattr(self.instance, "tournament", None)
+        if day:
+            if error := reasonable_date_error(day):
+                raise serializers.ValidationError({"date": error})
+            if tournament and tournament.start_date and day < tournament.start_date:
+                raise serializers.ValidationError({"date": f"El torneo empieza el {tournament.start_date:%d/%m/%Y}."})
+            if tournament and tournament.end_date and day > tournament.end_date:
+                raise serializers.ValidationError({"date": f"El torneo termina el {tournament.end_date:%d/%m/%Y}."})
         return attrs
+
+    def update(self, instance, validated_data):
+        """Si cambia el día de la jornada, sus partidos se mueven a ese día con la misma hora."""
+        new_day = validated_data.get("date")
+        previous = instance.date
+        try:
+            with transaction.atomic():  # si algún partido choca en el nuevo día, no cambia nada
+                matchday = super().update(instance, validated_data)
+                if new_day and new_day != previous:
+                    scheduling.move_matchday_matches(matchday, previous)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError(
+                {"date": " ".join(exc.messages)} if hasattr(exc, "error_dict") else {"date": exc.messages})
+        return matchday
 
 
 class MatchSerializer(serializers.ModelSerializer):

@@ -3,6 +3,10 @@
  */
 export const TIME_ZONE = "America/Caracas";
 export const UTC_OFFSET = "-04:00";
+/** Rango de fechas aceptado en los formularios (igual que el backend): evita años mal escritos como «0006». */
+export const DATE_MIN = "2000-01-01";
+export const DATE_MAX = "2099-12-31";
+export const isReasonableDate = (value?: string | null) => Boolean(value) && value! >= DATE_MIN && value! <= DATE_MAX;
 const LOCALE = "es-VE";
 
 const fmt = (options: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat(LOCALE, { timeZone: TIME_ZONE, ...options });

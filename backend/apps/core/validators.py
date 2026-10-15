@@ -83,3 +83,14 @@ def validate_document_upload(file):
         return validate_image_upload(file)
     _check_size(file, settings.MAX_DOCUMENT_UPLOAD_MB)
     _check_signature(file, ext)
+
+
+# Un año fuera de este rango casi siempre es un error al escribir la fecha (p. ej. «0006» en vez de «2026»).
+MIN_YEAR, MAX_YEAR = 2000, 2099
+
+
+def reasonable_date_error(value) -> str | None:
+    """Mensaje de error si la fecha tiene un año fuera de lo razonable, o None si está bien."""
+    if value and not (MIN_YEAR <= value.year <= MAX_YEAR):
+        return f"Revise el año: debe estar entre {MIN_YEAR} y {MAX_YEAR}."
+    return None

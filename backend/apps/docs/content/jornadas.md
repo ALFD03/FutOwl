@@ -19,7 +19,9 @@ El listado permite filtrar por estado.
 
 ## 1. Crear la jornada
 
-Botón **+ Jornada**: torneo (si se crea desde el menú general), **número** (único dentro del torneo), **día** y nombre opcional (*Jornada 1 · Apertura*). Queda en **Borrador** y se abre su ficha.
+Botón **+ Jornada**: torneo (si se crea desde el menú general), **número** (único dentro del torneo), **día** y nombre opcional (*Jornada 1 · Apertura*). Queda en **Borrador** y se abre su ficha. El día debe estar dentro de las fechas del torneo y con un año entre 2000 y 2099 (un año mal escrito, como *0026*, se rechaza: además de ser otra fecha, haría que las horas se mostraran corridas).
+
+Mientras está en borrador, **Editar** (junto al título) cambia número, día o nombre. Si cambia el **día**, los partidos ya programados se mueven a esa fecha con la **misma hora**; si en el nuevo día alguno chocara con otro partido de la misma cancha o equipo, no se cambia nada y se indica el motivo.
 
 ## 2. Vista por canchas
 

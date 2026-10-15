@@ -1,4 +1,7 @@
 """Programación: validaciones de solapamiento, envío de jornadas y ajustes con exposición de motivos."""
+from datetime import timedelta
+from datetime import timezone as dt_timezone
+
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Q
@@ -110,6 +113,28 @@ def add_matches(matchday: Matchday, ids: list[int], user, field=None) -> dict:
     if added:
         record("add_matches", matchday, user=user, changes={"partidos": added, "cancha": str(field) if field else None})
     return {"added": len(added), "skipped": selected.count() - len(added)}
+
+
+def move_matchday_matches(matchday: Matchday, previous_day) -> int:
+    """
+    Tras cambiar el día de una jornada, lleva sus partidos programados al nuevo día con la misma hora local
+    (inicio y fin) y vuelve a validar los solapamientos de ese día.
+    """
+    # Hora oficial fija UTC-4 (con la zona histórica, una fecha mal escrita como el año 6 usaría la hora solar).
+    official = dt_timezone(timedelta(hours=-4))
+    moved = 0
+    for match in matchday.matches.select_related("field").exclude(scheduled_start=None):
+        for attr in ("scheduled_start", "scheduled_end"):
+            value = getattr(match, attr)
+            if value is not None:
+                local = value.astimezone(official)
+                setattr(match, attr, local.replace(year=matchday.date.year, month=matchday.date.month, day=matchday.date.day))
+        validate_schedule(match)
+        match.save(update_fields=["scheduled_start", "scheduled_end", "sub_field", "updated_at"])
+        moved += 1
+    if moved:
+        record("move_matchday", matchday, changes={"de": str(previous_day), "a": str(matchday.date), "partidos": moved})
+    return moved
 
 
 def matchday_completeness(matchday: Matchday) -> dict:

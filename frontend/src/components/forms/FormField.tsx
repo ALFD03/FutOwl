@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { SelectMenu, Switch } from "@/components/ui";
 import { cn } from "@/utils/cn";
+import { DATE_MAX, DATE_MIN } from "@/utils/datetime";
 
 import { DateTimeInput, FileInput, MultiSelect, StateSelect, VatInput } from "./inputs";
 import type { FieldDef, Option, Values } from "./types";
@@ -93,6 +94,8 @@ export function FormField({ field, values, setValue, error, errors = {} }: {
       break;
     default:
       control = <input {...common} type={field.type} value={String(value ?? "")} placeholder={field.placeholder}
+        // Evita años mal escritos (p. ej. «0006»): el navegador acepta del 1 al 9999.
+        {...(field.type === "date" ? { min: DATE_MIN, max: DATE_MAX } : {})}
         autoComplete={field.type === "password" ? "new-password" : undefined}
         onChange={(e) => setValue(field.name, e.target.value)} />;
   }

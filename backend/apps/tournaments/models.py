@@ -4,7 +4,7 @@ from django.db import models
 
 from apps.core.models import BaseEntity
 from apps.core.uploads import UploadTo
-from apps.core.validators import validate_document_upload, validate_image_upload
+from apps.core.validators import reasonable_date_error, validate_document_upload, validate_image_upload
 from apps.registry.models import Category, Field, GameRules, Player, Team
 
 
@@ -64,6 +64,10 @@ class Tournament(BaseEntity):
         return self.name
 
     def clean(self):
+        errors = {name: msg for name in ("start_date", "end_date")
+                  if (msg := reasonable_date_error(getattr(self, name)))}
+        if errors:
+            raise ValidationError(errors)
         if self.start_date and self.end_date and self.end_date < self.start_date:
             raise ValidationError({"end_date": "La fecha de fin no puede ser anterior a la de inicio."})
 

@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, ArrowLeft, Check, CheckCircle2, Lock, MapPin, Plus, Send, Trash2, X } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Check, CheckCircle2, Lock, MapPin, Pencil, Plus, Send, Trash2, X } from "lucide-react";
 
+import { ResourceForm } from "@/components/forms";
 import { Can } from "@/components/layout/Guards";
 import {
   Alert, Badge, ConfirmDialog, EmptyState, Modal, PageHeader, PageLoader, Pagination, SearchInput, SelectMenu, Spinner, StatusBadge,
@@ -12,7 +13,7 @@ import { useCan, useDebounce, useToast } from "@/hooks";
 import { delegates, fields as fieldsService, groups as groupsService, matchdays, matches, referees, registrations, tournaments } from "@/services";
 import type { Field, Match, Matchday } from "@/types";
 import { cn } from "@/utils/cn";
-import { formatLongDate, formatTime, normalizeTime, toCaracasInput, UTC_OFFSET } from "@/utils/datetime";
+import { formatDate, formatLongDate, formatTime, isReasonableDate, normalizeTime, toCaracasInput, UTC_OFFSET } from "@/utils/datetime";
 import { errorMessage, fieldErrors } from "@/utils/errors";
 import { FIELD_LABELS } from "@/utils/labels";
 import { groupResolver, KNOCKOUT_ORDER, phaseKey } from "@/utils/matchPhase";
@@ -33,6 +34,7 @@ export function MatchdayDetailPage() {
   const queryClient = useQueryClient();
   const [adding, setAdding] = useState<{ field: number | null } | null>(null);
   const [confirm, setConfirm] = useState<"submit" | "close" | "delete" | null>(null);
+  const [editing, setEditing] = useState(false);
   const canSchedule = useCan("competition.change_match");
   // Los jefes de delegados / árbitros solo asignan a los oficiales de su tipo, y recién tras el envío.
   const scope: AssignScope = {
@@ -93,12 +95,19 @@ export function MatchdayDetailPage() {
       <PageHeader title={matchday.name || `Jornada ${matchday.number}`} subtitle={<span className="capitalize">{matchday.tournament_name} · {formatLongDate(matchday.date)}</span>}
         actions={<>
           <StatusBadge status={matchday.status} label={matchday.status_display} />
+          {draft && <Can perm="competition.change_matchday"><button className="btn-ghost" title="Editar número, día o nombre" onClick={() => setEditing(true)}><Pencil className="h-4 w-4" /> Editar</button></Can>}
           {draft && <Can perm="competition.delete_matchday"><button className="btn-ghost text-crimson-600" title="Eliminar borrador" onClick={() => setConfirm("delete")}><Trash2 className="h-4 w-4" /></button></Can>}
           {draft && canSchedule && <button className="btn-outline" onClick={() => setAdding({ field: null })}><Plus className="h-4 w-4" /> Agregar partidos</button>}
           {draft && <Can perm="competition.submit_matchday"><button className="btn-gold" disabled={!completeness.data?.ready} onClick={() => setConfirm("submit")}><Send className="h-4 w-4" /> Enviar jornada</button></Can>}
           {matchday.status !== "draft" && matchday.status !== "closed" && <Can perm="competition.close_matchday"><button className="btn-primary" onClick={() => setConfirm("close")}><Lock className="h-4 w-4" /> Cerrar jornada</button></Can>}
         </>} />
 
+      {!isReasonableDate(matchday.date) && (
+        <div className="mb-4"><Alert tone="danger" title="Revise el día de la jornada">
+          La jornada está guardada para el {formatDate(matchday.date)}: el año parece mal escrito, y con esa fecha las horas se muestran corridas.
+          {draft && " Corríjala con «Editar»: los partidos se mueven al nuevo día con la misma hora."}
+        </Alert></div>
+      )}
       {draft && completeness.data && (
         <div className="mb-4">
           {completeness.data.ready
@@ -124,6 +133,20 @@ export function MatchdayDetailPage() {
         </div>
       )}
 
+      <Modal open={editing} onClose={() => setEditing(false)} title="Editar jornada" size="sm">
+        <ResourceForm initial={{ number: matchday.number, date: matchday.date, name: matchday.name }} onCancel={() => setEditing(false)}
+          fields={[
+            { name: "number", label: "Número de jornada", type: "number", required: true, min: 1 },
+            { name: "date", label: "Día de jornada", type: "date", required: true, help: "Si cambia el día, los partidos programados se mueven a esa fecha con la misma hora." },
+            { name: "name", label: "Nombre (opcional)", type: "text", placeholder: "Jornada 1 · Apertura" },
+          ]}
+          onSubmit={async (v) => {
+            await matchdays.update(id, v);
+            toast.success("Jornada actualizada.");
+            setEditing(false);
+            await refresh();
+          }} />
+      </Modal>
       {adding && (
         <AddMatchesModal matchday={matchday} presetField={adding.field} fields={fieldCards} onClose={() => setAdding(null)}
           onAdded={async () => { setAdding(null); await refresh(); }} />
