@@ -1,4 +1,5 @@
 import json
+from datetime import date
 
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db.models import Q
@@ -17,7 +18,7 @@ from apps.tournaments.models import Tournament
 
 from . import serializers as s
 from .models import Match, Matchday, MatchNote, MatchReport, ReviewCase, Stage
-from .services import bracket, confirmations, fixtures, lineups, live, reports, reviews, scheduling, standings
+from .services import auto_schedule, bracket, confirmations, fixtures, lineups, live, reports, reviews, scheduling, standings
 from .services.parties import confirmation_summary, parties_for_user
 
 PROTECTED = [ModelActionPermission]
@@ -43,6 +44,32 @@ class MatchdayViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["get"])
     def completeness(self, request, pk=None):
         return Response(scheduling.matchday_completeness(self.get_object()))
+
+    @action(detail=False, methods=["post"], url_path="auto-schedule")
+    @require_perms("competition.add_matchday", "competition.change_match")
+    def auto_schedule(self, request):
+        """
+        Genera jornadas cubriendo los partidos sin jornada: `start_date`, `days` [{weekday, start}],
+        `max_per_field`, y opcionalmente `fields` y `categories`. Con `commit` las crea; sin él, solo la vista previa.
+        """
+        data = request.data
+        tournament = get_object_or_404(Tournament, pk=data.get("tournament"))
+        try:
+            options = {
+                "start_date": date.fromisoformat(str(data.get("start_date"))),
+                "days": data.get("days"),
+                "max_per_field": int(data.get("max_per_field") or 0),
+                "field_ids": [int(i) for i in data.get("fields") or []],
+                "category_ids": [int(i) for i in data.get("categories") or []],
+            }
+        except (TypeError, ValueError):
+            raise ValidationError({"detail": "Revise la fecha de apertura y el máximo de partidos por cancha."})
+        try:
+            if data.get("commit"):
+                return Response(auto_schedule.create_matchdays(tournament, request.user, **options), status=status.HTTP_201_CREATED)
+            return Response(auto_schedule.serialize_plan(auto_schedule.plan_matchdays(tournament, **options)))
+        except DjangoValidationError as exc:
+            raise ValidationError(exc.message_dict if hasattr(exc, "error_dict") else {"detail": exc.messages})
 
     @action(detail=True, methods=["post"], url_path="add-matches")
     @require_perms("competition.change_match")

@@ -23,6 +23,27 @@ Botón **+ Jornada**: torneo (si se crea desde el menú general), **número** (�
 
 Mientras está en borrador, **Editar** (junto al título) cambia número, día o nombre. Si cambia el **día**, los partidos ya programados se mueven a esa fecha con la **misma hora**; si en el nuevo día alguno chocara con otro partido de la misma cancha o equipo, no se cambia nada y se indica el motivo.
 
+## Generar jornadas automáticamente
+
+**Generar jornadas** (en la lista de jornadas del torneo o en *Competición → Jornadas*, eligiendo el torneo) arma de una vez el calendario con los partidos del torneo que siguen en **borrador y sin jornada**:
+
+| Dato | Uso |
+|------|-----|
+| **Día de apertura** | Primer día desde el que se buscan días de juego (no antes del inicio del torneo; se detiene en su fecha de fin). |
+| **Días de juego y hora de inicio** | Días de la semana en que se juega (p. ej. sábado y domingo) y a qué hora arranca la jornada cada uno. |
+| **Máximo de partidos por cancha** | Cuántos partidos como máximo se programan en cada cancha por jornada. |
+| Canchas y categorías | Por defecto, todas las del torneo; pulse una para excluirla. |
+
+Reglas del reparto:
+
+- Una **jornada por día de juego**; se saltan los días que ya tienen una jornada del torneo.
+- Se respeta el orden del fixture: **Fecha 1, Fecha 2…** de todas las categorías y después la **eliminación directa** por ronda.
+- Un equipo juega **un solo partido por jornada**.
+- En cada cancha los partidos se **encadenan** desde la hora de inicio con la duración de su categoría (duración más descansos), en paralelo si la cancha tiene **mini canchas**, y respetando lo que ya ocupa esa cancha ese día.
+- La eliminación directa de una categoría empieza en una jornada **posterior** a su fase de grupos, cada ronda después de la anterior y la **vuelta** después de la ida.
+
+Primero pulse **Ver plan**: muestra cada jornada con su día, horario y partidos (cancha, hora, categoría y fase) y avisa si quedan partidos sin ubicar. Nada se guarda hasta pulsar **Crear jornadas**; se crean en **borrador** con cancha y horario, listas para revisar y enviar.
+
 ## 2. Vista por canchas
 
 Al abrir la jornada aparece **una tarjeta por cancha** (las del torneo; si el torneo no indicó canchas, todas las activas) con su **capacidad**: cuántos partidos admite a la vez y, si es divisible, cuántas mini canchas tiene. Cada tarjeta lista sus partidos por hora. Los partidos agregados sin cancha aparecen primero en la tarjeta **Sin cancha asignada**. Arriba, unos contadores indican cuántos partidos hay y cuántos están sin cancha o sin hora.

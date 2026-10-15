@@ -41,6 +41,8 @@ export const matchdays = {
   remove: (id: ID) => api.delete(`/matchdays/${id}/`),
   completeness: async (id: ID) =>
     (await api.get<{ total: number; incomplete: Record<string, string[]>; ready: boolean }>(`/matchdays/${id}/completeness/`)).data,
+  /** Plan (o creación, con `commit`) de jornadas automáticas que cubren los partidos sin jornada. */
+  autoSchedule: async (body: AutoScheduleRequest) => (await api.post<AutoSchedulePlan>("/matchdays/auto-schedule/", body)).data,
   /** Agrega varios partidos del fixture (opcionalmente ya en una cancha); los no elegibles se omiten. */
   addMatches: async (id: ID, ids: ID[], field?: ID | null) =>
     (await api.post<{ added: number; skipped: number }>(`/matchdays/${id}/add-matches/`, { ids, field: field ?? null })).data,
@@ -176,3 +178,25 @@ export const publicApi = {
   live: async () => (await api.get<{ today: PublicMatch[]; upcoming: PublicMatch[] }>("/public/matches/live/")).data,
   match: async (id: ID) => (await api.get<PublicMatch>(`/public/matches/${id}/`)).data,
 };
+
+export interface AutoScheduleRequest {
+  tournament: ID;
+  start_date: string;
+  days: { weekday: number; start: string }[];
+  max_per_field: number;
+  fields?: ID[];
+  categories?: ID[];
+  commit?: boolean;
+}
+
+export interface AutoSchedulePlan {
+  days: {
+    id: ID | null; number: number; date: string; weekday: string; start: string; end: string;
+    matches: { id: ID; home: string; away: string; category: string; phase: string; field: string; sub_field: number | null; start: string; end: string }[];
+  }[];
+  total: number;
+  scheduled: number;
+  unscheduled: number;
+  warnings: string[];
+}
+

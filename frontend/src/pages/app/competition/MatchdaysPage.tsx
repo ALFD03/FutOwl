@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarDays, Plus } from "lucide-react";
+import { CalendarDays, Plus, Wand2 } from "lucide-react";
 
 import { ResourceForm, type FieldDef } from "@/components/forms";
 import { Can } from "@/components/layout/Guards";
@@ -11,11 +11,14 @@ import { matchdays, tournaments } from "@/services";
 import type { Matchday, Tournament } from "@/types";
 import { formatDate } from "@/utils/datetime";
 
+import { AutoScheduleModal } from "./AutoScheduleModal";
+
 export function MatchdaysList({ tournamentId }: { tournamentId?: number }) {
   const navigate = useNavigate();
   const toast = useToast();
   const queryClient = useQueryClient();
   const [creating, setCreating] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [status, setStatus] = useState("");
   const { data, isLoading } = useQuery({
     queryKey: ["matchdays", tournamentId, status],
@@ -34,6 +37,7 @@ export function MatchdaysList({ tournamentId }: { tournamentId?: number }) {
         actions={<>
           <div className="w-44"><SelectMenu value={status || null} clearable placeholder="Todos los estados" onChange={(v) => setStatus(v == null ? "" : String(v))}
             options={[{ value: "draft", label: "Borrador" }, { value: "submitted", label: "Enviada" }, { value: "confirmed", label: "Válida" }, { value: "closed", label: "Cerrada" }]} /></div>
+          <Can perm={["competition.add_matchday", "competition.change_match"]}><button className="btn-outline btn-sm" onClick={() => setGenerating(true)}><Wand2 className="h-4 w-4" /> Generar jornadas</button></Can>
           <Can perm="competition.add_matchday"><button className="btn-gold btn-sm" onClick={() => setCreating(true)}><Plus className="h-4 w-4" /> Jornada</button></Can>
         </>} />
       <DataTable<Matchday> paginate loading={isLoading} rows={data ?? []} onRowClick={(r) => navigate(`/app/jornadas/${r.id}`)} columns={[
@@ -43,6 +47,8 @@ export function MatchdaysList({ tournamentId }: { tournamentId?: number }) {
         { key: "m", header: "Partidos", render: (r) => r.match_count },
         { key: "s", header: "Estado", render: (r) => <StatusBadge status={r.status} label={r.status_display} /> },
       ]} />
+      {generating && <AutoScheduleModal tournamentId={tournamentId} onClose={() => setGenerating(false)}
+        onCreated={async () => { setGenerating(false); await queryClient.invalidateQueries({ queryKey: ["matchdays"] }); await queryClient.invalidateQueries({ queryKey: ["matches"] }); }} />}
       <Modal open={creating} onClose={() => setCreating(false)} title="Nueva jornada" subtitle="Queda en borrador hasta completar todos los campos" size="sm">
         <ResourceForm fields={fields} onCancel={() => setCreating(false)} onSubmit={async (v) => {
           const md = await matchdays.create({ ...v, tournament: tournamentId ?? v.tournament });
