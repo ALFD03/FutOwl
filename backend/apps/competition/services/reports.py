@@ -143,6 +143,10 @@ def close_match(match: Match, user, notes: str = "", winner_side: str | None = N
         if first:
             Match.objects.filter(pk=first.pk).update(winner=match.winner)
         advance_winner(match)
+    if not match.is_knockout:
+        from .bracket import sync_bracket
+
+        sync_bracket(match.tournament, match.category_id, user)  # los clasificados pasan solos a la llave
     record("close_match", match, user=user, changes={"resultado": f"{match.home_score}-{match.away_score}"})
     notify(involved_users(match), "Partido cerrado",
            f"{match} cerrado oficialmente: {match.home_score}-{match.away_score}.", level="success",
@@ -160,6 +164,10 @@ def suspend_match(match: Match, user, reason: str) -> Match:
     previous = match.status
     match.status = Match.Status.SUSPENDED
     match.save()
+    if not match.is_knockout:
+        from .bracket import sync_bracket
+
+        sync_bracket(match.tournament, match.category_id, user)
     record("suspend_match", match, user=user, changes={"estado_anterior": previous, "motivo": reason.strip()})
     notify(involved_users(match), "Partido suspendido", f"{match}: {reason.strip()}", level="danger",
            link=f"/app/partidos/{match.id}")

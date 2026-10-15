@@ -16,6 +16,7 @@ from string import ascii_uppercase
 
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from apps.audit.services import record
@@ -265,6 +266,7 @@ def create_bracket(tournament: Tournament, category_id: int, start_stage: str, u
     bracket.slots = slots
     bracket.save(update_fields=["slots"])
     record("create_bracket", tournament, user=user, changes={"categoria": category_id, "ronda": start_stage})
+    sync_bracket(tournament, category_id, user)  # si ya hay grupos terminados, sus clasificados entran de una vez
     return bracket
 
 
@@ -302,21 +304,59 @@ def group_stage_finished(tournament: Tournament, category_id: int) -> bool:
     return regular.exists() and not regular.exclude(status__in=FINISHED).exists()
 
 
+def _group_finished(tournament: Tournament, category_id: int, group_id: int) -> bool:
+    """Todos los partidos del grupo cerrados o suspendidos (incluye los generados sin grupo entre sus equipos)."""
+    matches = Match.objects.filter(tournament=tournament, category_id=category_id, stage=Stage.REGULAR).filter(
+        Q(group_id=group_id) | Q(group__isnull=True, home__group_id=group_id, away__group_id=group_id))
+    return matches.exists() and not matches.exclude(status__in=FINISHED).exists()
+
+
 @transaction.atomic
-def fill_bracket(tournament: Tournament, category_id: int, user) -> Bracket:
-    """Con la fase de grupos terminada, coloca a los clasificados reales en la primera ronda."""
-    bracket = Bracket.objects.select_for_update().filter(tournament=tournament, category_id=category_id).first()
-    if bracket is None:
-        raise ValidationError("Primero configure la eliminación directa.")
+def sync_bracket(tournament: Tournament, category_id: int, user=None) -> Bracket | None:
+    """
+    Lleva los clasificados a la primera ronda de la llave a medida que se juegan los grupos, sin intervención:
+    cada grupo terminado ubica a sus clasificados («1º Grupo A»…) y, cuando terminan todos, entran los mejores
+    del siguiente puesto y la llave queda completa. Se llama al cerrar o suspender un partido de grupos y al
+    crear la llave. Solo toca partidos de la llave que siguen en borrador.
+    """
     if tournament.modality != Tournament.Modality.GROUPS_KNOCKOUT:
-        raise ValidationError("Esta llave no depende de una fase de grupos.")
-    if not group_stage_finished(tournament, category_id):
-        raise ValidationError("La fase de grupos no terminó: todos sus partidos deben estar cerrados o suspendidos.")
+        return None
+    bracket = Bracket.objects.select_for_update().filter(tournament=tournament, category_id=category_id).first()
+    if bracket is None or not bracket.slots or bracket.filled_at:
+        return bracket
+    all_done = group_stage_finished(tournament, category_id)
+    finished = {g.id for g in _groups(tournament, category_id) if all_done or _group_finished(tournament, category_id, g.id)}
+    if not finished:
+        return bracket
     resolved = _qualifiers(bracket, live=False)
+    if all_done:
+        _separate_best_from_own_group(bracket, resolved)
     first: dict[int, list[Match]] = {}
     for m in _knockout_matches(tournament, category_id).filter(stage=bracket.start_stage):
         first.setdefault(m.bracket_position, []).append(m)
-    # Un «mejor siguiente» no debe cruzarse con alguien de su propio grupo: se intercambia con otro cupo de mejores.
+
+    kinds = {(s["position"], s["side"]): s for s in bracket.slots}
+    placed = 0
+    for key, row in resolved.items():
+        slot, legs = kinds[key], first.get(key[0])
+        ready = slot["group"] in finished if slot["kind"] == "group" else all_done
+        if not ready or row is None or not legs or any(m.status != Match.Status.DRAFT for m in legs):
+            continue
+        _set_side(legs, key[1], team_id=row["team_id"])
+        for match in legs:
+            match.save(update_fields=["home", "away", "updated_at"])
+        placed += 1
+    if all_done:
+        bracket.filled_at = timezone.now()
+        bracket.save(update_fields=["filled_at", "updated_at"])
+    if placed:
+        record("fill_bracket", tournament, user=user,
+               changes={"categoria": category_id, "cupos": placed, "completa": all_done})
+    return bracket
+
+
+def _separate_best_from_own_group(bracket: Bracket, resolved: dict) -> None:
+    """Un «mejor siguiente» no debe cruzarse con alguien de su propio grupo: se intercambia con otro cupo de mejores."""
     best_keys = [(s["position"], s["side"]) for s in bracket.slots if s["kind"] == "best"]
     group_of = {key: row["group"] if row and "group" in row else None for key, row in resolved.items()}
     slot_group = {(s["position"], s["side"]): s.get("group") for s in bracket.slots if s["kind"] == "group"}
@@ -333,20 +373,16 @@ def fill_bracket(tournament: Tournament, category_id: int, user) -> Bracket:
                     group_of[key], group_of[other] = group_of[other], group_of[key]
                     break
 
-    for (position, side), row in resolved.items():
-        legs = first.get(position)
-        if not legs or row is None:
-            continue
-        for match in legs:
-            if match.status != Match.Status.DRAFT:
-                raise ValidationError(f"El partido {match} ya fue enviado: no se puede cambiar su equipo.")
-        _set_side(legs, side, team_id=row["team_id"])
-        for match in legs:
-            match.save(update_fields=["home", "away", "updated_at"])
-    bracket.filled_at = timezone.now()
-    bracket.save(update_fields=["filled_at", "updated_at"])
-    record("fill_bracket", tournament, user=user, changes={"categoria": category_id})
-    return bracket
+
+def fill_bracket(tournament: Tournament, category_id: int, user) -> Bracket:
+    """Completa la llave a pedido (normalmente ocurre sola; ver sync_bracket). Exige la fase de grupos terminada."""
+    if not Bracket.objects.filter(tournament=tournament, category_id=category_id).exists():
+        raise ValidationError("Primero configure la eliminación directa.")
+    if tournament.modality != Tournament.Modality.GROUPS_KNOCKOUT:
+        raise ValidationError("Esta llave no depende de una fase de grupos.")
+    if not group_stage_finished(tournament, category_id):
+        raise ValidationError("La fase de grupos no terminó: todos sus partidos deben estar cerrados o suspendidos.")
+    return sync_bracket(tournament, category_id, user)
 
 
 def first_leg(match: Match) -> Match | None:

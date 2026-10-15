@@ -96,7 +96,6 @@ export const knockout = {
     (await api.post<{ created: number }>("/knockout/group-fixtures/", { tournament, category })).data,
   createBracket: async (tournament: ID, category: ID, start_stage: string) =>
     (await api.post<KnockoutView>("/knockout/create-bracket/", { tournament, category, start_stage })).data,
-  fill: async (tournament: ID, category: ID) => (await api.post<KnockoutView>("/knockout/fill/", { tournament, category })).data,
 };
 
 export const reviewCases = {

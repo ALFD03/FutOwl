@@ -26,8 +26,9 @@ def standings(tournament: Tournament, category_id: int, group_id: int | None = N
     # Solo liga / fase de grupos: la eliminación directa no suma puntos.
     matches = Match.objects.filter(tournament=tournament, category_id=category_id, status__in=statuses,
                                    stage=Stage.REGULAR)
-    if group_id:
-        matches = matches.filter(group_id=group_id)
+    if group_id:  # incluye los partidos entre equipos del grupo que se generaron sin grupo
+        matches = matches.filter(Q(group_id=group_id)
+                                 | Q(group__isnull=True, home__group_id=group_id, away__group_id=group_id))
     for match in matches.order_by("scheduled_start"):
         if match.status == Match.Status.CLOSED:
             hs, as_ = match.home_score, match.away_score

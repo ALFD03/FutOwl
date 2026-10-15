@@ -123,6 +123,33 @@ class LegsTests(TestCase):
             self.assertTrue(first.home_id and first.away_id)
             self.assertEqual((first.home_id, first.away_id), (second.away_id, second.home_id))
 
+    def test_bracket_fills_itself_as_groups_finish(self):
+        t = self.tournament(8)
+        svc.draw_groups(t, self.cat.id, 2, self.authority)
+        svc.create_bracket(t, self.cat.id, Stage.SF, self.authority)  # 1º A vs 2º B y 1º B vs 2º A
+        group_a, group_b = t.groups.order_by("name")
+        semis = lambda: list(Match.objects.filter(tournament=t, stage=Stage.SF).order_by("bracket_position"))  # noqa: E731
+
+        for m in self.regular(t).filter(group=group_a):
+            self._close(finish(m, 2, 0))
+        placed = {reg for m in semis() for reg in (m.home_id, m.away_id) if reg}
+        a_teams = set(t.registrations.filter(group=group_a).values_list("id", flat=True))
+        self.assertEqual(len(placed), 2)  # el 1º y el 2º del Grupo A ya están en la llave
+        self.assertTrue(placed <= a_teams)
+        self.assertIsNone(t.brackets.get().filled_at)
+
+        for m in self.regular(t).filter(group=group_b):
+            self._close(finish(m, 1, 1))
+        self.assertTrue(all(m.home_id and m.away_id for m in semis()))
+        self.assertIsNotNone(t.brackets.get().filled_at)
+
+    def test_bracket_created_after_groups_is_filled_at_once(self):
+        t = self.tournament(8)
+        svc.draw_groups(t, self.cat.id, 2, self.authority)
+        self.regular(t).update(status=Match.Status.CLOSED, home_score=1, away_score=0)
+        svc.create_bracket(t, self.cat.id, Stage.SF, self.authority)
+        self.assertTrue(all(m.home_id and m.away_id for m in Match.objects.filter(tournament=t, stage=Stage.SF)))
+
     def _close(self, match, winner_side=None):
         # Atajo: el cierre exige informes coincidentes; aquí se prueba solo la lógica del ganador.
         from unittest import mock

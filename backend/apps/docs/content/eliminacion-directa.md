@@ -1,10 +1,10 @@
 ---
 title: Eliminación directa
-summary: Configurar la llave (32avos a final), ver la proyección, programar los cruces y llenarla con los resultados de grupos
+summary: Configurar la llave (32avos a final), ver la proyección, programar los cruces; se completa sola con los resultados de grupos
 section: manual
 order: 145
 ---
-**Ruta:** ficha del torneo → pestaña **Eliminación directa** (solo en las modalidades *Grupos + eliminación directa* y *Eliminación directa*) · **Capacidades:** *Consultar torneos y partidos* para ver; *Armar el fixture* para configurar y llenar la llave.
+**Ruta:** ficha del torneo → pestaña **Eliminación directa** (solo en las modalidades *Grupos + eliminación directa* y *Eliminación directa*) · **Capacidades:** *Consultar torneos y partidos* para ver; *Armar el fixture* para configurar la llave (se completa sola con los resultados).
 
 ## 1. Configurar la llave
 
@@ -25,11 +25,16 @@ La vista **Llave** muestra el cuadro de **dos lados**: la primera mitad avanza d
 
 ## 2. Proyección y programación
 
-Mientras se juega la fase de grupos, la llave muestra **en cursiva** quién entraría hoy a cada cupo, con sus puntos. Los partidos de la llave ya pueden **agregarse a una jornada** y programarse (cancha y horario) aunque sus equipos no estén definidos; para **enviar** la jornada, en cambio, cada partido necesita sus dos equipos.
+Mientras se juega la fase de grupos, la llave muestra **en cursiva** quién entraría hoy a cada cupo, con sus puntos; los cupos ya definidos muestran al equipo en letra normal. Los partidos de la llave ya pueden **agregarse a una jornada** y programarse (cancha y horario) aunque sus equipos no estén definidos; para **enviar** la jornada, en cambio, cada partido necesita sus dos equipos.
 
-## 3. Llenar con los resultados
+## 3. La llave se completa sola
 
-Cuando **todos** los partidos de la fase de grupos están cerrados o suspendidos, se habilita **Llenar con resultados de grupos** (con confirmación): coloca a los clasificados reales en la primera ronda.
+No hay que pulsar nada: la llave se actualiza con los resultados.
+
+- Cuando un grupo tiene **todos sus partidos cerrados o suspendidos**, sus clasificados (*1º Grupo A*, *2º Grupo A*…) se colocan **automáticamente** en la primera ronda, aunque otros grupos sigan jugando.
+- Cuando terminan **todos** los grupos, entran los **mejores del siguiente puesto** y la llave queda completa (*Clasificados definidos*).
+- Si la llave se crea con grupos ya terminados, sus clasificados entran en ese momento.
+- Solo se completan partidos de la llave que siguen en borrador.
 
 ## 4. Avance y empates
 

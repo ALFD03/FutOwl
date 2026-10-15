@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Columns3, GitBranch, ListChecks, Network, RefreshCw, Trophy } from "lucide-react";
+import { Columns3, GitBranch, Network, RefreshCw, Trophy } from "lucide-react";
 
 import { Can } from "@/components/layout/Guards";
 import { TeamCrest } from "@/components/match/TeamCrest";
@@ -30,7 +30,6 @@ export function KnockoutTab({ tournament }: { tournament: Tournament }) {
   const [category, setCategory] = useState<number>(tournament.categories[0]);
   const [choice, setChoice] = useState<KnockoutOption | null>(null);
   const [rebuilding, setRebuilding] = useState(false);
-  const [filling, setFilling] = useState(false);
   const [layout, setLayout] = useState<"bracket" | "rounds">("bracket");
   const pure = tournament.modality === "knockout";
   const view = useQuery({ queryKey: ["knockout", tournament.id, category], queryFn: () => knockout.view(tournament.id, category), refetchInterval: 30_000 });
@@ -52,13 +51,8 @@ export function KnockoutTab({ tournament }: { tournament: Tournament }) {
           </span>
         )}
         <div className="ml-auto flex flex-wrap gap-2">
-          {data?.bracket && !pure && !data.bracket.filled && (
-            <Can perm="competition.generate_fixture">
-              <button className="btn-gold btn-sm" disabled={!data.group_stage_finished} onClick={() => setFilling(true)}
-                title={data.group_stage_finished ? "" : "Disponible cuando todos los partidos de grupos estén cerrados"}>
-                <ListChecks className="h-4 w-4" /> Llenar con resultados de grupos
-              </button>
-            </Can>
+          {data?.bracket && !pure && (
+            <Badge tone={data.bracket.filled ? "emerald" : "navy"}>{data.bracket.filled ? "Clasificados definidos" : "Se completa sola con los resultados"}</Badge>
           )}
           {data?.bracket && !rebuilding && (
             <Can perm="competition.generate_fixture"><button className="btn-ghost btn-sm" onClick={() => setRebuilding(true)}><RefreshCw className="h-4 w-4" /> Rehacer llave</button></Can>
@@ -89,8 +83,8 @@ export function KnockoutTab({ tournament }: { tournament: Tournament }) {
       ) : (
         <>
           {!pure && !data.bracket?.filled && (
-            <Alert tone="info" title="Proyección con las posiciones actuales">
-              Los nombres en cursiva indican quién entraría hoy a cada cupo. Los partidos ya pueden programarse en jornadas; los equipos se fijan con «Llenar con resultados de grupos» cuando termine la fase de grupos.
+            <Alert tone="info" title="La llave se completa sola">
+              En cursiva, quién entraría hoy a cada cupo según las posiciones. Cuando un grupo cierra todos sus partidos, sus clasificados entran a la llave automáticamente; los mejores del siguiente puesto, cuando terminan todos los grupos. Los partidos de la llave ya pueden programarse en jornadas.
             </Alert>
           )}
           <div className="flex justify-end">
@@ -123,12 +117,6 @@ export function KnockoutTab({ tournament }: { tournament: Tournament }) {
             setRebuilding(false);
             await refresh();
           } catch (e) { toast.error(errorMessage(e)); throw e; }
-        }} />
-      <ConfirmDialog open={filling} onClose={() => setFilling(false)} confirmLabel="Llenar llave" title="Llenar con resultados de grupos"
-        message="Se colocarán los clasificados reales de la fase de grupos en la primera ronda. Después ya no podrá rehacerse la llave si sus partidos se envían."
-        onConfirm={async () => {
-          try { await knockout.fill(tournament.id, category); toast.success("Llave completada con los clasificados."); await refresh(); }
-          catch (e) { toast.error(errorMessage(e)); throw e; }
         }} />
     </div>
   );
