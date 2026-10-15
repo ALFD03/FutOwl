@@ -109,6 +109,9 @@ function Summary({ t }: { t: Tournament }) {
           { label: "Categorías", value: t.category_names.map((c) => <Badge key={c} tone="gold" className="mr-1">{c}</Badge>) },
           { label: "Canchas", value: t.field_names.join(", ") || "—" },
           { label: "Equipos inscritos", value: t.team_count },
+          ...(t.modality === "groups_knockout" ? [{ label: "Fase de grupos", value: t.groups_double ? "Ida y vuelta" : "Partido único" }] : []),
+          ...(t.modality === "groups_knockout" || t.modality === "knockout" ? [{ label: "Eliminación directa",
+            value: t.knockout_double ? `Ida y vuelta${t.final_single ? " (final a partido único)" : " (final incluida)"}` : "Partido único" }] : []),
           { label: "Reglas de juego", value: "Las de cada categoría (ajustables en la pestaña Reglas de juego)" },
           { label: "Puntos", value: `G ${t.points_win} · E ${t.points_draw} · P ${t.points_loss}` },
         ]} />

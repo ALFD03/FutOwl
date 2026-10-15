@@ -14,6 +14,9 @@ Botón **Nuevo torneo**:
 |---------|-------|---------------------------|
 | General | **Nombre** (único), logo | |
 | | **Modalidad** | Liga (todos contra todos), Liga ida y vuelta, Grupos + eliminación directa (fase de grupos y luego llave) o Eliminación directa (llave por sorteo). |
+| | Fase de grupos ida y vuelta | Solo con *Grupos + eliminación directa*. Encendido: cada pareja del grupo juega dos veces invirtiendo la localía; apagado: un partido. |
+| | Eliminación directa ida y vuelta | Con *Grupos + eliminación directa* o *Eliminación directa*. Encendido: cada cruce son dos partidos y lo define el **marcador global**; apagado: partido único. |
+| | Final a partido único | Visible con la llave a ida y vuelta (encendido por defecto): la final se juega a un solo partido. Apagado: la final también es ida y vuelta. |
 | | **Estado** | *Borrador (no público)*, *Inscripciones*, *En curso*, *Finalizado*. |
 | | Fechas de inicio y fin | La de fin no puede ser anterior a la de inicio. |
 | | **Categorías permitidas** | Al menos una. |

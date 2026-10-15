@@ -91,7 +91,7 @@ export const matches = {
 export const knockout = {
   view: async (tournament: ID, category: ID) => (await api.get<KnockoutView>("/knockout/", { params: { tournament, category } })).data,
   drawGroups: async (tournament: ID, category: ID, groups: number) =>
-    (await api.post<{ groups: number }>("/knockout/draw-groups/", { tournament, category, groups })).data,
+    (await api.post<{ groups: number; matches: number }>("/knockout/draw-groups/", { tournament, category, groups })).data,
   groupFixtures: async (tournament: ID, category: ID) =>
     (await api.post<{ created: number }>("/knockout/group-fixtures/", { tournament, category })).data,
   createBracket: async (tournament: ID, category: ID, start_stage: string) =>

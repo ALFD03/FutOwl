@@ -201,6 +201,12 @@ export interface Tournament extends BaseEntity {
   field_names: string[];
   start_date: string | null;
   end_date: string | null;
+  /** Fase de grupos a ida y vuelta (cada pareja juega dos veces). */
+  groups_double: boolean;
+  /** Cruces de la eliminación directa a ida y vuelta (define el global). */
+  knockout_double: boolean;
+  /** Con ida y vuelta en la llave, la final se juega a un partido. */
+  final_single: boolean;
   points_win: number;
   points_draw: number;
   points_loss: number;
@@ -275,12 +281,29 @@ export interface KnockoutMatch {
   scheduled_start: string | null;
   field_name: string | null;
   matchday_label: string | null;
+  /** Ida y vuelta: los dos partidos del cruce (marcadores leídos desde el local de la ida). Vacío = partido único. */
+  legs: KnockoutLeg[];
+}
+
+export interface KnockoutLeg {
+  id: ID;
+  leg: 1 | 2;
+  label: string;
+  status: MatchStatus;
+  status_display: string;
+  home_score: number | null;
+  away_score: number | null;
+  scheduled_start: string | null;
+  field_name: string | null;
+  matchday_label: string | null;
 }
 
 export interface KnockoutOption { stage: MatchStage; label: string; slots: number; per_group: number; best_extra: number; byes: number }
 
 export interface KnockoutView {
   modality: string;
+  knockout_double: boolean;
+  final_single: boolean;
   bracket: { start_stage: MatchStage; per_group: number; best_extra: number; filled: boolean } | null;
   options: KnockoutOption[];
   group_stage_finished: boolean;
@@ -299,6 +322,9 @@ export interface Match {
   stage: MatchStage;
   stage_display: string;
   bracket_position: number | null;
+  /** Ida (1) o vuelta (2) de un cruce a ida y vuelta; null = partido único. */
+  leg: 1 | 2 | null;
+  leg_display: string | null;
   home_source: string;
   away_source: string;
   winner: ID | null;

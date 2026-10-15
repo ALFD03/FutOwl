@@ -387,7 +387,8 @@ class KnockoutViewSet(viewsets.ViewSet):
     def draw_groups(self, request):
         tournament, category = self._target(request.data)
         groups = self._run(bracket.draw_groups, tournament, category, int(request.data.get("groups") or 0), request.user)
-        return Response({"groups": len(groups)}, status=status.HTTP_201_CREATED)
+        created = Match.objects.filter(tournament=tournament, category=category, group__in=groups).count()
+        return Response({"groups": len(groups), "matches": created}, status=status.HTTP_201_CREATED)
 
     @action(detail=False, methods=["post"], url_path="group-fixtures")
     @require_perms("competition.generate_fixture")

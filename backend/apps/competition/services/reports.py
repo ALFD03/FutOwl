@@ -6,7 +6,7 @@ from django.utils import timezone
 from apps.audit.services import record
 from apps.notifications.services import notify, notify_permission
 
-from ..models import Match, MatchClosure, Matchday, MatchReport, ReportReturn, ReportRole
+from ..models import Leg, Match, MatchClosure, Matchday, MatchReport, ReportReturn, ReportRole
 from .live import compute_state
 from .parties import involved_users
 
@@ -107,6 +107,11 @@ def close_match(match: Match, user, notes: str = "", winner_side: str | None = N
     match = Match.objects.select_for_update().get(pk=match.pk)
     if match.status != Match.Status.FINISHED:
         raise ValidationError("Solo se cierran partidos finalizados.")
+    from .bracket import aggregate, first_leg
+
+    first = first_leg(match)
+    if match.is_knockout and match.leg == Leg.SECOND and (first is None or first.status != Match.Status.CLOSED):
+        raise ValidationError("Primero debe cerrarse el partido de ida de este cruce.")
     comparison = compare(match)
     if not comparison["both_submitted"]:
         raise ValidationError("Faltan informes: delegado y árbitro deben enviar los suyos.")
@@ -121,16 +126,22 @@ def close_match(match: Match, user, notes: str = "", winner_side: str | None = N
     )
     match.status = Match.Status.CLOSED
     match.home_score, match.away_score = delegate.home_score, delegate.away_score
-    if match.is_knockout:
-        if match.home_score != match.away_score:
-            winner_side = "home" if match.home_score > match.away_score else "away"
+    # En la ida de un cruce a ida y vuelta no hay ganador todavía: lo define el global al cerrar la vuelta.
+    decides = match.is_knockout and match.leg != Leg.FIRST
+    if decides:
+        home, away = aggregate(match, first) if first else (match.home_score, match.away_score)
+        if home != away:
+            winner_side = "home" if home > away else "away"
         elif winner_side not in ("home", "away"):
-            raise ValidationError({"winner": "Empate en eliminación directa: indique quién ganó por penales."})
+            raise ValidationError({"winner": "Empate en eliminación directa"
+                                   + (" (marcador global)" if first else "") + ": indique quién ganó por penales."})
         match.winner = match.home if winner_side == "home" else match.away
     match.save()
-    if match.is_knockout:
+    if decides:
         from .bracket import advance_winner
 
+        if first:
+            Match.objects.filter(pk=first.pk).update(winner=match.winner)
         advance_winner(match)
     record("close_match", match, user=user, changes={"resultado": f"{match.home_score}-{match.away_score}"})
     notify(involved_users(match), "Partido cerrado",

@@ -8,6 +8,8 @@ Fase de grupos y eliminación directa.
 - Proyección: muestra quién entraría con las posiciones actuales.
 - Llenado: con la fase de grupos terminada, se asignan los equipos reales a la primera ronda.
 - Avance: al cerrar un partido de la llave, el ganador pasa solo al partido siguiente.
+- Ida y vuelta: si el torneo lo indica, cada cruce son dos partidos (misma posición, `leg` 1 y 2, la vuelta con
+  la localía invertida); el cruce lo define el marcador global al cerrar la vuelta. La final puede ser única.
 """
 import random
 from string import ascii_uppercase
@@ -19,7 +21,7 @@ from django.utils import timezone
 from apps.audit.services import record
 from apps.tournaments.models import Group, Tournament, TournamentTeam
 
-from ..models import KNOCKOUT_STAGES, Bracket, Match, Stage
+from ..models import KNOCKOUT_STAGES, Bracket, Leg, Match, Stage
 from .fixtures import generate_fixture
 from .standings import standings
 
@@ -43,6 +45,27 @@ def _groups(tournament: Tournament, category_id: int) -> list[Group]:
 def _group_names(count: int) -> list[str]:
     letters = list(ascii_uppercase)
     return [f"Grupo {letters[i] if i < 26 else letters[i // 26 - 1] + letters[i % 26]}" for i in range(count)]
+
+
+def _legs(tournament: Tournament, stage: str) -> list[int | None]:
+    """Partidos de cada cruce de una ronda: uno (sin `leg`) o ida y vuelta."""
+    if tournament.knockout_double and not (stage == Stage.FINAL and tournament.final_single):
+        return [Leg.FIRST, Leg.SECOND]
+    return [None]
+
+
+def _flip(side: str) -> str:
+    return "away" if side == "home" else "home"
+
+
+def _set_side(legs: list[Match], side: str, *, team_id=None, source: str | None = None) -> None:
+    """Pone un equipo (o su origen) en un lado del cruce; en la vuelta va del lado contrario."""
+    for match in legs:
+        actual = _flip(side) if match.leg == Leg.SECOND else side
+        if team_id is not None:
+            setattr(match, f"{actual}_id", team_id)
+        if source is not None:
+            setattr(match, f"{actual}_source", source)
 
 
 def _knockout_matches(tournament: Tournament, category_id: int):
@@ -86,9 +109,26 @@ def draw_groups(tournament: Tournament, category_id: int, groups_count: int, use
     for index, reg in enumerate(regs):
         reg.group = groups[index % groups_count]
     TournamentTeam.objects.bulk_update(regs, ["group"])
+    # Cada grupo queda con su fixture (todos contra todos; ida y vuelta si el torneo lo indica).
+    created = sum(len(generate_fixture(tournament, category_id, user, group_id=g.id)) for g in groups)
     record("draw_groups", tournament, user=user,
-           changes={"categoria": category_id, "grupos": groups_count, "equipos": len(regs)})
+           changes={"categoria": category_id, "grupos": groups_count, "equipos": len(regs), "partidos": created})
     return groups
+
+
+def sync_group_fixture(group: Group, user) -> int | None:
+    """
+    Rehace el fixture de un grupo tras cambiar sus equipos. Solo si todos sus partidos siguen en borrador y sin
+    jornada (para no perder programación); si no, devuelve None y el fixture queda como está.
+    """
+    matches = Match.objects.filter(tournament=group.tournament_id, category=group.category_id, group=group,
+                                   stage=Stage.REGULAR)
+    if matches.exclude(status=Match.Status.DRAFT).exists() or matches.filter(matchday__isnull=False).exists():
+        return None
+    matches.delete()
+    if group.teams.filter(is_active=True).count() < 2:
+        return 0
+    return len(generate_fixture(group.tournament, group.category_id, user, group_id=group.id))
 
 
 @transaction.atomic
@@ -193,34 +233,35 @@ def create_bracket(tournament: Tournament, category_id: int, start_stage: str, u
                                      per_group=option["per_group"], best_extra=option["best_extra"], created_by=user)
     first = STAGE_ORDER.index(start_stage)
     stages = STAGE_ORDER[first:]
-    built: dict[tuple[str, int], Match] = {}
+    built: dict[tuple[str, int], list[Match]] = {}
     for index, stage in enumerate(stages):
         for position in range(1, STAGE_MATCHES[stage] + 1):
-            match = Match(tournament=tournament, category_id=category_id, stage=stage, bracket_position=position,
-                          round_number=first + index + 1, created_by=user)
+            legs = [Match(tournament=tournament, category_id=category_id, stage=stage, bracket_position=position,
+                          leg=leg, round_number=first + index + 1, created_by=user) for leg in _legs(tournament, stage)]
             if index:
                 previous = Stage(stages[index - 1]).label
-                match.home_source = f"Ganador {previous} {position * 2 - 1}"
-                match.away_source = f"Ganador {previous} {position * 2}"
-            built[(stage, position)] = match
+                _set_side(legs, "home", source=f"Ganador {previous} {position * 2 - 1}")
+                _set_side(legs, "away", source=f"Ganador {previous} {position * 2}")
+            built[(stage, position)] = legs
 
-    slots, skipped = [], []
+    slots, skipped = [], set()
     for position, (home, away) in enumerate(pairs, start=1):
-        match = built[(start_stage, position)]
+        legs = built[(start_stage, position)]
         if None in (home, away):  # pase directo: el equipo pasa a la siguiente ronda sin jugar
             team = home or away
-            skipped.append(match)
+            skipped.add((start_stage, position))
             _place(built, start_stage, position, team["team"], "Pase directo")
             continue
         for side, slot in (("home", home), ("away", away)):
             if slot["kind"] == "team":
-                setattr(match, f"{side}_id", slot["team"])
+                _set_side(legs, side, team_id=slot["team"])
             else:
-                setattr(match, f"{side}_source", _seed_label(slot, groups))
+                _set_side(legs, side, source=_seed_label(slot, groups))
             slots.append({**slot, "position": position, "side": side})
-    for match in built.values():
-        if match not in skipped:
-            match.save()
+    for key, legs in built.items():
+        if key not in skipped:
+            for match in legs:
+                match.save()
     bracket.slots = slots
     bracket.save(update_fields=["slots"])
     record("create_bracket", tournament, user=user, changes={"categoria": category_id, "ronda": start_stage})
@@ -234,9 +275,7 @@ def _place(built, stage: str, position: int, team_id: int, source: str) -> None:
     target = built.get((STAGE_ORDER[following], (position + 1) // 2))
     if target is None:
         return
-    side = "home" if position % 2 else "away"
-    setattr(target, f"{side}_id", team_id)
-    setattr(target, f"{side}_source", source)
+    _set_side(target, "home" if position % 2 else "away", team_id=team_id, source=source)
 
 
 # ---------------------------------------------------------------- proyección y llenado
@@ -274,7 +313,9 @@ def fill_bracket(tournament: Tournament, category_id: int, user) -> Bracket:
     if not group_stage_finished(tournament, category_id):
         raise ValidationError("La fase de grupos no terminó: todos sus partidos deben estar cerrados o suspendidos.")
     resolved = _qualifiers(bracket, live=False)
-    first = {m.bracket_position: m for m in _knockout_matches(tournament, category_id).filter(stage=bracket.start_stage)}
+    first: dict[int, list[Match]] = {}
+    for m in _knockout_matches(tournament, category_id).filter(stage=bracket.start_stage):
+        first.setdefault(m.bracket_position, []).append(m)
     # Un «mejor siguiente» no debe cruzarse con alguien de su propio grupo: se intercambia con otro cupo de mejores.
     best_keys = [(s["position"], s["side"]) for s in bracket.slots if s["kind"] == "best"]
     group_of = {key: row["group"] if row and "group" in row else None for key, row in resolved.items()}
@@ -293,31 +334,47 @@ def fill_bracket(tournament: Tournament, category_id: int, user) -> Bracket:
                     break
 
     for (position, side), row in resolved.items():
-        match = first.get(position)
-        if match is None or row is None:
+        legs = first.get(position)
+        if not legs or row is None:
             continue
-        if match.status != Match.Status.DRAFT:
-            raise ValidationError(f"El partido {match} ya fue enviado: no se puede cambiar su equipo.")
-        setattr(match, f"{side}_id", row["team_id"])
-        match.save(update_fields=[f"{side}", "updated_at"])
+        for match in legs:
+            if match.status != Match.Status.DRAFT:
+                raise ValidationError(f"El partido {match} ya fue enviado: no se puede cambiar su equipo.")
+        _set_side(legs, side, team_id=row["team_id"])
+        for match in legs:
+            match.save(update_fields=["home", "away", "updated_at"])
     bracket.filled_at = timezone.now()
     bracket.save(update_fields=["filled_at", "updated_at"])
     record("fill_bracket", tournament, user=user, changes={"categoria": category_id})
     return bracket
 
 
+def first_leg(match: Match) -> Match | None:
+    """Partido de ida de un partido de vuelta."""
+    if match.leg != Leg.SECOND:
+        return None
+    return Match.objects.filter(tournament=match.tournament, category=match.category, stage=match.stage,
+                                bracket_position=match.bracket_position, leg=Leg.FIRST).first()
+
+
+def aggregate(second: Match, first: Match) -> tuple[int, int]:
+    """Marcador global desde la vuelta: (goles del local de la vuelta, goles del visitante de la vuelta)."""
+    return second.home_score + first.away_score, second.away_score + first.home_score
+
+
 def advance_winner(match: Match) -> None:
-    """Pasa el ganador del partido de llave al partido siguiente (si aún no se jugó)."""
+    """Pasa el ganador del cruce al cruce siguiente (a sus dos partidos si es ida y vuelta) si aún no se jugó."""
     if not match.is_knockout or not match.winner_id or match.stage == Stage.FINAL:
         return
     following = STAGE_ORDER[STAGE_ORDER.index(match.stage) + 1]
-    target = Match.objects.filter(tournament=match.tournament, category=match.category, stage=following,
-                                  bracket_position=(match.bracket_position + 1) // 2).first()
-    if target is None or target.status not in (Match.Status.DRAFT, Match.Status.PENDING):
+    targets = list(Match.objects.filter(tournament=match.tournament, category=match.category, stage=following,
+                                        bracket_position=(match.bracket_position + 1) // 2))
+    targets = [t for t in targets if t.status in (Match.Status.DRAFT, Match.Status.PENDING)]
+    if not targets:
         return
-    side = "home" if match.bracket_position % 2 else "away"
-    setattr(target, f"{side}_id", match.winner_id)
-    target.save(update_fields=[side, "updated_at"])
+    _set_side(targets, "home" if match.bracket_position % 2 else "away", team_id=match.winner_id)
+    for target in targets:
+        target.save(update_fields=["home", "away", "updated_at"])
 
 
 # ---------------------------------------------------------------- vista de la llave
@@ -327,14 +384,29 @@ def _team(reg: TournamentTeam | None) -> dict | None:
     return {"id": reg.id, "name": reg.team.name, "logo": reg.team.logo.url if reg.team.logo else None}
 
 
+def _leg_row(m: Match, swap: bool) -> dict:
+    """Un partido del cruce; en la vuelta los goles se dan vueltos para leerse como el local de la ida."""
+    home, away = (m.away_score, m.home_score) if swap else (m.home_score, m.away_score)
+    return {
+        "id": m.id, "leg": m.leg, "label": m.get_leg_display() if m.leg else "", "status": m.status,
+        "status_display": m.get_status_display(), "home_score": home, "away_score": away,
+        "scheduled_start": m.scheduled_start, "field_name": m.field.name if m.field else None,
+        "matchday_label": str(m.matchday) if m.matchday else None,
+    }
+
+
 def bracket_view(tournament: Tournament, category_id: int) -> dict:
     bracket = Bracket.objects.filter(tournament=tournament, category_id=category_id).first()
     projected = _qualifiers(bracket, live=True) if bracket and bracket.slots and not bracket.filled_at else {}
     matches = (_knockout_matches(tournament, category_id)
                .select_related("home__team", "away__team", "winner__team", "field", "matchday")
-               .order_by("round_number", "bracket_position"))
+               .order_by("round_number", "bracket_position", "leg"))
+    second_legs = {(m.stage, m.bracket_position): m for m in matches if m.leg == Leg.SECOND}
     stages: dict[str, list] = {}
     for m in matches:
+        if m.leg == Leg.SECOND:
+            continue  # se muestra dentro del cruce de su ida
+        second = second_legs.get((m.stage, m.bracket_position))
         sides = {}
         for side in ("home", "away"):
             reg = getattr(m, side)
@@ -345,14 +417,22 @@ def bracket_view(tournament: Tournament, category_id: int) -> dict:
                 "projected": None if reg or not row else {"id": row["team_id"], "name": row["team"], "logo": row["logo"],
                                                           "points": row["points"]},
             }
+        legs = [_leg_row(m, swap=False)] + ([_leg_row(second, swap=True)] if second else [])
+        scored = [leg for leg in legs if leg["home_score"] is not None]
+        current = next((leg for leg in legs if leg["status"] != Match.Status.CLOSED), legs[-1])
         stages.setdefault(m.stage, []).append({
-            "id": m.id, "position": m.bracket_position, "status": m.status, "status_display": m.get_status_display(),
-            "home": sides["home"], "away": sides["away"], "home_score": m.home_score, "away_score": m.away_score,
-            "winner": m.winner_id, "scheduled_start": m.scheduled_start, "field_name": m.field.name if m.field else None,
-            "matchday_label": str(m.matchday) if m.matchday else None,
+            "id": m.id, "position": m.bracket_position, "status": current["status"],
+            "status_display": current["status_display"], "home": sides["home"], "away": sides["away"],
+            # Con ida y vuelta, el marcador es el global (desde el punto de vista del local de la ida).
+            "home_score": sum(leg["home_score"] for leg in scored) if scored else None,
+            "away_score": sum(leg["away_score"] for leg in scored) if scored else None,
+            "winner": (second.winner_id if second else None) or m.winner_id,
+            "scheduled_start": current["scheduled_start"], "field_name": current["field_name"],
+            "matchday_label": current["matchday_label"], "legs": legs if second else [],
         })
     return {
         "modality": tournament.modality,
+        "knockout_double": tournament.knockout_double, "final_single": tournament.final_single,
         "bracket": {"start_stage": bracket.start_stage, "per_group": bracket.per_group,
                     "best_extra": bracket.best_extra, "filled": bool(bracket.filled_at)} if bracket else None,
         "options": bracket_options(tournament, category_id),

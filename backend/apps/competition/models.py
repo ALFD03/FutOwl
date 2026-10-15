@@ -91,6 +91,11 @@ class Stage(models.TextChoices):
 KNOCKOUT_STAGES = [(Stage.R64, 32), (Stage.R32, 16), (Stage.R16, 8), (Stage.QF, 4), (Stage.SF, 2), (Stage.FINAL, 1)]
 
 
+class Leg(models.IntegerChoices):
+    FIRST = 1, "Ida"
+    SECOND = 2, "Vuelta"
+
+
 class Match(TimeStampedModel):
     class Status(models.TextChoices):
         DRAFT = "draft", "Borrador"
@@ -123,6 +128,8 @@ class Match(TimeStampedModel):
                              blank=True, related_name="away_matches")
     stage = models.CharField("fase", max_length=8, choices=Stage.choices, default=Stage.REGULAR, db_index=True)
     bracket_position = models.PositiveSmallIntegerField("posición en la llave", null=True, blank=True)
+    # En una llave a ida y vuelta, cada cruce tiene dos partidos con la misma posición: 1 = ida, 2 = vuelta.
+    leg = models.PositiveSmallIntegerField("ida / vuelta", choices=Leg.choices, null=True, blank=True)
     home_source = models.CharField("origen del local", max_length=60, blank=True, help_text="Ej.: 1º Grupo A")
     away_source = models.CharField("origen del visitante", max_length=60, blank=True)
     winner = models.ForeignKey(TournamentTeam, verbose_name="ganador (eliminación directa)", on_delete=models.PROTECT,

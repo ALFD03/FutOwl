@@ -47,7 +47,9 @@ def generate_fixture(tournament: Tournament, category_id: int, user, *, group_id
         record("delete_fixture", tournament, user=user,
                changes={"categoria": category_id, "grupo": group_id, "partidos": existing.count()})
         existing.delete()
-    double = tournament.modality == Tournament.Modality.LEAGUE_DOUBLE if double is None else double
+    if double is None:  # por defecto, lo que indica el torneo: liga ida y vuelta o grupos ida y vuelta
+        double = tournament.modality == Tournament.Modality.LEAGUE_DOUBLE or (
+            bool(group_id) and tournament.modality == Tournament.Modality.GROUPS_KNOCKOUT and tournament.groups_double)
     matches = []
     for number, pairs in enumerate(round_robin(ids, double), start=1):
         for home, away in pairs:

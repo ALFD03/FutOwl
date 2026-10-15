@@ -50,7 +50,10 @@ export function GroupsTab({ tournament }: { tournament: Tournament }) {
 
   const assign = async (reg: Registration, group: number | null) => {
     try {
-      await registrations.update(reg.id, { group });
+      // El backend rehace el fixture de los grupos afectados mientras sus partidos sigan en borrador y sin jornada.
+      const res = await registrations.update(reg.id, { group }) as Registration & { fixture?: { created: number; kept: string[] } };
+      if (res.fixture?.kept.length) toast.info(`Fixture sin cambios en ${res.fixture.kept.join(", ")}: ya tiene partidos programados o enviados.`);
+      else if (res.fixture) toast.success(`Fixture del grupo actualizado (${res.fixture.created} partidos en borrador).`);
       await refresh();
     } catch (e) {
       toast.error(errorMessage(e));
@@ -86,7 +89,7 @@ export function GroupsTab({ tournament }: { tournament: Tournament }) {
       </div>
 
       {!catGroups.length ? (
-        <Card><EmptyState title="Sin grupos" message="Cree los grupos de esta categoría y asigne los equipos." /></Card>
+        <Card><EmptyState title="Sin grupos" message="Sortee los grupos (se crean también sus partidos) o créelos a mano y asigne los equipos: el fixture de cada grupo se arma solo." /></Card>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {catGroups.map((g) => {
@@ -108,10 +111,10 @@ export function GroupsTab({ tournament }: { tournament: Tournament }) {
         </Card>
       )}
 
-      <DrawModal open={drawing} onClose={() => setDrawing(false)} teams={catRegs.length} hasGroups={catGroups.length > 0}
+      <DrawModal open={drawing} onClose={() => setDrawing(false)} teams={catRegs.length} hasGroups={catGroups.length > 0} double={tournament.groups_double}
         onDraw={async (count) => {
-          await knockout.drawGroups(tournament.id, category, count);
-          toast.success(`Sorteo hecho: ${catRegs.length} equipos en ${count} grupos.`);
+          const res = await knockout.drawGroups(tournament.id, category, count);
+          toast.success(`Sorteo hecho: ${catRegs.length} equipos en ${count} grupos y ${res.matches} partidos creados en borrador.`);
           setDrawing(false);
           await refresh();
         }} />
@@ -129,8 +132,8 @@ export function GroupsTab({ tournament }: { tournament: Tournament }) {
 }
 
 /** Sorteo: cantidad de grupos (sugerida ≈ 4 equipos por grupo) con vista previa de los tamaños resultantes. */
-function DrawModal({ open, onClose, teams, hasGroups, onDraw }: {
-  open: boolean; onClose: () => void; teams: number; hasGroups: boolean; onDraw: (count: number) => Promise<void>;
+function DrawModal({ open, onClose, teams, hasGroups, double, onDraw }: {
+  open: boolean; onClose: () => void; teams: number; hasGroups: boolean; double: boolean; onDraw: (count: number) => Promise<void>;
 }) {
   const toast = useToast();
   const max = Math.max(1, Math.floor(teams / 2));
@@ -156,6 +159,7 @@ function DrawModal({ open, onClose, teams, hasGroups, onDraw }: {
           <input id="draw-count" type="number" className="input" min={1} max={max} value={count}
             onChange={(e) => setCount(Math.min(max, Math.max(1, Number(e.target.value) || 1)))} />
           <p className="help">{teams} equipos → {sizes}. El reparto es al azar y lo más parejo posible.</p>
+          <p className="help">Al sortear se crean también los partidos de cada grupo ({double ? "ida y vuelta" : "partido único"}), listos en la pestaña Partidos.</p>
         </div>
         {hasGroups && <Alert tone="warning">Se rehacen los grupos de esta categoría: se borran los actuales, sus partidos en borrador y la llave de eliminación (si existe). No es posible si ya hay partidos enviados.</Alert>}
       </div>

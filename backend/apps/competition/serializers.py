@@ -64,6 +64,7 @@ class MatchSerializer(serializers.ModelSerializer):
     home_logo = serializers.ImageField(source="home.team.logo", read_only=True, default=None)
     away_logo = serializers.ImageField(source="away.team.logo", read_only=True, default=None)
     stage_display = serializers.CharField(source="get_stage_display", read_only=True)
+    leg_display = serializers.CharField(source="get_leg_display", read_only=True, default=None)
     matchday_label = serializers.SerializerMethodField()
     field_name = serializers.CharField(source="field.name", read_only=True, default=None)
     delegate_name = serializers.SerializerMethodField()
@@ -81,7 +82,7 @@ class MatchSerializer(serializers.ModelSerializer):
         model = Match
         fields = [
             "id", "tournament", "tournament_name", "category", "category_name", "group", "group_name",
-            "round_number", "stage", "stage_display", "bracket_position", "home_source", "away_source", "winner",
+            "round_number", "stage", "stage_display", "bracket_position", "leg", "leg_display", "home_source", "away_source", "winner",
             "home", "home_name", "home_team_id", "home_logo", "away", "away_name", "away_team_id",
             "away_logo", "matchday",
             "matchday_label", "field", "field_name", "sub_field", "scheduled_start", "scheduled_end", "delegate",

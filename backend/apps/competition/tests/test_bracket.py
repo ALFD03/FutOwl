@@ -56,8 +56,8 @@ class BracketTests(TestCase):
 
     def test_fill_after_group_stage_and_advance(self):
         t = self.tournament(8)
-        svc.draw_groups(t, self.cat.id, 2, self.authority)
-        svc.generate_group_fixtures(t, self.cat.id, self.authority)
+        svc.draw_groups(t, self.cat.id, 2, self.authority)  # el sorteo ya crea el fixture de cada grupo
+        self.assertEqual(Match.objects.filter(tournament=t, stage=Stage.REGULAR).count(), 12)  # 2 grupos de 4: 6 + 6
         svc.create_bracket(t, self.cat.id, Stage.SF, self.authority)
         self.assertEqual(self.post("fill", t).status_code, 400)  # grupos sin terminar
         for m in Match.objects.filter(tournament=t, stage=Stage.REGULAR):

@@ -110,6 +110,24 @@ class TournamentTeamViewSet(NoDeleteModelViewSet):
     filterset_fields = ["tournament", "category", "group", "team", "is_active"]
     search_fields = ["team__name"]
 
+    def update(self, request, *args, **kwargs):
+        """Al mover un equipo de grupo, el fixture de los grupos afectados se rehace solo (si sigue en borrador)."""
+        previous = self.get_object().group
+        response = super().update(request, *args, **kwargs)
+        registration = self.get_object()
+        if previous != registration.group and registration.tournament.modality == Tournament.Modality.GROUPS_KNOCKOUT:
+            from apps.competition.services.bracket import sync_group_fixture
+
+            updated, kept = 0, []
+            for group in {previous, registration.group} - {None}:
+                created = sync_group_fixture(group, request.user)
+                if created is None:
+                    kept.append(group.name)
+                else:
+                    updated += created
+            response.data["fixture"] = {"created": updated, "kept": sorted(kept)}
+        return response
+
     @action(detail=False, methods=["post"])
     @require_perms("tournaments.add_tournamentteam")
     def bulk(self, request):

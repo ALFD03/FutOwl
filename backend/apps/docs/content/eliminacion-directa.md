@@ -33,4 +33,12 @@ Cuando **todos** los partidos de la fase de grupos están cerrados o suspendidos
 
 ## 4. Avance y empates
 
-Al **cerrar** un partido de la llave, su ganador pasa solo al partido siguiente. Si terminó **empatado**, al cerrarlo hay que indicar el **ganador por penales**. La eliminación directa no suma puntos en la tabla de posiciones.
+Al **cerrar** un partido de la llave, su ganador pasa solo al partido siguiente. Si terminó **empatado**, al cerrarlo hay que indicar el **ganador por penales**.
+
+### Ida y vuelta
+
+Si el torneo tiene la **eliminación directa ida y vuelta**, cada cruce son dos partidos (*Ida* y *Vuelta*, con la localía invertida); la final es a partido único salvo que se desactive *Final a partido único*. En la llave, la tarjeta del cruce muestra los goles de la ida (**I**), de la vuelta (**V**) y el **global** (**G**), y enlaza a cada partido.
+
+- La ida se cierra sin ganador (puede terminar empatada).
+- La vuelta solo se cierra después de la ida. Al cerrarla, gana el cruce quien tenga más goles en el **global**; si el global queda empatado, se indica el **ganador por penales**.
+- El ganador pasa a los dos partidos del cruce siguiente. La eliminación directa no suma puntos en la tabla de posiciones.

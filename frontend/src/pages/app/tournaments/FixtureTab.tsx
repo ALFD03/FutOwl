@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarDays, ChevronRight, Lock, MapPin, Pencil, Plus, Shuffle, Trash2, X } from "lucide-react";
@@ -29,7 +29,12 @@ const STATUS_FILTERS: { value: StatusFilter; label: string; test: (m: Match) => 
 const isEditable = (m: Match) => m.status === "draft" && m.stage === "regular";
 const roundKey = (m: Match) => (m.stage === "regular" ? `r${m.round_number}` : m.stage);
 const roundLabel = (m: Match) => (m.stage === "regular" ? `Fecha ${m.round_number}` : m.stage_display);
-const sortKey = (m: Match) => [(m.stage === "regular" ? 0 : 1000) + m.round_number, m.bracket_position ?? 0, m.id];
+const sortKey = (m: Match) => [(m.stage === "regular" ? 0 : 1000) + m.round_number, m.bracket_position ?? 0, m.leg ?? 0, m.id];
+/** Rondas de la eliminación directa en orden. */
+const KNOCKOUT_ORDER = ["r64", "r32", "r16", "qf", "sf", "final"];
+
+/** Filtro de fase: un grupo (`g:<id>`), la fase regular sin grupo (`regular`) o una ronda de la llave (`qf`…). */
+type Phase = string | null;
 
 export function FixtureTab({ tournament }: { tournament: Tournament }) {
   const toast = useToast();
@@ -37,7 +42,7 @@ export function FixtureTab({ tournament }: { tournament: Tournament }) {
   const canDelete = useCan("competition.delete_match");
   const canEdit = useCan("competition.change_match");
   const [category, setCategory] = useState<number>(tournament.categories[0]);
-  const [group, setGroup] = useState<number | null>(null);
+  const [phase, setPhase] = useState<Phase>(null);
   const [status, setStatus] = useState<StatusFilter>("all");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Set<number>>(new Set());
@@ -52,16 +57,32 @@ export function FixtureTab({ tournament }: { tournament: Tournament }) {
 
   const catOptions = tournament.categories.map((id, i) => ({ value: id, label: tournament.category_names[i] }));
   const catGroups = (grps.data ?? []).filter((g) => g.category === category);
-  const all = list.data ?? [];
+  const all = useMemo(() => list.data ?? [], [list.data]);
+  // Un partido de grupos generado sin grupo (p. ej. «todos los equipos») igual se ubica por el grupo de sus equipos.
+  const regGroup = useMemo(() => new Map((regs.data ?? []).map((r) => [r.id, r.group])), [regs.data]);
+  const phaseOf = useCallback((m: Match): string => {
+    if (m.stage !== "regular") return m.stage;
+    const home = m.home != null ? regGroup.get(m.home) : null;
+    const group = m.group ?? (home != null && home === (m.away != null ? regGroup.get(m.away) : null) ? home : null);
+    return group != null ? `g:${group}` : "regular";
+  }, [regGroup]);
+  const phases = useMemo(() => {
+    const present = new Set(all.map(phaseOf));
+    const options: { value: string; label: string }[] = catGroups.filter((g) => present.has(`g:${g.id}`)).map((g) => ({ value: `g:${g.id}`, label: g.name }));
+    if (present.has("regular")) options.unshift({ value: "regular", label: catGroups.length ? "Sin grupo" : "Fase regular" });
+    KNOCKOUT_ORDER.filter((stage) => present.has(stage))
+      .forEach((stage) => options.push({ value: stage, label: all.find((m) => m.stage === stage)!.stage_display }));
+    return options;
+  }, [all, catGroups, phaseOf]);
   const term = search.trim().toLocaleLowerCase();
   const filtered = useMemo(() => all
-    .filter((m) => group == null || m.group === group)
+    .filter((m) => phase == null || phaseOf(m) === phase)
     .filter(STATUS_FILTERS.find((f) => f.value === status)!.test)
     .filter((m) => !term || `${m.home_name} ${m.away_name}`.toLocaleLowerCase().includes(term))
     .sort((a, b) => {
       const [x, y] = [sortKey(a), sortKey(b)];
-      return x[0] - y[0] || x[1] - y[1] || x[2] - y[2];
-    }), [all, group, status, term]);
+      return x[0] - y[0] || x[1] - y[1] || x[2] - y[2] || x[3] - y[3];
+    }), [all, phase, status, term, phaseOf]);
   const paged = usePaged(filtered);
   const deletable = filtered.filter(isEditable);
   const chosen = all.filter((m) => selected.has(m.id));
@@ -87,7 +108,7 @@ export function FixtureTab({ tournament }: { tournament: Tournament }) {
     <Card>
       <CardHeader title="Partidos" subtitle="Cree el fixture automático o partidos sueltos; mientras estén en borrador puede editarlos o eliminarlos."
         actions={<>
-          <div className="w-44"><SelectMenu value={category} onChange={(v) => { setCategory(Number(v)); setGroup(null); resetView(); }} options={catOptions} /></div>
+          <div className="w-44"><SelectMenu value={category} onChange={(v) => { setCategory(Number(v)); setPhase(null); resetView(); }} options={catOptions} /></div>
           <Can perm="competition.add_match"><button className="btn-outline btn-sm" onClick={() => setForm({ match: null })}><Plus className="h-4 w-4" /> Nuevo partido</button></Can>
           <Can perm="competition.generate_fixture"><button className="btn-gold btn-sm" onClick={() => setGenerating(true)}><Shuffle className="h-4 w-4" /> Generar fixture</button></Can>
         </>} />
@@ -107,11 +128,16 @@ export function FixtureTab({ tournament }: { tournament: Tournament }) {
             {counts.unscheduled > 0 && <Badge tone="amber">{counts.unscheduled} sin jornada</Badge>}
           </div>
         </div>
-        {catGroups.length > 0 && (
+        {phases.length > 1 && (
           <div className="flex flex-wrap items-center gap-1">
-            <span className="mr-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Grupo</span>
-            <Chip active={group == null} onClick={() => { setGroup(null); resetView(); }}>Todos</Chip>
-            {catGroups.map((g) => <Chip key={g.id} active={group === g.id} onClick={() => { setGroup(g.id); resetView(); }}>{g.name}</Chip>)}
+            <span className="mr-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Fase</span>
+            <Chip active={phase == null} onClick={() => { setPhase(null); resetView(); }}>Todas</Chip>
+            {phases.map((p, i) => (
+              <span key={p.value} className="contents">
+                {i > 0 && !p.value.startsWith("g:") && phases[i - 1].value.startsWith("g:") && <span className="mx-1 h-4 w-px bg-slate-200 dark:bg-white/10" />}
+                <Chip active={phase === p.value} onClick={() => { setPhase(p.value); resetView(); }}>{p.label}</Chip>
+              </span>
+            ))}
           </div>
         )}
       </div>
@@ -164,7 +190,7 @@ export function FixtureTab({ tournament }: { tournament: Tournament }) {
       )}
 
       {form && (
-        <MatchFormModal key={form.match?.id ?? "new"} tournament={tournament} match={form.match} defaultCategory={category} defaultGroup={group}
+        <MatchFormModal key={form.match?.id ?? "new"} tournament={tournament} match={form.match} defaultCategory={category} defaultGroup={phase?.startsWith("g:") ? Number(phase.slice(2)) : null}
           groups={grps.data ?? []} registrations={regs.data ?? []}
           defaultRound={Math.max(1, ...all.filter((m) => m.stage === "regular").map((m) => m.round_number))}
           onClose={() => setForm(null)}
@@ -232,6 +258,8 @@ function MatchRow({ match: m, selectable, selected, onSelect, onEdit, onDelete }
           {played && <Badge tone="navy" className="sm:hidden">{m.home_score}-{m.away_score}</Badge>}
         </span>
         <span className="flex flex-wrap gap-x-3 text-xs text-slate-500 sm:col-span-3 sm:justify-center">
+          {m.stage !== "regular" && <span className="font-semibold text-navy-700 dark:text-gold-400">
+            {m.bracket_position ? `Cruce ${m.bracket_position}` : m.stage_display}{m.leg_display ? ` · ${m.leg_display}` : ""}</span>}
           {m.group_name && <span>{m.group_name}</span>}
           <span className="inline-flex items-center gap-1"><CalendarDays className="h-3 w-3" />{m.matchday_label ?? "Sin jornada"}</span>
           {m.scheduled_start && <span>{formatDateTime(m.scheduled_start)}</span>}
@@ -333,7 +361,9 @@ function GenerateModal({ tournament, category, groups: catGroups, existing, onCl
 }) {
   const toast = useToast();
   const [group, setGroup] = useState<number | null>(null);
-  const [double, setDouble] = useState(tournament.modality === "league_double");
+  // Por defecto, el formato del torneo: liga ida y vuelta o grupos ida y vuelta.
+  const defaultDouble = (g: number | null) => tournament.modality === "league_double" || (g != null && tournament.groups_double);
+  const [double, setDouble] = useState(defaultDouble(null));
   const [replace, setReplace] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -368,7 +398,7 @@ function GenerateModal({ tournament, category, groups: catGroups, existing, onCl
         {catGroups.length > 0 && (
           <div>
             <span className="label">Grupo</span>
-            <SelectMenu value={group} clearable placeholder="Todos los equipos de la categoría" onChange={(v) => { setGroup(v == null ? null : Number(v)); setReplace(false); }}
+            <SelectMenu value={group} clearable placeholder="Todos los equipos de la categoría" onChange={(v) => { const g = v == null ? null : Number(v); setGroup(g); setDouble(defaultDouble(g)); setReplace(false); }}
               options={catGroups.map((g) => ({ value: g.id, label: g.name, hint: `${g.team_ids.length} equipos` }))} />
           </div>
         )}

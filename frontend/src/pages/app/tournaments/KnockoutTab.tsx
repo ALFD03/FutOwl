@@ -114,7 +114,7 @@ export function KnockoutTab({ tournament }: { tournament: Tournament }) {
 
       <ConfirmDialog open={choice !== null} onClose={() => setChoice(null)} confirmLabel="Crear llave"
         title={`Crear llave desde ${choice?.label ?? ""}`}
-        message={`${choice ? describe(choice, pure) : ""} Se crearán todos los partidos hasta la final, en borrador y con nombres representativos para programarlos.${data?.bracket ? " La llave actual y sus partidos en borrador se reemplazan." : ""}`}
+        message={`${choice ? describe(choice, pure) : ""} Se crearán todos los partidos hasta la final, en borrador y con nombres representativos para programarlos.${tournament.knockout_double ? ` Cada cruce se juega a ida y vuelta${tournament.final_single ? ", salvo la final (partido único)" : ", final incluida"}.` : " Cada cruce se juega a partido único."}${data?.bracket ? " La llave actual y sus partidos en borrador se reemplazan." : ""}`}
         onConfirm={async () => {
           if (!choice) return;
           try {
@@ -139,6 +139,8 @@ export function KnockoutTab({ tournament }: { tournament: Tournament }) {
 const STAGE_SLOTS: Record<string, number> = { r64: 32, r32: 16, r16: 8, qf: 4, sf: 2, final: 1 };
 /** Alto de cada cruce en la primera ronda; las siguientes se centran entre sus dos cruces de origen. */
 const SLOT_HEIGHT = 164;
+/** Con ida y vuelta la tarjeta suma una línea por partido. */
+const SLOT_HEIGHT_LEGS = 196;
 const LINE = "border-slate-300 dark:border-white/20";
 
 type Stage = KnockoutView["stages"][number];
@@ -159,7 +161,9 @@ function TwoSidedBracket({ stages }: { stages: Stage[] }) {
   });
   const firstPerSide = rounds.length ? (STAGE_SLOTS[rounds[0].stage] ?? 2) / 2 : 1;
   // Mínimo tres alturas: deja lugar al campeón sobre la final sin desalinear las líneas.
-  const height = Math.max(3, firstPerSide) * SLOT_HEIGHT;
+  const slot = stages.some((st) => st.matches.some((m) => m.legs.length)) ? SLOT_HEIGHT_LEGS : SLOT_HEIGHT;
+  const height = Math.max(3, firstPerSide) * slot;
+  const width = slot === SLOT_HEIGHT_LEGS ? "w-72" : "w-60";
   const left = half("left");
   const right = half("right").reverse();
   const champion = final?.matches[0];
@@ -168,8 +172,8 @@ function TwoSidedBracket({ stages }: { stages: Stage[] }) {
   return (
     <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-slate-50/60 p-4 dark:border-white/10 dark:bg-white/[.02]">
       <div className="mx-auto flex w-max gap-8">
-        {left.map((r, i) => <BracketColumn key={`l-${r.stage}`} label={r.label} slots={r.slots} side="left" incoming={i > 0} height={height} />)}
-        <div className="flex w-60 shrink-0 flex-col">
+        {left.map((r, i) => <BracketColumn key={`l-${r.stage}`} label={r.label} slots={r.slots} side="left" incoming={i > 0} height={height} width={width} />)}
+        <div className={cn("flex shrink-0 flex-col", width)}>
           <h3 className="flex h-8 items-center justify-center gap-1.5 text-xs font-bold uppercase tracking-wide text-gold-600 dark:text-gold-400">
             <Trophy className="h-4 w-4" /> {final?.label ?? "Final"}
           </h3>
@@ -190,18 +194,20 @@ function TwoSidedBracket({ stages }: { stages: Stage[] }) {
             </div>
           </div>
         </div>
-        {right.map((r, i) => <BracketColumn key={`r-${r.stage}`} label={r.label} slots={r.slots} side="right" incoming={i < right.length - 1} height={height} />)}
+        {right.map((r, i) => <BracketColumn key={`r-${r.stage}`} label={r.label} slots={r.slots} side="right" incoming={i < right.length - 1} height={height} width={width} />)}
       </div>
     </div>
   );
 }
 
-function BracketColumn({ label, slots, side, incoming, height }: { label: string; slots: Slot[]; side: "left" | "right"; incoming: boolean; height: number }) {
+function BracketColumn({ label, slots, side, incoming, height, width }: {
+  label: string; slots: Slot[]; side: "left" | "right"; incoming: boolean; height: number; width: string;
+}) {
   const out = side === "left" ? "-right-4" : "-left-4";
   const into = side === "left" ? "-left-4" : "-right-4";
   const vertical = side === "left" ? "border-r" : "border-l";
   return (
-    <div className="flex w-60 shrink-0 flex-col">
+    <div className={cn("flex shrink-0 flex-col", width)}>
       <h3 className="flex h-8 items-center justify-center text-xs font-bold uppercase tracking-wide text-navy-900 dark:text-gold-400">{label}</h3>
       <div className="flex flex-col" style={{ height }}>
         {slots.map((m, i) => (
@@ -221,7 +227,7 @@ function ByeSlot({ label }: { label: string }) {
   return <div className="rounded-xl border border-dashed border-slate-300 px-3 py-3 text-center text-xs text-slate-400 dark:border-white/15">{label}</div>;
 }
 
-function SideRow({ side, score, winner }: { side: KnockoutSide; score: number | null; winner: boolean }) {
+function SideRow({ side, score, winner, legScores }: { side: KnockoutSide; score: number | null; winner: boolean; legScores?: (number | null)[] }) {
   const name = side.team?.name ?? side.projected?.name;
   return (
     <div className={cn("flex items-center gap-2 px-3 py-1.5 text-sm", winner && "bg-gold-50 font-bold dark:bg-gold-500/10")}>
@@ -232,24 +238,53 @@ function SideRow({ side, score, winner }: { side: KnockoutSide; score: number | 
             : <span className="block truncate text-slate-400">{side.source || "Por definir"}</span>}
         {(side.team || side.projected) && side.source && <span className="block truncate text-[11px] text-slate-400">{side.source}</span>}
       </span>
-      {score != null && <span className="font-display font-bold">{score}</span>}
+      {legScores?.map((value, i) => <span key={i} className="w-5 text-center text-xs font-normal tabular-nums text-slate-500">{value ?? "–"}</span>)}
+      {(score != null || legScores) && <span className="w-5 text-center font-display font-bold tabular-nums">{score ?? "–"}</span>}
     </div>
   );
 }
 
+const schedule = (m: { scheduled_start: string | null; field_name: string | null; matchday_label: string | null }) =>
+  (m.scheduled_start ? `${formatDateTime(m.scheduled_start)} · ${m.field_name ?? "Sin cancha"}` : "Sin programar") + (m.matchday_label ? ` · ${m.matchday_label}` : "");
+
+const CARD = "block overflow-hidden rounded-xl border bg-white transition dark:bg-ink-800";
+
+/** Un cruce de la llave: partido único, o ida y vuelta con el marcador de cada partido y el global. */
 function BracketCard({ match, highlight }: { match: KnockoutMatch; highlight?: boolean }) {
+  const isWinner = (side: KnockoutSide) => Boolean(match.winner && match.winner === side.team?.id);
+  const border = highlight ? "border-gold-400 shadow-soft ring-1 ring-gold-300/60" : "border-slate-200 dark:border-white/10";
+  const legs = match.legs;
+  if (!legs.length) {
+    return (
+      <Link to={`/app/partidos/${match.id}`} className={cn(CARD, "hover:border-gold-400 hover:shadow-soft", border)}>
+        <div className="flex items-center justify-between border-b border-slate-100 px-3 py-1 text-[11px] text-slate-500 dark:border-white/5">
+          <span>Partido {match.position}</span>
+          <StatusBadge status={match.status} label={match.status_display} />
+        </div>
+        <SideRow side={match.home} score={match.home_score} winner={isWinner(match.home)} />
+        <SideRow side={match.away} score={match.away_score} winner={isWinner(match.away)} />
+        <p className="border-t border-slate-100 px-3 py-1 text-[11px] text-slate-500 dark:border-white/5">{schedule(match)}</p>
+      </Link>
+    );
+  }
   return (
-    <Link to={`/app/partidos/${match.id}`} className={cn("block overflow-hidden rounded-xl border bg-white transition hover:border-gold-400 hover:shadow-soft dark:bg-ink-800",
-      highlight ? "border-gold-400 shadow-soft ring-1 ring-gold-300/60" : "border-slate-200 dark:border-white/10")}>
-      <div className="flex items-center justify-between border-b border-slate-100 px-3 py-1 text-[11px] text-slate-500 dark:border-white/5">
-        <span>Partido {match.position}</span>
-        <StatusBadge status={match.status} label={match.status_display} />
+    <div className={cn(CARD, border)}>
+      <div className="flex items-center gap-2 border-b border-slate-100 px-3 py-1 text-[11px] text-slate-500 dark:border-white/5">
+        <span className="flex-1">Cruce {match.position} · ida y vuelta</span>
+        <span className="w-5 text-center" title="Ida">I</span><span className="w-5 text-center" title="Vuelta">V</span>
+        <span className="w-5 text-center font-semibold" title="Global">G</span>
       </div>
-      <SideRow side={match.home} score={match.home_score} winner={Boolean(match.winner && match.winner === match.home.team?.id)} />
-      <SideRow side={match.away} score={match.away_score} winner={Boolean(match.winner && match.winner === match.away.team?.id)} />
-      <p className="border-t border-slate-100 px-3 py-1 text-[11px] text-slate-500 dark:border-white/5">
-        {match.scheduled_start ? `${formatDateTime(match.scheduled_start)} · ${match.field_name ?? "Sin cancha"}` : "Sin programar"}{match.matchday_label ? ` · ${match.matchday_label}` : ""}
-      </p>
-    </Link>
+      <SideRow side={match.home} score={match.home_score} winner={isWinner(match.home)} legScores={legs.map((l) => l.home_score)} />
+      <SideRow side={match.away} score={match.away_score} winner={isWinner(match.away)} legScores={legs.map((l) => l.away_score)} />
+      <div className="divide-y divide-slate-100 border-t border-slate-100 text-[11px] dark:divide-white/5 dark:border-white/5">
+        {legs.map((leg) => (
+          <Link key={leg.id} to={`/app/partidos/${leg.id}`} className="flex items-center gap-2 px-3 py-1 text-slate-500 transition hover:bg-slate-50 hover:text-navy-700 dark:hover:bg-white/[.03] dark:hover:text-gold-400">
+            <b className="w-11 shrink-0">{leg.label}</b>
+            <span className="min-w-0 flex-1 truncate">{schedule(leg)}</span>
+            <StatusBadge status={leg.status} label={leg.status_display} />
+          </Link>
+        ))}
+      </div>
+    </div>
   );
 }

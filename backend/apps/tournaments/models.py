@@ -29,6 +29,13 @@ class Tournament(BaseEntity):
     categories = models.ManyToManyField(Category, verbose_name="categorías permitidas", related_name="tournaments")
     fields = models.ManyToManyField(Field, verbose_name="canchas disponibles", related_name="tournaments",
                                     blank=True)
+    # Formato de los partidos: ida y vuelta (dos partidos por cruce) o partido único.
+    groups_double = models.BooleanField("fase de grupos ida y vuelta", default=False,
+                                        help_text="Cada pareja de un grupo se enfrenta dos veces, invirtiendo la localía.")
+    knockout_double = models.BooleanField("eliminación directa ida y vuelta", default=False,
+                                          help_text="Cada cruce de la llave se define en dos partidos (marcador global).")
+    final_single = models.BooleanField("final a partido único", default=True,
+                                       help_text="Con ida y vuelta en la llave, la final igual se juega a un solo partido.")
     start_date = models.DateField("fecha de inicio", null=True, blank=True)
     end_date = models.DateField("fecha de fin", null=True, blank=True)
 

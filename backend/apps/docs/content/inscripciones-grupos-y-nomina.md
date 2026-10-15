@@ -27,10 +27,10 @@ Un mismo equipo puede inscribirse en **varias categorías** del torneo (una insc
 La pestaña **Grupos** solo aparece si la modalidad del torneo es *Grupos + eliminación directa* (capacidad *Inscripciones y grupos*). Elija la categoría arriba:
 
 - **+ Grupo**: crea un grupo (*Grupo A*); el nombre es único por torneo y categoría.
-- Cada tarjeta muestra los equipos del grupo; el selector junto a cada equipo lo cambia de grupo o lo deja sin grupo.
+- Cada tarjeta muestra los equipos del grupo; el selector junto a cada equipo lo cambia de grupo o lo deja sin grupo. Al hacerlo, el **fixture de los grupos afectados se rehace solo** (todos contra todos, ida y vuelta si el torneo lo indica), siempre que sus partidos sigan en borrador y sin jornada; si ya están programados o enviados, el fixture no se toca y FutOwl lo avisa.
 - **Equipos sin grupo**: los inscritos que aún no tienen grupo.
-- **Sortear grupos**: indique la cantidad de grupos (se sugiere uno cada 4 equipos y se muestra cómo quedarían) y FutOwl reparte **al azar** los equipos de la categoría, con grupos lo más parejos posible. Rehacer el sorteo borra los grupos actuales, sus partidos en borrador y la llave; no es posible si ya hay partidos enviados.
-- **Generar fixture de grupos**: crea de una vez los partidos (todos contra todos) de cada grupo que aún no los tenga.
+- **Sortear grupos**: indique la cantidad de grupos (se sugiere uno cada 4 equipos y se muestra cómo quedarían) y FutOwl reparte **al azar** los equipos de la categoría, con grupos lo más parejos posible, y **crea de una vez los partidos de cada grupo** (pestaña **Partidos**). Rehacer el sorteo borra los grupos actuales, sus partidos en borrador y la llave; no es posible si ya hay partidos enviados.
+- **Generar fixture de grupos**: crea los partidos de los grupos que aún no los tengan (por ejemplo, grupos armados a mano que quedaron con un solo equipo y luego se completaron).
 
 Si el torneo tiene eliminación directa, la llave se configura en su propia pestaña: vea [Eliminación directa](/app/ayuda/eliminacion-directa).
 

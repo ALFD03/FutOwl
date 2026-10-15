@@ -112,9 +112,12 @@ export function ReportsPanel({ match }: { match: Match }) {
       <ConfirmDialog open={closing} onClose={() => setClosing(false)} title="Cerrar partido" confirmLabel="Cerrar definitivamente"
         message={<>
           <p>El resultado quedará oficial e inalterable. Solo se podrán agregar notas o apelaciones.</p>
-          {match.stage !== "regular" && (
+          {match.stage !== "regular" && match.leg === 1 && (
+            <p className="mt-3 text-sm text-slate-500">Partido de ida: el cruce se define al cerrar la vuelta, con el marcador global.</p>
+          )}
+          {match.stage !== "regular" && match.leg !== 1 && (
             <div className="mt-3">
-              <p className="label">Si terminó empatado: ganador por penales</p>
+              <p className="label">{match.leg === 2 ? "Si el marcador global quedó empatado: ganador por penales" : "Si terminó empatado: ganador por penales"}</p>
               <div className="flex gap-2">
                 {(["home", "away"] as const).map((side) => (
                   <button key={side} type="button" onClick={() => setPenaltyWinner(side)}

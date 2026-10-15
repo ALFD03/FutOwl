@@ -18,7 +18,7 @@ class TournamentSerializer(CleanModelSerializer):
         model = Tournament
         fields = BASE_READONLY + [
             "name", "logo", "modality", "modality_display", "status", "status_display", "categories",
-            "category_names", "fields", "field_names", "start_date", "end_date", "points_win", "points_draw", "points_loss", "regulation_text",
+            "category_names", "fields", "field_names", "start_date", "end_date", "groups_double", "knockout_double", "final_single", "points_win", "points_draw", "points_loss", "regulation_text",
             "regulation_file", "lineup_sheet_file", "substitution_card_file", "team_count",
         ]
         read_only_fields = BASE_READONLY

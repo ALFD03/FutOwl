@@ -12,7 +12,7 @@ order: 140
 |-------|-------------|
 | **Categoría** | La elegida arriba en la pestaña. |
 | Grupo | Vacío = todos los equipos de la categoría; con grupo = solo los de ese grupo. |
-| Ida y vuelta | Duplica las fechas invirtiendo local y visitante. Marcado por defecto si la modalidad es *Liga ida y vuelta*. |
+| Ida y vuelta | Duplica las fechas invirtiendo local y visitante. Marcado por defecto si la modalidad es *Liga ida y vuelta*, o si se elige un grupo y el torneo tiene la *fase de grupos ida y vuelta*. |
 
 FutOwl usa el **método del círculo**: cada equipo enfrenta a todos los demás una vez (dos con ida y vuelta) y la localía se alterna por fecha. Con un número impar de equipos, en cada fecha uno **descansa**.
 
@@ -37,7 +37,7 @@ El ícono de **lápiz** de un partido en **Borrador** abre el mismo formulario p
 
 ## Listado de partidos
 
-- En el torneo, la pestaña **Partidos** los agrupa por **Fecha** (y luego por ronda de la llave) con su grupo, jornada, horario, cancha, marcador y estado, de 20 en 20. Arriba se filtra por **equipo**, **estado** (*Borrador*, *Enviados*, *Jugados*) y **grupo**, con contadores de partidos, borradores y partidos sin jornada.
+- En el torneo, la pestaña **Partidos** los agrupa por **Fecha** (y luego por ronda de la llave) con su grupo, jornada, horario, cancha, marcador y estado, de 20 en 20. Arriba se filtra por **equipo**, **estado** (*Borrador*, *Enviados*, *Jugados*) y **fase**: cada grupo y cada ronda de la eliminación directa (*32avos*, *16avos*, *Octavos*, *Cuartos*, *Semifinal*, *Final*). Un partido de grupos generado sin grupo se ubica por el grupo de sus equipos. Hay contadores de partidos, borradores y partidos sin jornada.
 - **Competición → Partidos** (`/app/partidos`) lista todos los partidos del sistema con buscador por equipo y filtros por torneo y estado. Se refresca cada 15 s.
 
 ## Estados del partido
