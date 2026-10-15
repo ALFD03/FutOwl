@@ -21,38 +21,36 @@ El listado permite filtrar por estado.
 
 Botón **+ Jornada**: torneo (si se crea desde el menú general), **número** (único dentro del torneo), **día** y nombre opcional (*Jornada 1 · Apertura*). Queda en **Borrador** y se abre su ficha.
 
-## 2. Agregar partidos
+## 2. Vista por canchas
 
-**Agregar partidos** muestra los partidos del torneo en **Borrador** que aún **no tienen jornada**. Marque los que se jugarán ese día y pulse **Agregar**. Para sacar un partido de la jornada use la **X** de su tarjeta.
+Al abrir la jornada aparece **una tarjeta por cancha** (las del torneo; si el torneo no indicó canchas, todas las activas) con su **capacidad**: cuántos partidos admite a la vez y, si es divisible, cuántas mini canchas tiene. Cada tarjeta lista sus partidos por hora. Los partidos agregados sin cancha aparecen primero en la tarjeta **Sin cancha asignada**. Arriba, unos contadores indican cuántos partidos hay y cuántos están sin cancha o sin hora.
 
-## 3. Programar cada partido
+## 3. Agregar partidos
 
-En cada tarjeta complete:
+**Agregar partidos** (arriba) o **Agregar partidos a esta cancha** (al pie de cada tarjeta) abre una **tabla** con los partidos del torneo en **Borrador** que aún **no tienen jornada**:
 
-| Campo | Notas |
-|-------|-------|
-| **Cancha** | El selector muestra la capacidad de cada cancha. |
-| **Inicio** | Fecha y hora (UTC-4). Debe ser **el mismo día de la jornada**. La **hora de fin** se calcula sola. |
-| **Delegado** | Obligatorio. |
-| **Árbitro principal** | Obligatorio. |
-| **Asistente 1 / Asistente 2** | Solo aparecen si el torneo los exige. |
+- **Buscar** por equipo.
+- **Filtros:** categoría, fecha, ida/vuelta (*Partido único*, *Solo ida*, *Solo vuelta*) y **fase**: *Fase de grupos* (con cada **grupo** como subfiltro) o *Eliminatoria* (con cada **ronda**: 32avos … final).
+- **Agrupar** las filas por fecha, por fase o por categoría.
+- Marque partidos uno a uno o con la casilla del encabezado (todos los filtrados), elija la **cancha** (opcional; viene puesta si se abrió desde una tarjeta) y pulse **Agregar**.
 
-> [!NOTE]
-> Con *Programar jornadas y partidos* se completa toda la tarjeta. El **jefe de delegados** (*Asignar delegados*) solo puede elegir el **delegado** y el **jefe de árbitros** (*Asignar árbitros*) solo la **terna arbitral**: para ellos, cancha, inicio y quitar el partido de la jornada aparecen desactivados.
+Para sacar un partido de la jornada use la **X** de su fila.
 
-Pulse **Guardar** en la tarjeta. FutOwl valida al instante:
+## 4. Hora y cancha (se guarda solo)
+
+En cada partido solo se indica la **hora de inicio** (UTC-4, del día de la jornada): la **hora de fin se calcula sola** con las reglas de la categoría (duración del partido más los descansos) y se muestra como *Fin ≈ …*. La **cancha** se cambia con el selector de la fila y el partido pasa a la tarjeta de esa cancha.
+
+**No hay botón Guardar:** cada cambio se guarda al momento y la fila muestra *Guardando…*, *Guardado* o *No guardado* con el motivo. FutOwl valida al instante:
 
 - **Capacidad de la cancha** y **mini cancha** libre (la asigna sola si la cancha es divisible).
-- Que el **delegado** no tenga otro partido a la misma hora.
-- Que ningún **árbitro** tenga otro partido a la misma hora (en ninguna posición) y que no repita posición en la terna.
 - Que **ninguno de los equipos** juegue otro partido a la misma hora.
 
-El error aparece debajo del campo correspondiente. Cada tarjeta indica **Completo** o **Falta: …**.
+Cada fila indica lo que falta (*Falta: cancha, hora de inicio…*). Los cruces de la llave cuyos equipos aún no se conocen muestran *equipos por definir*: pueden programarse, pero no enviarse hasta que se completen.
 
 > [!TIP]
-> Para enviar la jornada basta con **cancha y horario** en cada partido. Delegado y árbitros son opcionales en borrador: normalmente los asignan los jefes después del envío. Mientras a algún partido le falte cancha u horario, **Enviar jornada** permanece deshabilitado.
+> En borrador solo se completan **cancha y hora**: el delegado y los árbitros los asignan los jefes después del envío. Mientras a algún partido le falte cancha u hora, **Enviar jornada** permanece deshabilitado.
 
-## 4. Enviar la jornada
+## 5. Enviar la jornada
 
 **Enviar jornada** (lo hacen las autoridades, siempre con confirmación). FutOwl vuelve a validar los solapamientos y que cada partido sea del día de la jornada. Si todo está bien:
 
@@ -62,17 +60,17 @@ El error aparece debajo del campo correspondiente. Cada tarjeta indica **Complet
 
 A partir de aquí, cambiar cancha u horario requiere un **ajuste** con exposición de motivos desde la ficha del partido. Vea [Confirmaciones y ajustes](/app/ayuda/confirmaciones-y-ajustes).
 
-## 5. Asignar los oficiales (jefes)
+## 6. Asignar los oficiales (jefes)
 
-En la jornada enviada, el **jefe de delegados** (*Asignar delegados*) y el **jefe de árbitros** (*Asignar árbitros*) ven cada partido pendiente con cancha y horario bloqueados y eligen **solo** a sus oficiales; la tarjeta indica *Falta: …* hasta completar. Al pulsar **Asignar**, cada oficial recibe la solicitud de confirmación. Un oficial que ya confirmó solo se cambia con un ajuste.
+En la jornada enviada, el **jefe de delegados** (*Asignar delegados*) y el **jefe de árbitros** (*Asignar árbitros*) ven cada partido pendiente con cancha y horario bloqueados y eligen **solo** a sus oficiales; la fila indica *Falta: …* hasta completar. La asignación **se guarda al elegir** a cada oficial (sin botón), y ese oficial recibe en ese momento la solicitud de confirmación. Un oficial que ya confirmó solo se cambia con un ajuste.
 
 Cuando el delegado y la terna exigida **confirman**, el partido queda **Confirmado y bloqueado**, y recién entonces se **avisa a los equipos**, que confirman su asistencia de forma informativa.
 
-## 6. Jornada válida
+## 7. Jornada válida
 
 Cuando **todos** los partidos de la jornada están confirmados (o más avanzados), la jornada pasa automáticamente a **Válida** y se notifica a todos los involucrados. Si luego un ajuste vuelve a dejar un partido pendiente, la jornada regresa a **Enviada**.
 
-## 7. Cerrar la jornada
+## 8. Cerrar la jornada
 
 **Cerrar jornada** solo funciona si **todos los partidos están cerrados o suspendidos**; si no, el mensaje indica los partidos abiertos. Tras el cierre solo se admiten notas o apelaciones.
 

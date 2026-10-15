@@ -90,6 +90,28 @@ def missing_officials(match: Match) -> list[str]:
             if not getattr(match, f"{official_fields[p]}_id")]
 
 
+@transaction.atomic
+def add_matches(matchday: Matchday, ids: list[int], user, field=None) -> dict:
+    """
+    Agrega varios partidos del fixture a una jornada en borrador (opcionalmente ya en una cancha). Solo toma
+    partidos del mismo torneo, en borrador y sin jornada; los demás se omiten.
+    """
+    if matchday.status != Matchday.Status.DRAFT:
+        raise ValidationError("Solo se agregan partidos a jornadas en borrador.")
+    if field is not None and matchday.tournament.fields.exists() and not matchday.tournament.fields.filter(pk=field.pk).exists():
+        raise ValidationError({"field": "La cancha no está entre las del torneo."})
+    selected = Match.objects.filter(pk__in=ids)
+    eligible = selected.filter(tournament=matchday.tournament, status=Match.Status.DRAFT, matchday__isnull=True)
+    changes = {"matchday": matchday}
+    if field is not None:
+        changes |= {"field": field, "sub_field": None}
+    added = list(eligible.values_list("id", flat=True))
+    eligible.update(**changes)
+    if added:
+        record("add_matches", matchday, user=user, changes={"partidos": added, "cancha": str(field) if field else None})
+    return {"added": len(added), "skipped": selected.count() - len(added)}
+
+
 def matchday_completeness(matchday: Matchday) -> dict:
     matches = list(matchday.matches.select_related("tournament"))
     incomplete = {m.id: missing_fields(m) for m in matches}

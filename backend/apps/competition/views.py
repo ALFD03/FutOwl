@@ -12,6 +12,7 @@ from rest_framework.response import Response
 from apps.audit.services import record
 from apps.core.permissions import ModelActionPermission, require_perms
 from apps.notifications.services import notify_permission
+from apps.registry.models import Field
 from apps.tournaments.models import Tournament
 
 from . import serializers as s
@@ -42,6 +43,22 @@ class MatchdayViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["get"])
     def completeness(self, request, pk=None):
         return Response(scheduling.matchday_completeness(self.get_object()))
+
+    @action(detail=True, methods=["post"], url_path="add-matches")
+    @require_perms("competition.change_match")
+    def add_matches(self, request, pk=None):
+        """Agrega varios partidos del fixture a la jornada; `field` opcional los deja en esa cancha."""
+        ids = request.data.get("ids")
+        if not isinstance(ids, list) or not ids:
+            raise ValidationError({"ids": "Indique los partidos a agregar."})
+        field = get_object_or_404(Field, pk=request.data["field"]) if request.data.get("field") else None
+        try:
+            result = scheduling.add_matches(self.get_object(), [int(i) for i in ids], request.user, field)
+        except (TypeError, ValueError):
+            raise ValidationError({"ids": "Identificadores inválidos."})
+        except DjangoValidationError as exc:
+            raise ValidationError(exc.message_dict if hasattr(exc, "error_dict") else {"detail": exc.messages})
+        return Response(result)
 
     @action(detail=True, methods=["post"])
     @require_perms("competition.submit_matchday")

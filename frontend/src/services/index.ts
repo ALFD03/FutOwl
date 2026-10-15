@@ -41,6 +41,9 @@ export const matchdays = {
   remove: (id: ID) => api.delete(`/matchdays/${id}/`),
   completeness: async (id: ID) =>
     (await api.get<{ total: number; incomplete: Record<string, string[]>; ready: boolean }>(`/matchdays/${id}/completeness/`)).data,
+  /** Agrega varios partidos del fixture (opcionalmente ya en una cancha); los no elegibles se omiten. */
+  addMatches: async (id: ID, ids: ID[], field?: ID | null) =>
+    (await api.post<{ added: number; skipped: number }>(`/matchdays/${id}/add-matches/`, { ids, field: field ?? null })).data,
   submit: async (id: ID) => (await api.post<Matchday>(`/matchdays/${id}/submit/`)).data,
   close: async (id: ID) => (await api.post<Matchday>(`/matchdays/${id}/close/`)).data,
 };

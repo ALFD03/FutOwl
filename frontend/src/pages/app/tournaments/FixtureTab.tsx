@@ -14,6 +14,7 @@ import { groups, matches, registrations } from "@/services";
 import type { Group, Match, Registration, Tournament } from "@/types";
 import { cn } from "@/utils/cn";
 import { formatDateTime } from "@/utils/datetime";
+import { groupResolver, KNOCKOUT_ORDER, phaseKey } from "@/utils/matchPhase";
 import { errorMessage } from "@/utils/errors";
 
 type StatusFilter = "all" | "draft" | "sent" | "played";
@@ -30,8 +31,6 @@ const isEditable = (m: Match) => m.status === "draft" && m.stage === "regular";
 const roundKey = (m: Match) => (m.stage === "regular" ? `r${m.round_number}` : m.stage);
 const roundLabel = (m: Match) => (m.stage === "regular" ? `Fecha ${m.round_number}` : m.stage_display);
 const sortKey = (m: Match) => [(m.stage === "regular" ? 0 : 1000) + m.round_number, m.bracket_position ?? 0, m.leg ?? 0, m.id];
-/** Rondas de la eliminación directa en orden. */
-const KNOCKOUT_ORDER = ["r64", "r32", "r16", "qf", "sf", "final"];
 
 /** Filtro de fase: un grupo (`g:<id>`), la fase regular sin grupo (`regular`) o una ronda de la llave (`qf`…). */
 type Phase = string | null;
@@ -59,13 +58,8 @@ export function FixtureTab({ tournament }: { tournament: Tournament }) {
   const catGroups = (grps.data ?? []).filter((g) => g.category === category);
   const all = useMemo(() => list.data ?? [], [list.data]);
   // Un partido de grupos generado sin grupo (p. ej. «todos los equipos») igual se ubica por el grupo de sus equipos.
-  const regGroup = useMemo(() => new Map((regs.data ?? []).map((r) => [r.id, r.group])), [regs.data]);
-  const phaseOf = useCallback((m: Match): string => {
-    if (m.stage !== "regular") return m.stage;
-    const home = m.home != null ? regGroup.get(m.home) : null;
-    const group = m.group ?? (home != null && home === (m.away != null ? regGroup.get(m.away) : null) ? home : null);
-    return group != null ? `g:${group}` : "regular";
-  }, [regGroup]);
+  const groupOf = useMemo(() => groupResolver(regs.data ?? []), [regs.data]);
+  const phaseOf = useCallback((m: Match) => phaseKey(m, groupOf), [groupOf]);
   const phases = useMemo(() => {
     const present = new Set(all.map(phaseOf));
     const options: { value: string; label: string }[] = catGroups.filter((g) => present.has(`g:${g.id}`)).map((g) => ({ value: `g:${g.id}`, label: g.name }));
