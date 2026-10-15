@@ -30,7 +30,7 @@ def round_robin(team_ids: list[int], double: bool = False) -> list[list[tuple[in
 
 @transaction.atomic
 def generate_fixture(tournament: Tournament, category_id: int, user, *, group_id: int | None = None,
-                     double: bool | None = None) -> list[Match]:
+                     double: bool | None = None, replace: bool = False) -> list[Match]:
     registrations = TournamentTeam.objects.filter(tournament=tournament, category_id=category_id, is_active=True)
     if group_id:
         registrations = registrations.filter(group_id=group_id)
@@ -40,7 +40,13 @@ def generate_fixture(tournament: Tournament, category_id: int, user, *, group_id
     existing = Match.objects.filter(tournament=tournament, category_id=category_id, group_id=group_id,
                                     stage=Stage.REGULAR)
     if existing.exists():
-        raise ValidationError("Ya existe un fixture para esta categoría/grupo.")
+        if not replace:
+            raise ValidationError("Ya existe un fixture para esta categoría/grupo. Marque «Reemplazar» para generarlo de nuevo.")
+        if existing.exclude(status=Match.Status.DRAFT).exists():
+            raise ValidationError("El fixture tiene partidos ya enviados: no se puede reemplazar.")
+        record("delete_fixture", tournament, user=user,
+               changes={"categoria": category_id, "grupo": group_id, "partidos": existing.count()})
+        existing.delete()
     double = tournament.modality == Tournament.Modality.LEAGUE_DOUBLE if double is None else double
     matches = []
     for number, pairs in enumerate(round_robin(ids, double), start=1):
@@ -51,3 +57,19 @@ def generate_fixture(tournament: Tournament, category_id: int, user, *, group_id
     record("generate_fixture", tournament, user=user,
            changes={"categoria": category_id, "grupo": group_id, "partidos": len(created)})
     return created
+
+
+@transaction.atomic
+def delete_draft_matches(tournament: Tournament, ids: list[int], user) -> dict:
+    """
+    Borra varios partidos de la fase regular que siguen en borrador. Los enviados se modifican con ajustes y
+    los de la eliminación directa se gestionan desde su llave, así que se omiten.
+    """
+    selected = Match.objects.filter(tournament=tournament, pk__in=ids)
+    deletable = selected.filter(status=Match.Status.DRAFT, stage=Stage.REGULAR)
+    labels = [str(m) for m in deletable.select_related("home__team", "away__team")]
+    skipped = selected.count() - len(labels)
+    if labels:
+        record("delete_matches", tournament, user=user, changes={"partidos": labels})
+        deletable.delete()
+    return {"deleted": len(labels), "skipped": skipped}

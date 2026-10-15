@@ -10,7 +10,7 @@ order: 140
 
 | Campo | Descripción |
 |-------|-------------|
-| **Categoría** | Categoría a programar. |
+| **Categoría** | La elegida arriba en la pestaña. |
 | Grupo | Vacío = todos los equipos de la categoría; con grupo = solo los de ese grupo. |
 | Ida y vuelta | Duplica las fechas invirtiendo local y visitante. Marcado por defecto si la modalidad es *Liga ida y vuelta*. |
 
@@ -26,16 +26,18 @@ FutOwl usa el **método del círculo**: cada equipo enfrenta a todos los demás 
 Reglas:
 
 - Se necesitan **al menos 2 equipos** inscritos y activos.
-- Solo se genera **una vez por categoría/grupo**: si ya hay partidos, aparece *«Ya existe un fixture para esta categoría/grupo»*.
+- Hay **un fixture por categoría/grupo**. Si ya existe, el diálogo lo avisa y ofrece **Reemplazar**: borra ese fixture y lo genera de nuevo (por ejemplo, para pasarlo a ida y vuelta). Solo es posible si **todos** sus partidos siguen en borrador.
 - Los partidos se crean en **Borrador** y *Sin jornada*.
 
-## Crear un partido manual
+## Crear y editar un partido
 
-**Torneo → Partidos → + Partido** (permiso *Armar el fixture*): local, visitante, fecha/ronda y grupo. Útil para partidos extra, desempates o eliminación directa. Ambos equipos deben ser del mismo torneo y categoría, y un equipo no puede jugar contra sí mismo.
+**Torneo → Partidos → Nuevo partido**: categoría, grupo (opcional), local, visitante y fecha/ronda. Al elegir un grupo, los selectores de equipos muestran solo los de ese grupo, y el visitante no ofrece al equipo ya elegido como local. Útil para partidos extra o desempates; los cruces de la eliminación directa los crea su llave.
+
+El ícono de **lápiz** de un partido en **Borrador** abre el mismo formulario para cambiar local, visitante, fecha/ronda o grupo. La cancha, el horario y los oficiales se asignan en la **jornada**. Los partidos ya enviados muestran un **candado**: se cambian con un *ajuste* desde su ficha.
 
 ## Listado de partidos
 
-- En el torneo, la pestaña **Partidos** los agrupa por **Fecha** con su grupo, jornada, horario, marcador y estado.
+- En el torneo, la pestaña **Partidos** los agrupa por **Fecha** (y luego por ronda de la llave) con su grupo, jornada, horario, cancha, marcador y estado, de 20 en 20. Arriba se filtra por **equipo**, **estado** (*Borrador*, *Enviados*, *Jugados*) y **grupo**, con contadores de partidos, borradores y partidos sin jornada.
 - **Competición → Partidos** (`/app/partidos`) lista todos los partidos del sistema con buscador por equipo y filtros por torneo y estado. Se refresca cada 15 s.
 
 ## Estados del partido
@@ -66,4 +68,9 @@ Si usted es el delegado del partido, la ficha se abre directamente en **Mesa té
 
 ## Eliminar un partido
 
-Los partidos en **Borrador** se eliminan **definitivamente** con el ícono de papelera de su tarjeta en la pestaña **Partidos** (capacidad *Armar el fixture*); siempre se pide confirmación. Para solo quitar un partido de una jornada en borrador use la **X** de su tarjeta. Una vez enviados, los partidos se **suspenden**, no se eliminan.
+Los partidos en **Borrador** de la fase regular se eliminan **definitivamente** desde la pestaña **Partidos** (capacidad *Armar el fixture*), siempre con confirmación:
+
+- Uno: ícono de **papelera** del partido.
+- Varios: marque sus casillas (o *Seleccionar los N borradores del filtro*) y pulse **Eliminar**. Los que no estén en borrador se omiten.
+
+Los partidos de la eliminación directa no se borran sueltos: se reemplazan con **Rehacer llave**. Para solo quitar un partido de una jornada en borrador use la **X** de su tarjeta. Una vez enviados, los partidos se **suspenden**, no se eliminan.

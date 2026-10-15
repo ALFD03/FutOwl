@@ -15,7 +15,7 @@ from apps.notifications.services import notify_permission
 from apps.tournaments.models import Tournament
 
 from . import serializers as s
-from .models import Match, Matchday, MatchNote, MatchReport, ReviewCase
+from .models import Match, Matchday, MatchNote, MatchReport, ReviewCase, Stage
 from .services import bracket, confirmations, fixtures, lineups, live, reports, reviews, scheduling, standings
 from .services.parties import confirmation_summary, parties_for_user
 
@@ -123,6 +123,8 @@ class MatchViewSet(viewsets.ModelViewSet):
     def perform_destroy(self, instance):
         if instance.is_locked:
             raise ValidationError("Solo se eliminan partidos en borrador.")
+        if instance.stage != Stage.REGULAR:
+            raise ValidationError("Los partidos de la eliminación directa se gestionan desde su llave (Rehacer llave).")
         record("delete", instance, changes={"partido": str(instance)})
         instance.delete()
 
@@ -134,8 +136,23 @@ class MatchViewSet(viewsets.ModelViewSet):
         created = fixtures.generate_fixture(
             tournament, int(request.data.get("category")), request.user,
             group_id=request.data.get("group") or None, double=request.data.get("double"),
+            replace=bool(request.data.get("replace")),
         )
         return Response({"created": len(created)}, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=["post"], url_path="bulk-delete")
+    @require_perms("competition.delete_match")
+    def bulk_delete(self, request):
+        """Elimina varios partidos en borrador de la fase regular de un torneo."""
+        tournament = get_object_or_404(Tournament, pk=request.data.get("tournament"))
+        ids = request.data.get("ids")
+        if not isinstance(ids, list) or not ids:
+            raise ValidationError({"ids": "Indique los partidos a eliminar."})
+        try:
+            ids = [int(i) for i in ids]
+        except (TypeError, ValueError):
+            raise ValidationError({"ids": "Identificadores inválidos."})
+        return Response(fixtures.delete_draft_matches(tournament, ids, request.user))
 
     # ------------------------------------------------------------ confirmations
     @action(detail=True, methods=["get"])

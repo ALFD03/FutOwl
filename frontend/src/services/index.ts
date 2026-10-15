@@ -48,8 +48,11 @@ export const matchdays = {
 export const matches = {
   ...createResource<Match>("matches"),
   remove: (id: ID) => api.delete(`/matches/${id}/`),
-  generateFixture: async (data: { tournament: ID; category: ID; group?: ID | null; double?: boolean }) =>
+  generateFixture: async (data: { tournament: ID; category: ID; group?: ID | null; double?: boolean; replace?: boolean }) =>
     (await api.post<{ created: number }>("/matches/generate-fixture/", data)).data,
+  /** Borra varios partidos en borrador de la fase regular; los demás se omiten. */
+  bulkDelete: async (tournament: ID, ids: ID[]) =>
+    (await api.post<{ deleted: number; skipped: number }>("/matches/bulk-delete/", { tournament, ids })).data,
   confirmations: async (id: ID) =>
     (await api.get<{ summary: PartyStatus[]; my_parties: string[]; history: Confirmation[] }>(`/matches/${id}/confirmations/`)).data,
   respond: async (id: ID, data: { party: string; response: "accepted" | "rejected"; reason?: string }) =>

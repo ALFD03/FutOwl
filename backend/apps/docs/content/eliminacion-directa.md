@@ -19,6 +19,10 @@ Ejemplo: 3 grupos y 10 equipos → *Cuartos* = 8 equipos: los 2 primeros de cada
 
 Pulse una opción y confirme. Se crean **todos los partidos** de la llave hasta la final, en borrador, con nombres representativos: *1º Grupo A*, *Mejor 3º (1)*, *Ganador Cuartos 2*… La primera ronda evita que dos equipos del mismo grupo se crucen. **Rehacer llave** la reemplaza mientras sus partidos sigan en borrador.
 
+## Cómo se ve la llave
+
+La vista **Llave** muestra el cuadro de **dos lados**: la primera mitad avanza desde la izquierda, la segunda desde la derecha y ambas se encuentran en la **final**, al centro. Las líneas unen cada par de cruces con el partido siguiente; los cupos con **pase directo** aparecen punteados. Al cerrarse la final, sobre ella se muestra el **campeón**. Con llaves grandes el cuadro se desplaza horizontalmente; **Por rondas** muestra las mismas tarjetas en columnas simples, cómodo en pantallas pequeñas. Cada tarjeta abre la ficha del partido.
+
 ## 2. Proyección y programación
 
 Mientras se juega la fase de grupos, la llave muestra **en cursiva** quién entraría hoy a cada cupo, con sus puntos. Los partidos de la llave ya pueden **agregarse a una jornada** y programarse (cancha y horario) aunque sus equipos no estén definidos; para **enviar** la jornada, en cambio, cada partido necesita sus dos equipos.
