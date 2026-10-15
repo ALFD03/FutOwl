@@ -17,6 +17,10 @@ function flatten(value: unknown): string {
 /** Mensaje legible a partir de un error de la API. */
 export function errorMessage(error: unknown, fallback = "Ocurrió un error inesperado."): string {
   if (error instanceof AxiosError) {
+    // Tiempo agotado (del cliente o de la plataforma): no es falta de conexión.
+    if (error.code === AxiosError.ECONNABORTED || error.code === AxiosError.ETIMEDOUT || error.response?.status === 504) {
+      return "El servidor tardó demasiado en responder. Intente de nuevo en un momento.";
+    }
     if (!error.response) return "No hay conexión con el servidor.";
     const data = error.response.data as Record<string, unknown> | undefined;
     if (error.response.status === 403 && !data) return "No tiene permisos para esta acción.";

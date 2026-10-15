@@ -3,6 +3,8 @@ from collections import Counter
 from datetime import date, timedelta
 
 from django.core.management import call_command
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 from django.test import TestCase
 from rest_framework.test import APIClient
 
@@ -104,3 +106,18 @@ class AutoScheduleTests(TestCase):
         t = self.tournament(4)
         self.assertEqual(self.run_schedule(t, days=[]).status_code, 400)
         self.assertEqual(self.run_schedule(t, max_per_field=0).status_code, 400)
+
+    def test_commit_uses_a_bounded_number_of_queries(self):
+        # En Vercel la petición tiene 30 s: crear partido por partido (con su auditoría) no alcanzaba con ~1.600.
+        counts = []
+        for teams in (4, 10):
+            t = self.tournament(teams)
+            self.api.post("/api/matches/generate-fixture/", {"tournament": t.id, "category": self.cat.id}, format="json")
+            with CaptureQueriesContext(connection) as ctx:
+                res = self.run_schedule(t, commit=True, max_per_field=50)
+            self.assertEqual(res.status_code, 201, res.data)
+            self.assertEqual(Match.objects.filter(tournament=t, matchday__isnull=True).count(), 0)
+            counts.append(len(ctx.captured_queries))
+        # 6 partidos o 45 partidos: la cantidad de consultas casi no cambia (solo crece con los días).
+        self.assertLess(counts[1] - counts[0], 25, counts)
+

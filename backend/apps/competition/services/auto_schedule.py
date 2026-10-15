@@ -21,6 +21,7 @@ from datetime import timezone as dt_timezone
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Max
+from django.utils import timezone
 
 from apps.audit.services import record
 from apps.core.validators import reasonable_date_error
@@ -220,23 +221,32 @@ def serialize_plan(result: dict, created: list[Matchday] | None = None) -> dict:
 
 @transaction.atomic
 def create_matchdays(tournament: Tournament, user, **options) -> dict:
-    """Calcula el plan y crea las jornadas en borrador con sus partidos ya en cancha y horario."""
+    """
+    Calcula el plan y crea las jornadas en borrador con sus partidos ya en cancha y horario. Todo en lote (pocas
+    consultas aunque sean miles de partidos): uno a uno no entra en el tiempo de una petición en Vercel. La
+    auditoría queda en un solo registro con el detalle de jornadas y partidos.
+    """
     result = plan_matchdays(tournament, **options)
     if not result["plan"]:
         raise ValidationError("No hay partidos para ubicar con esa configuración.")
-    created = []
-    for entry in result["plan"]:
-        matchday = Matchday.objects.create(tournament=tournament, number=entry["number"], date=entry["date"],
-                                           created_by=user)
-        created.append(matchday)
+    created = Matchday.objects.bulk_create([
+        Matchday(tournament=tournament, number=entry["number"], date=entry["date"], created_by=user)
+        for entry in result["plan"]
+    ])
+    updated, now = [], timezone.now()  # bulk_update no aplica auto_now
+    for matchday, entry in zip(created, result["plan"]):
         for slot in entry["slots"]:
             m = slot.match
             m.matchday, m.field = matchday, slot.field
             m.sub_field = slot.lane + 1 if slot.field.capacity > 1 else None
             m.scheduled_start, m.scheduled_end = slot.start, slot.end
-            m.save(update_fields=["matchday", "field", "sub_field", "scheduled_start", "scheduled_end", "updated_at"])
+            m.updated_at = now
+            updated.append(m)
+    Match.objects.bulk_update(updated, ["matchday", "field", "sub_field", "scheduled_start", "scheduled_end",
+                                        "updated_at"], batch_size=500)
     record("auto_schedule", tournament, user=user, changes={
-        "jornadas": len(created), "partidos": sum(len(e["slots"]) for e in result["plan"]),
-        "desde": options["start_date"].isoformat(), "max_por_cancha": options["max_per_field"],
+        "jornadas": [{"numero": md.number, "dia": md.date.isoformat(), "partidos": len(e["slots"])}
+                     for md, e in zip(created, result["plan"])],
+        "partidos": len(updated), "desde": options["start_date"].isoformat(), "max_por_cancha": options["max_per_field"],
     })
     return serialize_plan(result, created)
