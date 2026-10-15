@@ -1,15 +1,17 @@
-import { Link, NavLink, Outlet } from "react-router-dom";
+import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import { LayoutDashboard, LogIn, Radio } from "lucide-react";
 
 import { useAuth } from "@/hooks";
 import { cn } from "@/utils/cn";
 
+import { ErrorBoundary } from "./ErrorBoundary";
 import { LiveClock } from "./LiveClock";
 import { Logo } from "./Logo";
 import { ThemeToggle } from "./ThemeToggle";
 
 export function PublicLayout() {
   const { user } = useAuth();
+  const { pathname } = useLocation();
   const link = ({ isActive }: { isActive: boolean }) =>
     cn("rounded-xl px-3 py-2 text-sm font-semibold transition", isActive ? "text-navy-900 dark:text-gold-400" : "text-slate-500 hover:text-navy-900 dark:text-slate-400 dark:hover:text-white");
   return (
@@ -38,7 +40,7 @@ export function PublicLayout() {
           <NavLink to="/terminos" className={link}>Términos</NavLink>
         </nav>
       </header>
-      <main className="flex-1"><Outlet /></main>
+      <main className="flex-1"><ErrorBoundary resetKey={pathname}><Outlet /></ErrorBoundary></main>
       <footer className="border-t border-slate-200 bg-white py-8 text-sm text-slate-500 dark:border-white/5 dark:bg-ink-800">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-4 sm:flex-row sm:px-6">
           <Logo />

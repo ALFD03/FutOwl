@@ -14,6 +14,11 @@ const longDateFmt = fmt({ weekday: "long", day: "numeric", month: "long", year: 
 const clockFmt = fmt({ hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true });
 
 const toDate = (value: string | number | Date) => (value instanceof Date ? value : new Date(value));
+/** Formatea sin romper la pantalla: un valor inválido se muestra como «—» (Intl lanza RangeError). */
+const safe = (formatter: Intl.DateTimeFormat, value: string | number | Date) => {
+  const date = toDate(value);
+  return Number.isNaN(date.getTime()) ? "—" : formatter.format(date);
+};
 
 export const formatDate = (value?: string | null) => {
   if (!value) return "—";
@@ -22,17 +27,17 @@ export const formatDate = (value?: string | null) => {
     const [y, m, d] = value.split("-");
     return `${d}/${m}/${y}`;
   }
-  return dateFmt.format(toDate(value));
+  return safe(dateFmt, value);
 };
-export const formatTime = (value?: string | null) => (value ? timeFmt.format(toDate(value)) : "—");
-export const formatDateTime = (value?: string | null) => (value ? dateTimeFmt.format(toDate(value)) : "—");
+export const formatTime = (value?: string | null) => (value ? safe(timeFmt, value) : "—");
+export const formatDateTime = (value?: string | null) => (value ? safe(dateTimeFmt, value) : "—");
 export const formatLongDate = (value: Date | string) =>
-  /^\d{4}-\d{2}-\d{2}$/.test(String(value)) ? longDateFmt.format(new Date(`${value}T12:00:00${UTC_OFFSET}`)) : longDateFmt.format(toDate(value));
+  /^\d{4}-\d{2}-\d{2}$/.test(String(value)) ? safe(longDateFmt, `${value}T12:00:00${UTC_OFFSET}`) : safe(longDateFmt, value);
 export const formatClock = (value: Date) => clockFmt.format(value);
 
 /** Valor para <input type="datetime-local"> expresado en hora de Venezuela. */
 export function toCaracasInput(iso?: string | null): string {
-  if (!iso) return "";
+  if (!iso || Number.isNaN(new Date(iso).getTime())) return "";
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: TIME_ZONE, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false,
   }).formatToParts(new Date(iso));
@@ -45,6 +50,19 @@ export function toCaracasInput(iso?: string | null): string {
 export function fromCaracasInput(value: string): string | null {
   if (!value) return null;
   return `${value.length === 16 ? `${value}:00` : value}${UTC_OFFSET}`;
+}
+
+/**
+ * Hora «HH:MM» a partir de lo que entrega el navegador: algunos incluyen segundos («HH:MM:SS») y los que no
+ * tienen selector de hora dejan escribir texto libre. Devuelve "" si está vacía y null si no es una hora válida.
+ */
+export function normalizeTime(value: string): string | null {
+  const text = value.trim();
+  if (!text) return "";
+  const match = /^(\d{1,2}):(\d{2})(?::\d{2}(?:\.\d+)?)?$/.exec(text);
+  if (!match) return null;
+  const [hours, minutes] = [Number(match[1]), Number(match[2])];
+  return hours < 24 && minutes < 60 ? `${String(hours).padStart(2, "0")}:${match[2]}` : null;
 }
 
 /** Fecha de hoy (YYYY-MM-DD) en Venezuela. */

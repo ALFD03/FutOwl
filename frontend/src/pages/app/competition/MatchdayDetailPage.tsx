@@ -12,7 +12,7 @@ import { useCan, useDebounce, useToast } from "@/hooks";
 import { delegates, fields as fieldsService, groups as groupsService, matchdays, matches, referees, registrations, tournaments } from "@/services";
 import type { Field, Match, Matchday } from "@/types";
 import { cn } from "@/utils/cn";
-import { formatLongDate, formatTime, toCaracasInput, UTC_OFFSET } from "@/utils/datetime";
+import { formatLongDate, formatTime, normalizeTime, toCaracasInput, UTC_OFFSET } from "@/utils/datetime";
 import { errorMessage, fieldErrors } from "@/utils/errors";
 import { FIELD_LABELS } from "@/utils/labels";
 import { groupResolver, KNOCKOUT_ORDER, phaseKey } from "@/utils/matchPhase";
@@ -219,9 +219,11 @@ function useAutosave(onSaved: () => Promise<void>) {
 }
 
 /** Fin estimado según las reglas: duración + descansos entre tiempos (igual que el servidor). */
-function estimatedEnd(startIso: string, rules: Match["rules"]): string {
+function estimatedEnd(startIso: string, rules: Match["rules"]): string | null {
+  const start = new Date(startIso).getTime();
+  if (Number.isNaN(start)) return null;
   const minutes = rules.match_duration_minutes + rules.break_minutes * Math.max(0, rules.periods - 1);
-  return new Date(new Date(startIso).getTime() + minutes * 60_000).toISOString();
+  return new Date(start + minutes * 60_000).toISOString();
 }
 
 /** Partido en borrador: hora de inicio y cancha, con guardado automático. */
@@ -234,15 +236,17 @@ function PlanRow({ match, matchday, fields, missing, onSaved }: {
   const debounced = useDebounce(time, 700);
   useEffect(() => setTime(serverTime), [serverTime]);
   useEffect(() => {
-    if (debounced === serverTime || (debounced && !/^\d{2}:\d{2}$/.test(debounced))) return;
+    const value = normalizeTime(debounced);
+    if (value === null || value === serverTime) return;  // hora incompleta o inválida: no se guarda
     // El fin y la mini cancha los recalcula el servidor a partir del inicio.
-    void save(() => matches.update(match.id, debounced
-      ? { scheduled_start: `${matchday.date}T${debounced}:00${UTC_OFFSET}`, sub_field: null }
+    void save(() => matches.update(match.id, value
+      ? { scheduled_start: `${matchday.date}T${value}:00${UTC_OFFSET}`, sub_field: null }
       : { scheduled_start: null, scheduled_end: null, sub_field: null }));
   }, [debounced]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const startIso = time ? `${matchday.date}T${time}:00${UTC_OFFSET}` : null;
-  const end = match.scheduled_end && time === serverTime ? match.scheduled_end : startIso ? estimatedEnd(startIso, match.rules) : null;
+  const normalized = normalizeTime(time);
+  const startIso = normalized ? `${matchday.date}T${normalized}:00${UTC_OFFSET}` : null;
+  const end = match.scheduled_end && normalized === serverTime ? match.scheduled_end : startIso ? estimatedEnd(startIso, match.rules) : null;
   const rules = match.rules;
 
   // El fin se calcula solo: no se pide; los equipos de la llave se completan con los resultados.
@@ -251,10 +255,11 @@ function PlanRow({ match, matchday, fields, missing, onSaved }: {
   return (
     <div className="flex gap-3 px-5 py-3">
       <div className="w-36 shrink-0">
-        <input type="time" aria-label="Hora de inicio" className={cn("input py-1.5 text-sm", !time && "border-amber-300 dark:border-amber-500/40")}
+        <input type="time" step={60} aria-label="Hora de inicio" className={cn("input py-1.5 text-sm",
+          normalized === null ? "input-error" : !time && "border-amber-300 dark:border-amber-500/40")}
           value={time} onChange={(e) => setTime(e.target.value)} />
         <p className="mt-1 text-[11px] text-slate-500" title={`${rules.periods} tiempo(s) · ${rules.match_duration_minutes}' de juego + ${rules.break_minutes}' de descanso`}>
-          {end ? <>Fin ≈ <b>{formatTime(end)}</b></> : `Dura ${rules.match_duration_minutes + rules.break_minutes * Math.max(0, rules.periods - 1)}'`}
+          {normalized === null ? <span className="text-crimson-600">Hora inválida (HH:MM)</span> : end ? <>Fin ≈ <b>{formatTime(end)}</b></> : `Dura ${rules.match_duration_minutes + rules.break_minutes * Math.max(0, rules.periods - 1)}'`}
         </p>
       </div>
       <div className="min-w-0 flex-1">

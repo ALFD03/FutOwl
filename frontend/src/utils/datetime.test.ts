@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { caracasToday, formatDate, fromCaracasInput, toCaracasInput } from "./datetime";
+import { caracasToday, formatDate, formatDateTime, formatTime, fromCaracasInput, normalizeTime, toCaracasInput } from "./datetime";
 
 describe("datetime (America/Caracas, UTC-4)", () => {
   it("convierte ISO UTC a valor local de Venezuela", () => {
@@ -19,5 +19,20 @@ describe("datetime (America/Caracas, UTC-4)", () => {
   });
   it("formatea fechas puras sin desfase", () => {
     expect(formatDate("2026-01-05")).toBe("05/01/2026");
+  });
+
+  it("normaliza la hora del selector (con o sin segundos) y rechaza las inválidas", () => {
+    expect(normalizeTime("09:15")).toBe("09:15");
+    expect(normalizeTime("09:15:30")).toBe("09:15");
+    expect(normalizeTime("9:05")).toBe("09:05");
+    expect(normalizeTime("")).toBe("");
+    expect(normalizeTime("9:1")).toBeNull();
+    expect(normalizeTime("25:00")).toBeNull();
+  });
+
+  it("los formatos no rompen la pantalla con valores inválidos", () => {
+    expect(formatTime("2026-10-24T09:15:30:00-04:00")).toBe("—");
+    expect(formatDateTime("no es fecha")).toBe("—");
+    expect(toCaracasInput("no es fecha")).toBe("");
   });
 });

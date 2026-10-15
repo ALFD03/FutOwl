@@ -8,6 +8,7 @@ import { ACCOUNT_ITEMS, NAVIGATION } from "@/config/navigation";
 import { useAuth } from "@/hooks";
 import { cn } from "@/utils/cn";
 
+import { ErrorBoundary } from "./ErrorBoundary";
 import { LiveClock } from "./LiveClock";
 import { Logo } from "./Logo";
 import { NotificationBell } from "./NotificationBell";
@@ -135,7 +136,7 @@ export function AppLayout() {
         </div>
       </header>
       <main className="mx-auto max-w-[1400px] px-4 py-6 sm:px-6 lg:px-8">
-        <Outlet />
+        <ErrorBoundary resetKey={location.pathname}><Outlet /></ErrorBoundary>
       </main>
     </div>
   );
