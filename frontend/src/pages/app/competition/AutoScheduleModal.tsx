@@ -10,6 +10,19 @@ import { cn } from "@/utils/cn";
 import { caracasToday, DATE_MAX, DATE_MIN, formatDate, formatTime, isReasonableDate, normalizeTime } from "@/utils/datetime";
 import { errorMessage } from "@/utils/errors";
 
+const DEFAULT_START = "09:00";
+const DEFAULT_END = "18:00";
+
+/** «HH:MM» + minutos, en formato de 12 horas para mostrar (p. ej. 18:00 + 30 → 6:30 p. m.). */
+function plusMinutes(value: string, minutes: number): string {
+  const time = normalizeTime(value);
+  if (!time) return "—";
+  const [h, m] = time.split(":").map(Number);
+  const total = (h * 60 + m + minutes) % (24 * 60);
+  const date = new Date(Date.UTC(2000, 0, 1, Math.floor(total / 60), total % 60));
+  return date.toLocaleTimeString("es-VE", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: "UTC" });
+}
+
 /** Días de la semana como los espera el backend (lunes = 0). */
 const WEEKDAYS = [
   { value: 0, short: "Lu", label: "Lunes" }, { value: 1, short: "Ma", label: "Martes" }, { value: 2, short: "Mi", label: "Miércoles" },
@@ -56,8 +69,10 @@ function Planner({ tournament, onCreated, onError }: { tournament: Tournament; o
   }, [allFields.data, tournament.fields]);
 
   const [startDate, setStartDate] = useState(tournament.start_date && tournament.start_date >= caracasToday() ? tournament.start_date : caracasToday());
-  const [days, setDays] = useState<Record<number, string>>({ 5: "08:00", 6: "08:00" });
-  const [maxPerField, setMaxPerField] = useState(6);
+  const [days, setDays] = useState<Set<number>>(new Set([5, 6]));
+  // Horario por cancha: por defecto todas de 9:00 a 18:00 (el último partido puede terminar 30' después).
+  const [hours, setHours] = useState<Record<number, { start: string; end: string }>>({});
+  const [bulk, setBulk] = useState({ start: DEFAULT_START, end: DEFAULT_END });
   const [excludedFields, setExcludedFields] = useState<Set<number>>(new Set());
   const [excludedCategories, setExcludedCategories] = useState<Set<number>>(new Set());
   const [plan, setPlan] = useState<AutoSchedulePlan | null>(null);
@@ -65,13 +80,18 @@ function Planner({ tournament, onCreated, onError }: { tournament: Tournament; o
   const [error, setError] = useState("");
   const [open, setOpen] = useState<number | null>(null);
 
-  const invalidTimes = Object.values(days).some((t) => !normalizeTime(t));
-  const ready = isReasonableDate(startDate) && Object.keys(days).length > 0 && !invalidTimes && maxPerField >= 1
-    && fieldOptions.some((f) => !excludedFields.has(f.id)) && tournament.categories.some((c) => !excludedCategories.has(c));
+  const hoursOf = (id: number) => hours[id] ?? { start: DEFAULT_START, end: DEFAULT_END };
+  const activeFields = fieldOptions.filter((f) => !excludedFields.has(f.id));
+  const fieldError = (id: number) => {
+    const { start, end } = hoursOf(id);
+    const [a, b] = [normalizeTime(start), normalizeTime(end)];
+    return !a || !b ? "Hora inválida" : b <= a ? "La hora límite debe ser posterior al inicio" : "";
+  };
+  const ready = isReasonableDate(startDate) && days.size > 0 && activeFields.length > 0
+    && activeFields.every((f) => !fieldError(f.id)) && tournament.categories.some((c) => !excludedCategories.has(c));
   const body = (commit: boolean): AutoScheduleRequest => ({
-    tournament: tournament.id, start_date: startDate, max_per_field: maxPerField, commit,
-    days: Object.entries(days).map(([weekday, start]) => ({ weekday: Number(weekday), start: normalizeTime(start) ?? start })),
-    fields: fieldOptions.filter((f) => !excludedFields.has(f.id)).map((f) => f.id),
+    tournament: tournament.id, start_date: startDate, commit, days: [...days].sort(),
+    fields: activeFields.map((f) => ({ id: f.id, start: normalizeTime(hoursOf(f.id).start)!, end: normalizeTime(hoursOf(f.id).end)! })),
     categories: tournament.categories.filter((c) => !excludedCategories.has(c)),
   });
   // Cualquier cambio en la configuración invalida la vista previa.
@@ -103,54 +123,67 @@ function Planner({ tournament, onCreated, onError }: { tournament: Tournament; o
             max={tournament.end_date ?? DATE_MAX} value={startDate} onChange={(e) => change(setStartDate)(e.target.value)} />
           <p className="help">Desde este día se recorren los días de juego{tournament.end_date ? ` hasta el fin del torneo (${formatDate(tournament.end_date)})` : ""}.</p>
 
-          <p className="label mt-4">Días de juego y hora de inicio</p>
+          <p className="label mt-4">Días de juego</p>
           <div className="flex flex-wrap gap-1.5">
             {WEEKDAYS.map((d) => {
-              const on = d.value in days;
+              const on = days.has(d.value);
               return (
-                <button key={d.value} type="button" title={d.label} aria-pressed={on}
-                  onClick={() => change(setDays)(on ? Object.fromEntries(Object.entries(days).filter(([k]) => Number(k) !== d.value)) : { ...days, [d.value]: "08:00" })}
+                <button key={d.value} type="button" title={d.label} aria-pressed={on} aria-label={d.label}
+                  onClick={() => change(setDays)(toggle(days, d.value))}
                   className={cn("h-9 w-10 rounded-lg border text-xs font-bold transition", on
                     ? "border-navy-700 bg-navy-700 text-white dark:border-gold-400 dark:bg-gold-400 dark:text-navy-950"
                     : "border-slate-200 text-slate-500 hover:border-slate-300 dark:border-white/10")}>{d.short}</button>
               );
             })}
           </div>
-          <div className="mt-3 space-y-2">
-            {WEEKDAYS.filter((d) => d.value in days).map((d) => (
-              <div key={d.value} className="flex items-center gap-3">
-                <span className="w-24 text-sm font-semibold">{d.label}</span>
-                <input type="time" step={60} aria-label={`Hora de inicio del ${d.label}`} className={cn("input w-36 py-1.5", !normalizeTime(days[d.value]) && "input-error")}
-                  value={days[d.value]} onChange={(e) => change(setDays)({ ...days, [d.value]: e.target.value })} />
-              </div>
-            ))}
-            {!Object.keys(days).length && <p className="text-sm text-amber-600">Elija al menos un día de juego.</p>}
-          </div>
+          {!days.size && <p className="mt-2 text-sm text-amber-600">Elija al menos un día de juego.</p>}
         </Section>
 
-        <Section title="Canchas y categorías">
-          <label className="label" htmlFor="auto-max">Máximo de partidos por cancha en cada jornada</label>
-          <input id="auto-max" type="number" min={1} max={50} className="input w-28" value={maxPerField}
-            onChange={(e) => change(setMaxPerField)(Math.max(0, Number(e.target.value) || 0))} />
-          <p className="help">En cada cancha los partidos se encadenan desde la hora de inicio con la duración de su categoría (y en paralelo si la cancha tiene mini canchas).</p>
-
-          <p className="label mt-4">Canchas</p>
-          <div className="flex flex-wrap gap-1.5">
-            {fieldOptions.map((f) => (
-              <Chip key={f.id} active={!excludedFields.has(f.id)} onClick={() => change(setExcludedFields)(toggle(excludedFields, f.id))}>
-                {f.name} <span className="font-normal opacity-70">· {f.capacity} a la vez</span>
-              </Chip>
-            ))}
-            {!fieldOptions.length && <p className="text-sm text-amber-600">No hay canchas: indíquelas en el torneo o regístrelas.</p>}
-          </div>
-          <p className="label mt-4">Categorías</p>
+        <Section title="Categorías">
           <div className="flex flex-wrap gap-1.5">
             {tournament.categories.map((id, i) => (
               <Chip key={id} active={!excludedCategories.has(id)} onClick={() => change(setExcludedCategories)(toggle(excludedCategories, id))}>{tournament.category_names[i]}</Chip>
             ))}
           </div>
+          <p className="help mt-2">Pulse una categoría para dejarla fuera del reparto.</p>
         </Section>
       </div>
+
+      <Section title="Horario de cada cancha">
+        <p className="help mb-3">Cada cancha encadena sus partidos desde su hora de inicio, con la duración de cada categoría (en paralelo si tiene mini canchas). El último partido puede terminar hasta <b>30 minutos después</b> de la hora límite.</p>
+        <div className="mb-3 flex flex-wrap items-end gap-2 rounded-lg bg-slate-50 px-3 py-2 dark:bg-white/[.03]">
+          <span className="self-center text-sm font-semibold">Todas las canchas:</span>
+          <input type="time" step={60} aria-label="Inicio para todas" className="input w-32 py-1.5" value={bulk.start} onChange={(e) => setBulk({ ...bulk, start: e.target.value })} />
+          <span className="self-center text-slate-400">a</span>
+          <input type="time" step={60} aria-label="Hora límite para todas" className="input w-32 py-1.5" value={bulk.end} onChange={(e) => setBulk({ ...bulk, end: e.target.value })} />
+          <button type="button" className="btn-outline btn-sm" onClick={() => change(setHours)(Object.fromEntries(fieldOptions.map((f) => [f.id, { ...bulk }])))}>Aplicar a todas</button>
+        </div>
+        {!fieldOptions.length ? <p className="text-sm text-amber-600">No hay canchas: indíquelas en el torneo o regístrelas.</p> : (
+          <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-white/10">
+            <table className="table">
+              <thead><tr><th className="w-10" /><th>Cancha</th><th>Inicio</th><th>Hora límite</th><th>Último partido hasta</th></tr></thead>
+              <tbody>
+                {fieldOptions.map((f) => {
+                  const on = !excludedFields.has(f.id);
+                  const { start, end } = hoursOf(f.id);
+                  const problem = on ? fieldError(f.id) : "";
+                  const set = (key: "start" | "end", value: string) => change(setHours)({ ...hours, [f.id]: { ...hoursOf(f.id), [key]: value } });
+                  return (
+                    <tr key={f.id} className={cn(!on && "opacity-50")}>
+                      <td><input type="checkbox" className="h-4 w-4 accent-navy-700" checked={on} aria-label={`Usar ${f.name}`}
+                        onChange={() => change(setExcludedFields)(toggle(excludedFields, f.id))} /></td>
+                      <td><b className="text-sm">{f.name}</b><span className="block text-xs text-slate-500">{f.capacity} partido(s) a la vez</span></td>
+                      <td><input type="time" step={60} disabled={!on} aria-label={`Inicio en ${f.name}`} className={cn("input w-32 py-1.5", problem && "input-error")} value={start} onChange={(e) => set("start", e.target.value)} /></td>
+                      <td><input type="time" step={60} disabled={!on} aria-label={`Hora límite en ${f.name}`} className={cn("input w-32 py-1.5", problem && "input-error")} value={end} onChange={(e) => set("end", e.target.value)} /></td>
+                      <td className="text-sm">{problem ? <span className="text-crimson-600">{problem}</span> : on ? plusMinutes(end, 30) : "—"}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Section>
 
       {error && <Alert tone="danger">{error}</Alert>}
 

@@ -39,19 +39,19 @@ class AutoScheduleTests(TestCase):
         return t
 
     def run_schedule(self, t, commit=False, **extra):
-        body = {"tournament": t.id, "start_date": OPENING.isoformat(), "days": [{"weekday": SATURDAY, "start": "09:00"}],
-                "max_per_field": 2, "commit": commit, **extra}
+        body = {"tournament": t.id, "start_date": OPENING.isoformat(), "days": [SATURDAY], "commit": commit, **extra}
         return self.api.post("/api/matchdays/auto-schedule/", body, format="json")
 
     def test_preview_covers_all_matches_without_saving(self):
         t = self.tournament(6)
         self.api.post("/api/matches/generate-fixture/", {"tournament": t.id, "category": self.cat.id}, format="json")
-        res = self.run_schedule(t)
+        # Cancha de 9:00 a 10:00: con el margen de 30' el último puede terminar 10:30 → 2 partidos de 35' por día.
+        res = self.run_schedule(t, fields=[{"id": self.field.id, "start": "09:00", "end": "10:00"}])
         self.assertEqual(res.status_code, 200, res.data)
         self.assertEqual((res.data["total"], res.data["scheduled"], res.data["unscheduled"]), (15, 15, 0))
         first = res.data["days"][0]
         self.assertEqual((first["date"], first["start"], len(first["matches"])), ("2026-11-07", "09:00", 2))
-        # 2 por cancha y encadenados con la duración de la categoría: 09:00–09:35 y 09:35–10:10
+        # Encadenados con la duración de la categoría: 09:00–09:35 y 09:35–10:10 (el de 10:10–10:45 ya no entra)
         self.assertEqual([m["start"][11:16] for m in first["matches"]], ["09:00", "09:35"])
         for day in res.data["days"]:
             self.assertEqual(date.fromisoformat(day["date"]).weekday(), SATURDAY)
@@ -77,7 +77,7 @@ class AutoScheduleTests(TestCase):
         t = self.tournament(8, Tournament.Modality.GROUPS_KNOCKOUT, knockout_double=True)
         bracket.draw_groups(t, self.cat.id, 2, self.authority)
         bracket.create_bracket(t, self.cat.id, Stage.SF, self.authority)
-        res = self.run_schedule(t, max_per_field=6)
+        res = self.run_schedule(t)
         self.assertEqual(res.data["unscheduled"], 0, res.data)
         day_of = {m["id"]: i for i, d in enumerate(res.data["days"]) for m in d["matches"]}
         regular_last = max(day_of[m.id] for m in Match.objects.filter(tournament=t, stage=Stage.REGULAR))
@@ -102,10 +102,43 @@ class AutoScheduleTests(TestCase):
         res = self.run_schedule(t)
         self.assertEqual(res.data["days"][0]["matches"][0]["start"][11:16], "10:00")
 
-    def test_requires_days_and_max(self):
+    def test_requires_days_and_valid_field_hours(self):
         t = self.tournament(4)
         self.assertEqual(self.run_schedule(t, days=[]).status_code, 400)
-        self.assertEqual(self.run_schedule(t, max_per_field=0).status_code, 400)
+        bad = self.run_schedule(t, fields=[{"id": self.field.id, "start": "18:00", "end": "09:00"}])
+        self.assertEqual(bad.status_code, 400)
+
+    def test_last_match_may_end_up_to_30_minutes_after_the_limit(self):
+        t = self.tournament(6)
+        self.api.post("/api/matches/generate-fixture/", {"tournament": t.id, "category": self.cat.id}, format="json")
+        res = self.run_schedule(t, fields=[{"id": self.field.id, "start": "17:00", "end": "18:00"}])
+        first = res.data["days"][0]
+        # 17:00–17:35 y 17:35–18:10 (≤ 18:30); 18:10–18:45 se pasa del margen
+        self.assertEqual([(m["start"][11:16], m["end"][11:16]) for m in first["matches"]], [("17:00", "17:35"), ("17:35", "18:10")])
+        self.assertEqual((first["start"], first["end"]), ("17:00", "18:10"))
+
+    def test_default_hours_are_nine_to_six(self):
+        t = self.tournament(4)
+        self.api.post("/api/matches/generate-fixture/", {"tournament": t.id, "category": self.cat.id}, format="json")
+        first = self.run_schedule(t).data["days"][0]
+        self.assertEqual(first["start"], "09:00")
+
+    def test_bulk_delete_matchdays_releases_their_matches(self):
+        t = self.tournament(4)
+        self.api.post("/api/matches/generate-fixture/", {"tournament": t.id, "category": self.cat.id}, format="json")
+        self.run_schedule(t, commit=True)
+        ids = list(Matchday.objects.filter(tournament=t).values_list("id", flat=True))
+        Matchday.objects.filter(pk=ids[0]).update(status=Matchday.Status.SUBMITTED)  # enviada: se omite
+        res = self.api.post("/api/matchdays/bulk-delete/", {"tournament": t.id, "ids": ids}, format="json")
+        self.assertEqual(res.status_code, 200, res.data)
+        self.assertEqual(res.data, {"deleted": len(ids) - 1, "skipped": 1})
+        released = Match.objects.filter(tournament=t, matchday__isnull=True)
+        self.assertEqual(released.count(), 4)  # 2 jornadas × 2 partidos
+        self.assertFalse(released.exclude(field=None).exists())
+        self.assertFalse(released.exclude(scheduled_start=None).exists())
+        # Se pueden volver a generar sin choques con la programación anterior.
+        again = self.run_schedule(t)
+        self.assertEqual(again.data["unscheduled"], 0)
 
     def test_commit_uses_a_bounded_number_of_queries(self):
         # En Vercel la petición tiene 30 s: crear partido por partido (con su auditoría) no alcanzaba con ~1.600.
@@ -114,7 +147,7 @@ class AutoScheduleTests(TestCase):
             t = self.tournament(teams)
             self.api.post("/api/matches/generate-fixture/", {"tournament": t.id, "category": self.cat.id}, format="json")
             with CaptureQueriesContext(connection) as ctx:
-                res = self.run_schedule(t, commit=True, max_per_field=50)
+                res = self.run_schedule(t, commit=True)
             self.assertEqual(res.status_code, 201, res.data)
             self.assertEqual(Match.objects.filter(tournament=t, matchday__isnull=True).count(), 0)
             counts.append(len(ctx.captured_queries))

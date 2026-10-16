@@ -156,7 +156,7 @@ export function MatchdayDetailPage() {
       <ConfirmDialog open={confirm === "close"} onClose={() => setConfirm(null)} onConfirm={() => doAction("close")} title="Cerrar jornada"
         message="Solo es posible si todos los partidos están cerrados o suspendidos. Después solo se admitirán notas o apelaciones." confirmLabel="Cerrar jornada" />
       <ConfirmDialog open={confirm === "delete"} onClose={() => setConfirm(null)} onConfirm={() => doAction("delete")} title="Eliminar borrador" danger
-        message="Solo las jornadas en borrador pueden eliminarse. Los partidos vuelven al fixture sin jornada." confirmLabel="Eliminar" />
+        message="Solo las jornadas en borrador pueden eliminarse. Los partidos vuelven al fixture sin jornada, cancha ni horario." confirmLabel="Eliminar" />
     </div>
   );
 }

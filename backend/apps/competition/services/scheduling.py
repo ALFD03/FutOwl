@@ -137,6 +137,26 @@ def move_matchday_matches(matchday: Matchday, previous_day) -> int:
     return moved
 
 
+@transaction.atomic
+def delete_draft_matchdays(tournament, ids: list[int], user) -> dict:
+    """
+    Borra jornadas en borrador del torneo (las enviadas se omiten). Sus partidos vuelven al fixture sin jornada
+    y sin cancha ni horario, para que no ocupen canchas y puedan volver a programarse.
+    """
+    selected = Matchday.objects.filter(tournament=tournament, pk__in=ids)
+    drafts = list(selected.filter(status=Matchday.Status.DRAFT).order_by("number"))
+    skipped = selected.count() - len(drafts)
+    if drafts:
+        released = Match.objects.filter(matchday__in=drafts).update(
+            matchday=None, field=None, sub_field=None, scheduled_start=None, scheduled_end=None,
+            updated_at=timezone.now())
+        record("delete_matchdays", tournament, user=user,
+               changes={"jornadas": [str(md) for md in drafts], "partidos_liberados": released})
+        # QuerySet.delete() no pasa por el bloqueo de Matchday.delete (ya se filtró por borrador).
+        Matchday.objects.filter(pk__in=[md.pk for md in drafts]).delete()
+    return {"deleted": len(drafts), "skipped": skipped}
+
+
 def matchday_completeness(matchday: Matchday) -> dict:
     matches = list(matchday.matches.select_related("tournament"))
     incomplete = {m.id: missing_fields(m) for m in matches}

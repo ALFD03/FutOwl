@@ -2,12 +2,13 @@
 Generación automática de jornadas.
 
 Reparte los partidos del torneo que siguen en borrador y sin jornada en días de juego, a partir de una fecha de
-apertura: una jornada por día elegido, con su hora de inicio. Reglas:
+apertura: una jornada por día de juego elegido. Reglas:
 
 - Orden del fixture: fase regular por fecha (1, 2, …), luego la eliminación directa por ronda e ida/vuelta.
 - Un equipo juega como máximo un partido por jornada.
-- Cada cancha encadena sus partidos desde la hora de inicio (duración según las reglas de la categoría), con
-  tantos en paralelo como su capacidad (mini canchas) y hasta el máximo de partidos por cancha indicado.
+- Cada cancha tiene su horario (por defecto de 9:00 a 18:00) y encadena sus partidos desde la hora de inicio
+  (duración según las reglas de la categoría), con tantos en paralelo como su capacidad (mini canchas). Un
+  partido entra si termina a más tardar 30 minutos después de la hora límite de la cancha.
   Se respetan los partidos que ya ocupan esa cancha ese día (de cualquier torneo).
 - La eliminación directa de una categoría empieza en una jornada posterior al último partido de su fase
   regular (y cada ronda después de la anterior); la vuelta, en una jornada posterior a la ida.
@@ -34,6 +35,8 @@ from .scheduling import ACTIVE_STATUSES
 OFFICIAL = dt_timezone(timedelta(hours=-4))  # hora oficial de Venezuela (UTC-4)
 STAGE_RANK = {Stage.REGULAR: 0, **{stage: i + 1 for i, (stage, _) in enumerate(KNOCKOUT_STAGES)}}
 MAX_DAYS = 400  # tope de días recorridos (evita bucles con configuraciones imposibles)
+GRACE = timedelta(minutes=30)  # el último partido puede terminar hasta 30' después de la hora límite
+DEFAULT_START, DEFAULT_END = time(9, 0), time(18, 0)
 WEEKDAYS = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
 
 
@@ -51,42 +54,66 @@ def _duration(match: Match) -> timedelta:
     return timedelta(minutes=rules.match_duration_minutes + rules.break_minutes * max(0, rules.periods - 1))
 
 
-def _parse_days(days) -> dict[int, time]:
-    """[{"weekday": 0-6 (lunes = 0), "start": "HH:MM"}] → {weekday: hora}."""
-    parsed = {}
+def _parse_time(value, label: str) -> time:
+    try:
+        hours, minutes = (int(x) for x in str(value)[:5].split(":"))
+        return time(hours, minutes)
+    except (TypeError, ValueError):
+        raise ValidationError({"fields": f"{label}: use el formato HH:MM."})
+
+
+def _parse_days(days) -> set[int]:
+    """Días de la semana en que se juega (lunes = 0). Acepta números o {"weekday": n}."""
+    parsed = set()
     for item in days or []:
         try:
-            weekday = int(item["weekday"])
-            hours, minutes = (int(x) for x in str(item["start"])[:5].split(":"))
-            parsed[weekday] = time(hours, minutes)
+            weekday = int(item["weekday"] if isinstance(item, dict) else item)
         except (KeyError, TypeError, ValueError):
-            raise ValidationError({"days": "Cada día de juego necesita el día de la semana y la hora de inicio (HH:MM)."})
+            raise ValidationError({"days": "Día de la semana inválido."})
         if not 0 <= weekday <= 6:
             raise ValidationError({"days": "Día de la semana inválido."})
+        parsed.add(weekday)
     if not parsed:
         raise ValidationError({"days": "Elija al menos un día de juego."})
     return parsed
 
 
-def _fields(tournament: Tournament, field_ids) -> list[Field]:
-    fields = Field.objects.filter(is_active=True)
+def _fields(tournament: Tournament, config) -> list[tuple[Field, time, time]]:
+    """
+    Canchas a usar con su horario: `config` = [{"id", "start": "HH:MM", "end": "HH:MM"}]. Sin config, todas las
+    canchas del torneo (o todas las activas si el torneo no indicó) de 9:00 a 18:00.
+    """
+    available = Field.objects.filter(is_active=True)
     own = list(tournament.fields.values_list("id", flat=True))
     if own:
-        fields = fields.filter(pk__in=own)
-    if field_ids:
-        fields = fields.filter(pk__in=field_ids)
-    fields = list(fields.order_by("name"))
-    if not fields:
+        available = available.filter(pk__in=own)
+    available = {f.id: f for f in available}
+    if config is None:
+        chosen = [(f, DEFAULT_START, DEFAULT_END) for f in available.values()]
+    else:
+        chosen = []
+        for item in config:
+            try:
+                field = available[int(item["id"] if isinstance(item, dict) else item)]
+            except (KeyError, TypeError, ValueError):
+                raise ValidationError({"fields": "Una de las canchas no está disponible para el torneo."})
+            start = _parse_time(item.get("start", "09:00"), field.name) if isinstance(item, dict) else DEFAULT_START
+            end = _parse_time(item.get("end", "18:00"), field.name) if isinstance(item, dict) else DEFAULT_END
+            if end <= start:
+                raise ValidationError({"fields": f"{field.name}: la hora límite debe ser posterior a la de inicio."})
+            chosen.append((field, start, end))
+    if not chosen:
         raise ValidationError({"fields": "No hay canchas disponibles para el torneo."})
-    return fields
+    return sorted(chosen, key=lambda c: c[0].name)
 
 
-def _lanes_for_day(fields: list[Field], day_start: datetime) -> dict[int, list[datetime]]:
+def _lanes_for_day(fields: list[tuple[Field, time, time]], day: date) -> dict[int, list[datetime]]:
     """Hora libre de cada carril (mini cancha) por cancha, considerando los partidos que ya ocupan ese día."""
-    lanes = {f.id: [day_start] * max(1, f.capacity) for f in fields}
-    day_end = day_start.replace(hour=23, minute=59)
-    busy = Match.objects.filter(field__in=fields, status__in=ACTIVE_STATUSES, scheduled_end__gt=day_start,
-                                scheduled_start__lt=day_end).order_by("scheduled_start")
+    lanes = {f.id: [datetime.combine(day, start, OFFICIAL)] * max(1, f.capacity) for f, start, _ in fields}
+    day_start = datetime.combine(day, time(0, 0), OFFICIAL)
+    busy = Match.objects.filter(field__in=[f for f, _, _ in fields], status__in=ACTIVE_STATUSES,
+                                scheduled_end__gt=day_start, scheduled_start__lt=day_start + timedelta(days=1)
+                                ).order_by("scheduled_start")
     for match in busy:
         field_lanes = lanes[match.field_id]
         index = min(max((match.sub_field or 1) - 1, 0), len(field_lanes) - 1)
@@ -94,18 +121,16 @@ def _lanes_for_day(fields: list[Field], day_start: datetime) -> dict[int, list[d
     return lanes
 
 
-def plan_matchdays(tournament: Tournament, *, start_date: date, days, max_per_field: int, field_ids=None,
-                   category_ids=None) -> dict:
+def plan_matchdays(tournament: Tournament, *, start_date: date, days, fields=None, category_ids=None) -> dict:
     if error := reasonable_date_error(start_date):
         raise ValidationError({"start_date": error})
     if tournament.start_date and start_date < tournament.start_date:
         raise ValidationError({"start_date": f"El torneo empieza el {tournament.start_date:%d/%m/%Y}."})
     if tournament.end_date and start_date > tournament.end_date:
         raise ValidationError({"start_date": f"El torneo termina el {tournament.end_date:%d/%m/%Y}."})
-    if not isinstance(max_per_field, int) or max_per_field < 1:
-        raise ValidationError({"max_per_field": "Indique cuántos partidos como máximo por cancha en cada jornada."})
     schedule = _parse_days(days)
-    fields = _fields(tournament, field_ids)
+    fields = _fields(tournament, fields)
+    limit_of = {f.id: end for f, _, end in fields}
 
     pending_qs = (Match.objects.filter(tournament=tournament, status=Match.Status.DRAFT, matchday__isnull=True)
                   .select_related("tournament", "category", "home__team", "away__team")
@@ -144,14 +169,14 @@ def plan_matchdays(tournament: Tournament, *, start_date: date, days, max_per_fi
 
     plan: list[dict] = []
     day = start_date
+    empty_days = 0  # días de juego seguidos en que no cupo nada (horario demasiado corto, canchas ocupadas)
     for _ in range(MAX_DAYS):
         if not pending or (tournament.end_date and day > tournament.end_date):
             break
         if day.weekday() in schedule and day not in taken:
             day_index = len(plan)
-            day_start = datetime.combine(day, schedule[day.weekday()], OFFICIAL)
-            lanes = _lanes_for_day(fields, day_start)
-            counts = {f.id: 0 for f in fields}
+            lanes = _lanes_for_day(fields, day)
+            deadline = {fid: datetime.combine(day, end, OFFICIAL) + GRACE for fid, end in limit_of.items()}
             busy_teams: set[int] = set()
             slots: list[Slot] = []
             for m in list(pending):
@@ -160,14 +185,15 @@ def plan_matchdays(tournament: Tournament, *, start_date: date, days, max_per_fi
                 teams = {m.home_id, m.away_id} - {None}
                 if teams & busy_teams:
                     continue
-                options = [(free, f.name, f, lane) for f in fields if counts[f.id] < max_per_field
-                           for lane, free in enumerate(lanes[f.id])]
+                duration = _duration(m)
+                # Carriles donde el partido termina a tiempo (hasta 30' después de la hora límite de la cancha).
+                options = [(free, f.name, f, lane) for f, _, _ in fields for lane, free in enumerate(lanes[f.id])
+                           if free + duration <= deadline[f.id]]
                 if not options:
-                    break  # todas las canchas llegaron al máximo de la jornada
+                    continue  # no cabe hoy; uno más corto (otra categoría) quizá sí
                 start, _, field, lane = min(options, key=lambda o: (o[0], o[1], o[3]))
-                end = start + _duration(m)
+                end = start + duration
                 lanes[field.id][lane] = end
-                counts[field.id] += 1
                 busy_teams |= teams
                 slots.append(Slot(m, field, lane, start, end))
                 pending.remove(m)
@@ -178,17 +204,19 @@ def plan_matchdays(tournament: Tournament, *, start_date: date, days, max_per_fi
                 if m.leg == Leg.FIRST:
                     first_leg_day[(m.category_id, m.stage, m.bracket_position)] = day_index
             if not slots:
-                if not any(allowed(m, day_index) for m in pending):
-                    break  # nada puede avanzar (no debería ocurrir)
+                empty_days += 1
+                if empty_days >= 8 or not any(allowed(m, day_index) for m in pending):
+                    break  # el horario de las canchas no alcanza para ningún partido pendiente
             else:
-                plan.append({"date": day, "number": number + day_index, "start": schedule[day.weekday()], "slots": slots})
+                empty_days = 0
+                plan.append({"date": day, "number": number + day_index, "slots": slots})
         day += timedelta(days=1)
 
     warnings = []
     if pending:
         limit = f" antes del fin del torneo ({tournament.end_date:%d/%m/%Y})" if tournament.end_date else ""
-        warnings.append(f"Quedan {len(pending)} partido(s) sin ubicar{limit}: agregue días de juego, canchas o "
-                        "partidos por cancha, o genere más jornadas después.")
+        warnings.append(f"Quedan {len(pending)} partido(s) sin ubicar{limit}: agregue días de juego o canchas, amplíe el horario "
+                        "de las canchas, o genere más jornadas después.")
     skipped = sorted(d for d in taken if d >= start_date and d.weekday() in schedule)
     if skipped:
         warnings.append(f"Se saltaron {len(skipped)} día(s) que ya tienen jornada en este torneo.")
@@ -204,7 +232,7 @@ def serialize_plan(result: dict, created: list[Matchday] | None = None) -> dict:
             "number": entry["number"],
             "date": entry["date"].isoformat(),
             "weekday": WEEKDAYS[entry["date"].weekday()],
-            "start": entry["start"].strftime("%H:%M"),
+            "start": min(s.start for s in slots).astimezone(OFFICIAL).strftime("%H:%M"),
             "end": max(s.end for s in slots).astimezone(OFFICIAL).strftime("%H:%M"),
             "matches": [{
                 "id": s.match.id, "home": s.match.home_label, "away": s.match.away_label,
@@ -247,6 +275,8 @@ def create_matchdays(tournament: Tournament, user, **options) -> dict:
     record("auto_schedule", tournament, user=user, changes={
         "jornadas": [{"numero": md.number, "dia": md.date.isoformat(), "partidos": len(e["slots"])}
                      for md, e in zip(created, result["plan"])],
-        "partidos": len(updated), "desde": options["start_date"].isoformat(), "max_por_cancha": options["max_per_field"],
+        "partidos": len(updated), "desde": options["start_date"].isoformat(),
+        "canchas": [{"cancha": f.name, "desde": start.strftime("%H:%M"), "hasta": end.strftime("%H:%M")}
+                    for f, start, end in _fields(tournament, options.get("fields"))],
     })
     return serialize_plan(result, created)

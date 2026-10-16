@@ -46,6 +46,9 @@ export const matchdays = {
   /** Agrega varios partidos del fixture (opcionalmente ya en una cancha); los no elegibles se omiten. */
   addMatches: async (id: ID, ids: ID[], field?: ID | null) =>
     (await api.post<{ added: number; skipped: number }>(`/matchdays/${id}/add-matches/`, { ids, field: field ?? null })).data,
+  /** Borra varias jornadas en borrador del torneo; sus partidos vuelven al fixture sin programar. */
+  bulkDelete: async (tournament: ID, ids: ID[]) =>
+    (await api.post<{ deleted: number; skipped: number }>("/matchdays/bulk-delete/", { tournament, ids })).data,
   submit: async (id: ID) => (await api.post<Matchday>(`/matchdays/${id}/submit/`)).data,
   close: async (id: ID) => (await api.post<Matchday>(`/matchdays/${id}/close/`)).data,
 };
@@ -182,9 +185,10 @@ export const publicApi = {
 export interface AutoScheduleRequest {
   tournament: ID;
   start_date: string;
-  days: { weekday: number; start: string }[];
-  max_per_field: number;
-  fields?: ID[];
+  /** Días de la semana en que se juega (lunes = 0). */
+  days: number[];
+  /** Horario de cada cancha a usar (inicio y hora límite, HH:MM). */
+  fields?: { id: ID; start: string; end: string }[];
   categories?: ID[];
   commit?: boolean;
 }

@@ -37,9 +37,21 @@ class MatchdayViewSet(viewsets.ModelViewSet):
     def perform_destroy(self, instance):
         if instance.status != Matchday.Status.DRAFT:
             raise ValidationError("Solo se eliminan jornadas en borrador.")
-        instance.matches.update(matchday=None)
-        record("delete", instance, changes={"jornada": str(instance)})
-        instance.delete()
+        scheduling.delete_draft_matchdays(instance.tournament, [instance.pk], self.request.user)
+
+    @action(detail=False, methods=["post"], url_path="bulk-delete")
+    @require_perms("competition.delete_matchday")
+    def bulk_delete(self, request):
+        """Elimina varias jornadas en borrador de un torneo; sus partidos vuelven al fixture sin programar."""
+        tournament = get_object_or_404(Tournament, pk=request.data.get("tournament"))
+        ids = request.data.get("ids")
+        if not isinstance(ids, list) or not ids:
+            raise ValidationError({"ids": "Indique las jornadas a eliminar."})
+        try:
+            ids = [int(i) for i in ids]
+        except (TypeError, ValueError):
+            raise ValidationError({"ids": "Identificadores inválidos."})
+        return Response(scheduling.delete_draft_matchdays(tournament, ids, request.user))
 
     @action(detail=True, methods=["get"])
     def completeness(self, request, pk=None):
@@ -49,8 +61,9 @@ class MatchdayViewSet(viewsets.ModelViewSet):
     @require_perms("competition.add_matchday", "competition.change_match")
     def auto_schedule(self, request):
         """
-        Genera jornadas cubriendo los partidos sin jornada: `start_date`, `days` [{weekday, start}],
-        `max_per_field`, y opcionalmente `fields` y `categories`. Con `commit` las crea; sin él, solo la vista previa.
+        Genera jornadas cubriendo los partidos sin jornada: `start_date`, `days` (días de la semana, lunes = 0),
+        `fields` [{id, start, end}] (horario de cada cancha; sin él, todas de 9:00 a 18:00) y opcionalmente
+        `categories`. Con `commit` las crea; sin él, solo la vista previa.
         """
         data = request.data
         tournament = get_object_or_404(Tournament, pk=data.get("tournament"))
@@ -58,12 +71,11 @@ class MatchdayViewSet(viewsets.ModelViewSet):
             options = {
                 "start_date": date.fromisoformat(str(data.get("start_date"))),
                 "days": data.get("days"),
-                "max_per_field": int(data.get("max_per_field") or 0),
-                "field_ids": [int(i) for i in data.get("fields") or []],
+                "fields": data.get("fields") or None,
                 "category_ids": [int(i) for i in data.get("categories") or []],
             }
         except (TypeError, ValueError):
-            raise ValidationError({"detail": "Revise la fecha de apertura y el máximo de partidos por cancha."})
+            raise ValidationError({"detail": "Revise la fecha de apertura."})
         try:
             if data.get("commit"):
                 return Response(auto_schedule.create_matchdays(tournament, request.user, **options), status=status.HTTP_201_CREATED)
