@@ -26,7 +26,7 @@ Algún partido tiene datos incompletos: cada tarjeta muestra **Falta: …** (can
 
 ### «La cancha … ya tiene N partido(s) en ese horario»
 
-La cancha llegó a su **capacidad simultánea**. Cambie la hora, use otra cancha o, si la cancha realmente se divide, configúrela como **divisible** con su número de mini canchas en **Registro → Canchas**.
+La cancha ya no tiene espacio en ese horario: lo que ocupan los partidos que se solapan (según las medidas de juego de cada categoría) más el nuevo pasaría de la cancha completa. Cambie la hora o use otra cancha. Si la cancha realmente se divide, márquela como **divisible** en **Registro → Canchas** y revise que la categoría tenga sus **medidas de juego** en **Registro → Categorías**.
 
 ### «El delegado / árbitro ya tiene otro partido asignado en ese horario»
 

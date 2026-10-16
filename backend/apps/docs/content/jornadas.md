@@ -39,7 +39,7 @@ Reglas del reparto:
 - Una **jornada por día de juego**; se saltan los días que ya tienen una jornada del torneo.
 - Se respeta el orden del fixture: **Fecha 1, Fecha 2…** de todas las categorías y después la **eliminación directa** por ronda.
 - Un equipo juega **un solo partido por jornada**.
-- En cada cancha los partidos se **encadenan** desde la hora de inicio **de esa cancha** con la duración de su categoría (duración más descansos), en paralelo si la cancha tiene **mini canchas**, y respetando lo que ya ocupa esa cancha ese día.
+- En cada cancha los partidos se **encadenan** desde la hora de inicio **de esa cancha** con la duración de su categoría (duración más descansos), varios a la vez si la cancha es **divisible** (según las medidas de juego de cada categoría: 8 de Sub 6 o 2 de Sub 12 en una cancha de 100 × 64 m, y se pueden mezclar categorías mientras quepan), y respetando lo que ya ocupa esa cancha ese día.
 - El último partido de una cancha puede terminar como máximo **30 minutos después de su hora límite** (con límite 18:00, el último partido termina a más tardar a las 18:30). La columna *Último partido hasta* lo muestra.
 - La eliminación directa de una categoría empieza en una jornada **posterior** a su fase de grupos, cada ronda después de la anterior y la **vuelta** después de la ida.
 
@@ -47,7 +47,7 @@ Primero pulse **Ver plan**: muestra cada jornada con su día, horario y partidos
 
 ## 2. Vista por canchas
 
-Al abrir la jornada aparece **una tarjeta por cancha** (las del torneo; si el torneo no indicó canchas, todas las activas) con su **capacidad**: cuántos partidos admite a la vez y, si es divisible, cuántas mini canchas tiene. Cada tarjeta lista sus partidos por hora. Los partidos agregados sin cancha aparecen primero en la tarjeta **Sin cancha asignada**. Arriba, unos contadores indican cuántos partidos hay y cuántos están sin cancha o sin hora.
+Al abrir la jornada aparece **una tarjeta por cancha** (las del torneo; si el torneo no indicó canchas, todas las activas) con sus **medidas** y, si es divisible, cuántos partidos **de cada categoría de la jornada** entran a la vez (por ejemplo *8 de Sub 6 · 2 de Sub 12*). Cada tarjeta lista sus partidos por hora. Los partidos agregados sin cancha aparecen primero en la tarjeta **Sin cancha asignada**. Arriba, unos contadores indican cuántos partidos hay y cuántos están sin cancha o sin hora.
 
 ## 3. Agregar partidos
 
@@ -66,7 +66,7 @@ En cada partido solo se indica la **hora de inicio** (UTC-4, del día de la jorn
 
 **No hay botón Guardar:** cada cambio se guarda al momento y la fila muestra *Guardando…*, *Guardado* o *No guardado* con el motivo. FutOwl valida al instante:
 
-- **Capacidad de la cancha** y **mini cancha** libre (la asigna sola si la cancha es divisible).
+- **Espacio en la cancha**: cada partido ocupa la fracción que le toca por su categoría (1/8, 1/2, completa) y la suma no puede pasar de la cancha; la **mini cancha** libre se asigna sola (*mini cancha 3 de 8*).
 - Que **ninguno de los equipos** juegue otro partido a la misma hora.
 
 Cada fila indica lo que falta (*Falta: cancha, hora de inicio…*). Los cruces de la llave cuyos equipos aún no se conocen muestran *equipos por definir*: pueden programarse, pero no enviarse hasta que se completen.

@@ -14,7 +14,7 @@ Una categoría agrupa a los jugadores por edad. Se define con:
 |-------|-------------|---------|
 | **Nombre** | Único en el sistema. | `Sub 12` |
 | **Tope de edad** | Edad máxima de la categoría (1 a 99). | `11` |
-| **Reglas de juego** | Duración, tiempos, descanso, cambios máximos, jugadores por planilla, titulares y árbitros requeridos. Los torneos las usan y pueden ajustarlas solo para sí mismos. | `2 × 25 min`, `14 / 7`, `1 árbitro` |
+| **Reglas de juego** | Duración, tiempos, descanso, cambios máximos, jugadores por planilla, titulares, árbitros requeridos y **medidas de juego** (largo × ancho; definen cuántos partidos entran a la vez en una cancha divisible). Los torneos las usan y pueden ajustarlas solo para sí mismos. | `2 × 25 min`, `14 / 7`, `1 árbitro` |
 
 FutOwl calcula el **año de nacimiento tope** contra el año en curso: `año actual − tope de edad`.
 

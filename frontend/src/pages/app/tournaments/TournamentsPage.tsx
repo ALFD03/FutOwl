@@ -7,6 +7,7 @@ import { Badge, StatusBadge } from "@/components/ui";
 import { categories, fields, tournaments } from "@/services";
 import type { Category, Field, Tournament } from "@/types";
 import { formatDate } from "@/utils/datetime";
+import { fieldSize } from "@/utils/fieldCapacity";
 
 /** Datos, puntuación y documentación. Las reglas de juego se configuran dentro del torneo (pestaña Reglas de juego). */
 export const TOURNAMENT_FIELDS: FieldDef[] = [
@@ -33,7 +34,7 @@ export const TOURNAMENT_FIELDS: FieldDef[] = [
   { name: "start_date", label: "Fecha de inicio", type: "date" },
   { name: "end_date", label: "Fecha de fin", type: "date" },
   { name: "categories", label: "Categorías permitidas", type: "multiselect", required: true, wide: true, source: { service: categories, label: (c: Category) => c.name } },
-  { name: "fields", label: "Canchas disponibles (tentativas)", type: "multiselect", wide: true, source: { service: fields, label: (f: Field) => `${f.name} (${f.capacity})` } },
+  { name: "fields", label: "Canchas disponibles (tentativas)", type: "multiselect", wide: true, source: { service: fields, label: (f: Field) => `${f.name} (${fieldSize(f)}${f.is_divisible ? ", divisible" : ""})` } },
   { name: "points_win", label: "Puntos por victoria", type: "number", defaultValue: 3, section: "Puntuación" },
   { name: "points_draw", label: "Puntos por empate", type: "number", defaultValue: 1, section: "Puntuación" },
   { name: "points_loss", label: "Puntos por derrota", type: "number", defaultValue: 0, section: "Puntuación" },

@@ -7,7 +7,7 @@ order: 50
 Este capítulo recorre **todo el ciclo** con un ejemplo. Cada paso enlaza al capítulo con el detalle.
 
 > [!TIP]
-> **Ejemplo que usaremos**: la *Copa Apertura 2026*, categoría **Sub 12**, con 4 equipos (Águilas FC, Leones del Este, Halcones y Toros), jugada en la *Cancha Municipal* (divisible en 2 mini canchas), liga todos contra todos.
+> **Ejemplo que usaremos**: la *Copa Apertura 2026*, categoría **Sub 12**, con 4 equipos (Águilas FC, Leones del Este, Halcones y Toros), jugada en la *Cancha Municipal* (100 × 64 m, divisible; la Sub 12 juega en media cancha, 64 × 50 m), liga todos contra todos.
 
 ## Mapa del proceso
 
@@ -31,7 +31,7 @@ Este capítulo recorre **todo el ciclo** con un ejemplo. Cada paso enlaza al cap
 Antes del torneo deben existir:
 
 1. **Categorías**: *Sub 12* con tope de edad 11 → en 2026 admite nacidos desde 2015. [Ver Categorías](/app/ayuda/categorias).
-2. **Canchas**: *Cancha Municipal*, divisible, 2 mini canchas → admite 2 partidos simultáneos. [Ver Canchas](/app/ayuda/canchas).
+2. **Canchas**: *Cancha Municipal*, 100 × 64 m, divisible. Con las medidas de juego de la Sub 12 (64 × 50 m) entran 2 partidos a la vez. [Ver Canchas](/app/ayuda/canchas).
 3. **Delegados y árbitros**, cada uno con su **usuario de acceso** para poder confirmar y operar. [Ver Delegados y árbitros](/app/ayuda/delegados-y-arbitros).
 4. **Equipos** con su gestor (usuario), sus **categorías** (Sub 12) y su cuerpo técnico. [Ver Equipos](/app/ayuda/equipos).
 
@@ -63,7 +63,7 @@ En el torneo, pestaña **Partidos → Generar fixture** (categoría *Sub 12*). C
 2. En la jornada, **Agregar partidos** y marque los dos partidos de la *Fecha 1*.
 3. Para cada partido complete **cancha, hora de inicio, delegado, árbitro principal y asistentes** y pulse **Guardar**. FutOwl calcula la hora de fin (60 + 10 = 70 min), asigna la mini cancha libre y valida que no haya choques.
 
-Ejemplo: *Águilas vs Toros* a las 08:00 en mini cancha 1 y *Leones vs Halcones* a las 08:00 en mini cancha 2 → válido (la cancha admite 2). Un tercer partido a las 08:30 en la misma cancha sería rechazado.
+Ejemplo: *Águilas vs Toros* a las 08:00 en mini cancha 1 y *Leones vs Halcones* a las 08:00 en mini cancha 2 → válido (entran 2 de Sub 12). Un tercer partido a las 08:30 en la misma cancha sería rechazado.
 
 La jornada sigue en **Borrador** mientras falte algún dato; un aviso indica qué falta. [Detalle en Jornadas](/app/ayuda/jornadas).
 

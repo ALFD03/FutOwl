@@ -42,10 +42,11 @@ class Command(BaseCommand):
         f.user("jefearbitros", role=roles.HEAD_REFEREE, password=pwd)
         f.user("jefedelegados", role=roles.HEAD_DELEGATE, password=pwd)
 
-        sub12 = f.category("Sub 12", 11, max_substitutions=5, starters_count=7, max_lineup_players=14)
+        sub12 = f.category("Sub 12", 11, max_substitutions=5, starters_count=7, max_lineup_players=14,
+                           play_length_m=64, play_width_m=50)
         f.category("Sub 14", 13)
         main = f.field("Estadio Misael Delgado")
-        f.field("Complejo Los Guayos", divisible=True, mini=3)
+        f.field("Complejo Los Guayos", divisible=True)
 
         delegates = [f.official("Delegate", n, "Delegado", f.user(f"delegado{i}", role=roles.DELEGATE, password=pwd))
                      for i, n in enumerate(["Ana", "José"], start=1)]

@@ -43,6 +43,7 @@ Las reglas de juego son de cada **categoría** (Registro → Categorías): todos
 | Jugadores por planilla | 18. |
 | Titulares | 11 (no puede superar los jugadores por planilla). |
 | Árbitros requeridos | 3 = terna completa; 2 = principal + asistente 1; 1 = solo principal. |
+| Largo y ancho de juego (m) | Medidas de la superficie en que se juega. Vacío = cancha completa. Se indican ambos o ninguno. |
 
 ## Cómo influyen las reglas
 
@@ -55,6 +56,7 @@ Cada partido usa las reglas de **su categoría**, con el ajuste del torneo si lo
 | Cambios máximos | La mesa técnica rechaza el cambio que supere el límite. |
 | Jugadores por planilla / titulares | Límite de convocados y titulares al cargar la alineación. |
 | Árbitros requeridos | Campos obligatorios de la jornada y quiénes deben confirmar. |
+| Medidas de juego | Cuántos partidos de la categoría entran a la vez en una cancha divisible (ej.: 8 de Sub 6 o 2 de Sub 12 en 100 × 64 m). Vea [Canchas](/app/ayuda/canchas). |
 | Puntuación | Tabla de posiciones. |
 | Ida y vuelta | Valor por defecto del generador de fixture. |
 

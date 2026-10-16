@@ -1,6 +1,7 @@
 """Programación: validaciones de solapamiento, envío de jornadas y ajustes con exposición de motivos."""
 from datetime import timedelta
 from datetime import timezone as dt_timezone
+from fractions import Fraction
 
 from django.core.exceptions import ValidationError
 from django.db import transaction
@@ -36,10 +37,28 @@ def _overlapping(match: Match):
     )
 
 
+def share_label(capacity: int) -> str:
+    return "la cancha completa" if capacity == 1 else f"1/{capacity} de la cancha"
+
+
+def peak_load(busy, start, end) -> Fraction:
+    """
+    Mayor ocupación de una cancha entre `start` y `end`. `busy` = [(inicio, fin, fracción)]: cada partido ocupa
+    1/capacidad de la cancha (la capacidad depende de las medidas de juego de su categoría).
+    """
+    points = {start} | {s for s, _, _ in busy if start < s < end}
+    return max(sum((f for s, e, f in busy if s <= p < e), Fraction(0)) for p in points)
+
+
+def free_sub_field(used: set[int], capacity: int) -> int | None:
+    return next((n for n in range(1, capacity + 1) if n not in used), None)
+
+
 def validate_schedule(match: Match) -> None:
     """
     Reglas de no solapamiento:
-    - Una cancha admite tantos partidos simultáneos como su capacidad (mini canchas si es divisible).
+    - Una cancha divisible admite a la vez tantos partidos como superficies de juego de la categoría caben en ella;
+      partidos de distintas categorías comparten la cancha según lo que ocupa cada uno (1/2, 1/8…).
     - Un mismo delegado, árbitro o equipo no puede estar en dos partidos a la vez.
     Asigna automáticamente la mini cancha libre si no se indicó.
     """
@@ -49,19 +68,30 @@ def validate_schedule(match: Match) -> None:
     errors = {}
 
     if match.field_id:
-        same_field = list(overlapping.filter(field_id=match.field_id))
-        capacity = match.field.capacity
-        if len(same_field) >= capacity:
+        field = match.field
+        capacity = field.capacity_for(match.rules)
+        same_field = list(overlapping.filter(field_id=match.field_id).select_related("tournament", "category")
+                          .prefetch_related("tournament__category_rules"))
+        busy = [(m.scheduled_start, m.scheduled_end, Fraction(1, field.capacity_for(m.rules)), m) for m in same_field]
+        load = peak_load([b[:3] for b in busy], match.scheduled_start, match.scheduled_end)
+        if load + Fraction(1, capacity) > 1:
             errors["field"] = (
-                f"La cancha {match.field} ya tiene {len(same_field)} partido(s) en ese horario "
-                f"(capacidad simultánea: {capacity})."
+                f"La cancha {field} no tiene espacio en ese horario: ya tiene {len(same_field)} partido(s) "
+                f"y uno de {match.category} ocupa {share_label(capacity)} ({capacity} a la vez)."
             )
+        elif capacity == 1:
+            match.sub_field = None
         else:
-            used = {m.sub_field or 1 for m in same_field}
-            if match.sub_field and match.sub_field in used:
+            # Numeración de mini canchas entre partidos del mismo tamaño de superficie.
+            used = {m.sub_field or 1 for _, _, f, m in busy if f == Fraction(1, capacity)}
+            if match.sub_field and match.sub_field > capacity:
+                errors["sub_field"] = f"Para {match.category} la cancha solo tiene {capacity} mini cancha(s)."
+            elif match.sub_field and match.sub_field in used:
                 errors["sub_field"] = f"La mini cancha {match.sub_field} está ocupada en ese horario."
-            elif not match.sub_field and capacity > 1:
-                match.sub_field = next(n for n in range(1, capacity + 1) if n not in used)
+            elif not match.sub_field:
+                match.sub_field = free_sub_field(used, capacity)
+                if match.sub_field is None:
+                    errors["field"] = f"No queda una mini cancha libre en {field} en ese horario."
 
     if match.delegate_id and overlapping.filter(delegate_id=match.delegate_id).exists():
         errors["delegate"] = "El delegado ya tiene otro partido asignado en ese horario."

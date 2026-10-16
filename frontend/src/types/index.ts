@@ -72,8 +72,6 @@ export interface Field extends BaseEntity, Omit<Address, never> {
   length_m: string;
   width_m: string;
   is_divisible: boolean;
-  mini_fields_count: number;
-  capacity: number;
 }
 
 /** Ficha con usuario de acceso (delegado, árbitro, entrenador). */
@@ -180,6 +178,9 @@ export interface GameRules {
   max_lineup_players: number;
   starters_count: number;
   referees_required: number;
+  /** Medidas de juego (m); null = cancha completa. */
+  play_length_m: string | null;
+  play_width_m: string | null;
 }
 
 export interface CategoryRules extends BaseEntity, GameRules {

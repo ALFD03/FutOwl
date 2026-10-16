@@ -23,7 +23,7 @@ Lo que ve cada usuario dentro del panel depende de sus **roles y permisos**. Si 
 | Término | Significado |
 |---------|-------------|
 | **Categoría** | Rango de edad (Sub 12, Sub 15…). Se define con un *tope de edad*; FutOwl calcula el año de nacimiento mínimo cada año. |
-| **Cancha** | Sede donde se juega. Si es *divisible* admite varios partidos a la vez (uno por mini cancha). |
+| **Cancha** | Sede donde se juega. Si es *divisible* admite varios partidos a la vez: cuántos depende de las medidas de juego de la categoría (8 de Sub 6 o 2 de Sub 12 en 100 × 64 m). |
 | **Equipo** | Club con RIF, ubicación, categorías, cuerpo técnico y usuarios gestores. |
 | **Jugador** | Ficha única de una persona. Se crea una sola vez y se inscribe en cada torneo con el equipo de turno. |
 | **Nómina** | Lista de jugadores de un equipo **en un torneo** y categoría concretos. |

@@ -216,8 +216,10 @@ class Match(TimeStampedModel):
                 errors["away"] = "Ambos equipos deben pertenecer al mismo torneo y categoría."
         if self.scheduled_start and self.scheduled_end and self.scheduled_end <= self.scheduled_start:
             errors["scheduled_end"] = "La hora de fin debe ser posterior a la de inicio."
-        if self.field_id and self.sub_field and self.sub_field > self.field.capacity:
-            errors["sub_field"] = f"La cancha solo tiene {self.field.capacity} mini cancha(s)."
+        if self.field_id and self.sub_field and self.tournament_id and self.category_id:
+            capacity = self.field.capacity_for(self.rules)
+            if self.sub_field > capacity:
+                errors["sub_field"] = f"Para {self.category} la cancha solo tiene {capacity} mini cancha(s)."
         if self.matchday_id and self.matchday.tournament_id != self.tournament_id:
             errors["matchday"] = "La jornada pertenece a otro torneo."
         refs = [r for r in [self.referee_id, self.assistant_referee_1_id, self.assistant_referee_2_id] if r]

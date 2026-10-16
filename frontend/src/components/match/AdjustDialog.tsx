@@ -7,6 +7,7 @@ import { useCan, useToast } from "@/hooks";
 import { delegates, fields as fieldsService, matches, referees } from "@/services";
 import type { Match } from "@/types";
 import { errorMessage } from "@/utils/errors";
+import { capacityFor } from "@/utils/fieldCapacity";
 
 /** Ajuste de un partido ya enviado: requiere exposición de motivos; conserva el historial. */
 export function AdjustDialog({ match, open, onClose }: { match: Match; open: boolean; onClose: () => void }) {
@@ -54,7 +55,7 @@ export function AdjustDialog({ match, open, onClose }: { match: Match; open: boo
     }>
       <Alert tone="warning">El registro anterior no se modifica ni se borra: queda como evidencia junto a este ajuste. Se notificará a los involucrados.</Alert>
       <div className="mt-5 grid gap-4 sm:grid-cols-2">
-        <div><label className="label">Cancha</label>{select("field", (fieldsQ.data ?? []).map((f) => ({ id: f.id, label: `${f.name} (cap. ${f.capacity})` })), !full)}</div>
+        <div><label className="label">Cancha</label>{select("field", (fieldsQ.data ?? []).map((f) => ({ id: f.id, label: `${f.name} (${capacityFor(f, match.rules)} a la vez)` })), !full)}</div>
         <div><label className="label">Delegado</label>{select("delegate", (delegatesQ.data ?? []).map((d) => ({ id: d.id, label: d.full_name })), !canDelegate)}</div>
         <div><label className="label">Inicio</label><DateTimeInput value={form.scheduled_start} onChange={(v) => setForm((f) => ({ ...f, scheduled_start: v }))} disabled={!full} /></div>
         <div><label className="label">Fin</label><DateTimeInput value={form.scheduled_end} onChange={(v) => setForm((f) => ({ ...f, scheduled_end: v }))} disabled={!full} /></div>

@@ -7,17 +7,20 @@ apertura: una jornada por día de juego elegido. Reglas:
 - Orden del fixture: fase regular por fecha (1, 2, …), luego la eliminación directa por ronda e ida/vuelta.
 - Un equipo juega como máximo un partido por jornada.
 - Cada cancha tiene su horario (por defecto de 9:00 a 18:00) y encadena sus partidos desde la hora de inicio
-  (duración según las reglas de la categoría), con tantos en paralelo como su capacidad (mini canchas). Un
-  partido entra si termina a más tardar 30 minutos después de la hora límite de la cancha.
+  (duración según las reglas de la categoría). Si es divisible, juegan varios a la vez según las medidas de
+  juego de cada categoría: cada partido ocupa 1/capacidad de la cancha (8 de una Sub 6 o 2 de una Sub 12) y se
+  pueden mezclar categorías mientras la suma no pase de la cancha completa. Un partido entra si termina a más
+  tardar 30 minutos después de la hora límite de la cancha.
   Se respetan los partidos que ya ocupan esa cancha ese día (de cualquier torneo).
 - La eliminación directa de una categoría empieza en una jornada posterior al último partido de su fase
   regular (y cada ronda después de la anterior); la vuelta, en una jornada posterior a la ida.
 
 `plan_matchdays` solo calcula (vista previa); `create_matchdays` lo guarda.
 """
-from dataclasses import dataclass
+from dataclasses import dataclass, field as dc_field
 from datetime import date, datetime, time, timedelta
 from datetime import timezone as dt_timezone
+from fractions import Fraction
 
 from django.core.exceptions import ValidationError
 from django.db import transaction
@@ -30,7 +33,7 @@ from apps.registry.models import Field
 from apps.tournaments.models import Tournament
 
 from ..models import KNOCKOUT_STAGES, Leg, Match, Matchday, Stage
-from .scheduling import ACTIVE_STATUSES
+from .scheduling import ACTIVE_STATUSES, free_sub_field, peak_load
 
 OFFICIAL = dt_timezone(timedelta(hours=-4))  # hora oficial de Venezuela (UTC-4)
 STAGE_RANK = {Stage.REGULAR: 0, **{stage: i + 1 for i, (stage, _) in enumerate(KNOCKOUT_STAGES)}}
@@ -44,9 +47,37 @@ WEEKDAYS = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "do
 class Slot:
     match: Match
     field: Field
-    lane: int
+    sub_field: int | None
     start: datetime
     end: datetime
+
+
+@dataclass
+class FieldDay:
+    """Ocupación de una cancha en un día: (inicio, fin, fracción de la cancha, capacidad, mini cancha)."""
+    field: Field
+    opens: datetime
+    deadline: datetime
+    busy: list[tuple[datetime, datetime, Fraction, int, int | None]] = dc_field(default_factory=list)
+    version: int = 0
+
+    def earliest(self, duration: timedelta, capacity: int) -> tuple[datetime, int | None] | None:
+        """Primera hora (y mini cancha) en que entra un partido de esa duración y capacidad, o None."""
+        share = Fraction(1, capacity)
+        candidates = sorted({self.opens} | {e for _, e, _, _, _ in self.busy if e > self.opens})
+        for start in candidates:
+            end = start + duration
+            if end > self.deadline:
+                return None
+            overlapping = [b for b in self.busy if b[0] < end and b[1] > start]
+            if peak_load([b[:3] for b in overlapping], start, end) + share > 1:
+                continue
+            if capacity == 1:
+                return start, None
+            sub = free_sub_field({b[4] or 1 for b in overlapping if b[3] == capacity}, capacity)
+            if sub is not None:
+                return start, sub
+        return None
 
 
 def _duration(match: Match) -> timedelta:
@@ -107,18 +138,19 @@ def _fields(tournament: Tournament, config) -> list[tuple[Field, time, time]]:
     return sorted(chosen, key=lambda c: c[0].name)
 
 
-def _lanes_for_day(fields: list[tuple[Field, time, time]], day: date) -> dict[int, list[datetime]]:
-    """Hora libre de cada carril (mini cancha) por cancha, considerando los partidos que ya ocupan ese día."""
-    lanes = {f.id: [datetime.combine(day, start, OFFICIAL)] * max(1, f.capacity) for f, start, _ in fields}
+def _fields_for_day(fields: list[tuple[Field, time, time]], day: date) -> dict[int, FieldDay]:
+    """Horario y ocupación de cada cancha ese día, con los partidos que ya la usan (de cualquier torneo)."""
+    days = {f.id: FieldDay(f, datetime.combine(day, start, OFFICIAL), datetime.combine(day, end, OFFICIAL) + GRACE)
+            for f, start, end in fields}
     day_start = datetime.combine(day, time(0, 0), OFFICIAL)
-    busy = Match.objects.filter(field__in=[f for f, _, _ in fields], status__in=ACTIVE_STATUSES,
-                                scheduled_end__gt=day_start, scheduled_start__lt=day_start + timedelta(days=1)
-                                ).order_by("scheduled_start")
+    busy = (Match.objects.filter(field__in=[f for f, _, _ in fields], status__in=ACTIVE_STATUSES,
+                                 scheduled_end__gt=day_start, scheduled_start__lt=day_start + timedelta(days=1))
+            .select_related("tournament", "category").prefetch_related("tournament__category_rules"))
     for match in busy:
-        field_lanes = lanes[match.field_id]
-        index = min(max((match.sub_field or 1) - 1, 0), len(field_lanes) - 1)
-        field_lanes[index] = max(field_lanes[index], match.scheduled_end)
-    return lanes
+        fd = days[match.field_id]
+        capacity = fd.field.capacity_for(match.rules)
+        fd.busy.append((match.scheduled_start, match.scheduled_end, Fraction(1, capacity), capacity, match.sub_field))
+    return days
 
 
 def plan_matchdays(tournament: Tournament, *, start_date: date, days, fields=None, category_ids=None) -> dict:
@@ -130,7 +162,6 @@ def plan_matchdays(tournament: Tournament, *, start_date: date, days, fields=Non
         raise ValidationError({"start_date": f"El torneo termina el {tournament.end_date:%d/%m/%Y}."})
     schedule = _parse_days(days)
     fields = _fields(tournament, fields)
-    limit_of = {f.id: end for f, _, end in fields}
 
     pending_qs = (Match.objects.filter(tournament=tournament, status=Match.Status.DRAFT, matchday__isnull=True)
                   .select_related("tournament", "category", "home__team", "away__team")
@@ -175,8 +206,8 @@ def plan_matchdays(tournament: Tournament, *, start_date: date, days, fields=Non
             break
         if day.weekday() in schedule and day not in taken:
             day_index = len(plan)
-            lanes = _lanes_for_day(fields, day)
-            deadline = {fid: datetime.combine(day, end, OFFICIAL) + GRACE for fid, end in limit_of.items()}
+            field_days = _fields_for_day(fields, day)
+            earliest: dict[tuple, tuple] = {}  # (cancha, duración, capacidad) → (versión, resultado)
             busy_teams: set[int] = set()
             slots: list[Slot] = []
             for m in list(pending):
@@ -185,17 +216,24 @@ def plan_matchdays(tournament: Tournament, *, start_date: date, days, fields=Non
                 teams = {m.home_id, m.away_id} - {None}
                 if teams & busy_teams:
                     continue
-                duration = _duration(m)
-                # Carriles donde el partido termina a tiempo (hasta 30' después de la hora límite de la cancha).
-                options = [(free, f.name, f, lane) for f, _, _ in fields for lane, free in enumerate(lanes[f.id])
-                           if free + duration <= deadline[f.id]]
+                duration, rules = _duration(m), m.tournament.rules_for(m.category)
+                # Hora más temprana en cada cancha en que entra y termina a tiempo (hasta 30' tras la hora límite).
+                options = []
+                for fd in field_days.values():
+                    capacity = fd.field.capacity_for(rules)
+                    cache_key = (fd.field.id, duration, capacity)
+                    if cache_key not in earliest or earliest[cache_key][0] != fd.version:
+                        earliest[cache_key] = (fd.version, fd.earliest(duration, capacity))
+                    if found := earliest[cache_key][1]:
+                        options.append((found[0], fd.field.name, fd, found[1], capacity))
                 if not options:
-                    continue  # no cabe hoy; uno más corto (otra categoría) quizá sí
-                start, _, field, lane = min(options, key=lambda o: (o[0], o[1], o[3]))
+                    continue  # no cabe hoy; uno más corto o más pequeño (otra categoría) quizá sí
+                start, _, fd, sub, capacity = min(options, key=lambda o: (o[0], o[1]))
                 end = start + duration
-                lanes[field.id][lane] = end
+                fd.busy.append((start, end, Fraction(1, capacity), capacity, sub))
+                fd.version += 1
                 busy_teams |= teams
-                slots.append(Slot(m, field, lane, start, end))
+                slots.append(Slot(m, fd.field, sub, start, end))
                 pending.remove(m)
                 # Al momento: así la ronda siguiente o la vuelta no caen en esta misma jornada.
                 key = (m.category_id, STAGE_RANK.get(m.stage, 99))
@@ -239,7 +277,7 @@ def serialize_plan(result: dict, created: list[Matchday] | None = None) -> dict:
                 "category": s.match.category.name,
                 "phase": f"Fecha {s.match.round_number}" if s.match.stage == Stage.REGULAR
                 else f"{s.match.get_stage_display()}{f' · {s.match.get_leg_display()}' if s.match.leg else ''}",
-                "field": s.field.name, "sub_field": s.lane + 1 if s.field.capacity > 1 else None,
+                "field": s.field.name, "sub_field": s.sub_field,
                 "start": s.start.astimezone(OFFICIAL).isoformat(), "end": s.end.astimezone(OFFICIAL).isoformat(),
             } for s in slots],
         })
@@ -266,7 +304,7 @@ def create_matchdays(tournament: Tournament, user, **options) -> dict:
         for slot in entry["slots"]:
             m = slot.match
             m.matchday, m.field = matchday, slot.field
-            m.sub_field = slot.lane + 1 if slot.field.capacity > 1 else None
+            m.sub_field = slot.sub_field
             m.scheduled_start, m.scheduled_end = slot.start, slot.end
             m.updated_at = now
             updated.append(m)

@@ -197,9 +197,11 @@ class MatchdayFlowTests(TestCase):
                        format="json")
         self.assertEqual(res.status_code, 400)
         self.assertIn("field", res.data)
-        # Con una cancha divisible en 2 sí se permite
-        self.field.is_divisible, self.field.mini_fields_count = True, 2
+        # Divisible y con una categoría que juega en media cancha (64 × 50 en 100 × 64): entran 2 a la vez
+        self.field.is_divisible = True
         self.field.save()
+        self.cat.play_length_m, self.cat.play_width_m = 64, 50
+        self.cat.save()
         res = api.post("/api/matches/", {"tournament": self.tournament.id, "category": self.cat.id, "home": reg3.id,
                                          "away": fourth.id, "field": self.field.id,
                                          "scheduled_start": (start + timedelta(minutes=30)).isoformat()},

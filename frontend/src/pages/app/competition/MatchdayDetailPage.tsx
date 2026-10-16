@@ -13,6 +13,7 @@ import { useCan, useDebounce, useToast } from "@/hooks";
 import { delegates, fields as fieldsService, groups as groupsService, matchdays, matches, referees, registrations, tournaments } from "@/services";
 import type { Field, Match, Matchday } from "@/types";
 import { cn } from "@/utils/cn";
+import { capacityFor, fieldSize } from "@/utils/fieldCapacity";
 import { formatDate, formatLongDate, formatTime, isReasonableDate, normalizeTime, toCaracasInput, UTC_OFFSET } from "@/utils/datetime";
 import { errorMessage, fieldErrors } from "@/utils/errors";
 import { FIELD_LABELS } from "@/utils/labels";
@@ -86,7 +87,9 @@ export function MatchdayDetailPage() {
     }
   };
 
-  const cardProps = { matchday, draft, scope, fields: fieldCards, incomplete: completeness.data?.incomplete ?? {}, onSaved: refresh,
+  // Categorías de la jornada con sus reglas: cada tarjeta indica cuántos partidos de cada una entran a la vez.
+  const categoryRules = [...new Map(rows.map((m) => [m.category_name, m.rules] as const)).entries()].sort(([a], [b]) => a.localeCompare(b, "es", { numeric: true }));
+  const cardProps = { matchday, draft, scope, fields: fieldCards, categoryRules, incomplete: completeness.data?.incomplete ?? {}, onSaved: refresh,
     onAdd: draft && canSchedule ? (field: number | null) => setAdding({ field }) : undefined };
 
   return (
@@ -162,8 +165,9 @@ export function MatchdayDetailPage() {
 }
 
 // ------------------------------------------------------------------ Tarjeta por cancha
-function FieldCard({ field, matches: items, matchday, draft, scope, fields, incomplete, onSaved, onAdd }: {
+function FieldCard({ field, matches: items, matchday, draft, scope, fields, categoryRules, incomplete, onSaved, onAdd }: {
   field: Field | null; matches: Match[]; matchday: Matchday; draft: boolean; scope: AssignScope; fields: Field[];
+  categoryRules: (readonly [string, Match["rules"]])[];
   incomplete: Record<string, string[]>; onSaved: () => Promise<void>; onAdd?: (field: number | null) => void;
 }) {
   // Por hora de inicio; los que aún no tienen hora, al final.
@@ -180,7 +184,10 @@ function FieldCard({ field, matches: items, matchday, draft, scope, fields, inco
           </h3>
           <p className="text-xs text-slate-500">
             {field
-              ? <>Capacidad: <b>{field.capacity}</b> partido(s) a la vez{field.is_divisible ? ` · ${field.mini_fields_count} mini canchas` : ""}</>
+              ? <>{fieldSize(field)} · {field.is_divisible ? "divisible" : "un partido a la vez"}
+                {field.is_divisible && categoryRules.length > 0 && (
+                  <span className="block">A la vez: {categoryRules.map(([name, rules]) => <span key={name} className="mr-2 inline-block"><b>{capacityFor(field, rules)}</b> de {name}</span>)}</span>
+                )}</>
               : "Elija la cancha de cada partido para que pase a su tarjeta."}
           </p>
         </div>
@@ -271,6 +278,7 @@ function PlanRow({ match, matchday, fields, missing, onSaved }: {
   const startIso = normalized ? `${matchday.date}T${normalized}:00${UTC_OFFSET}` : null;
   const end = match.scheduled_end && normalized === serverTime ? match.scheduled_end : startIso ? estimatedEnd(startIso, match.rules) : null;
   const rules = match.rules;
+  const selectedField = fields.find((f) => f.id === match.field);
 
   // El fin se calcula solo: no se pide; los equipos de la llave se completan con los resultados.
   const pendingLabels = [...new Set((missing ?? []).filter((f) => f !== "scheduled_end" && f !== "matchday")
@@ -287,12 +295,12 @@ function PlanRow({ match, matchday, fields, missing, onSaved }: {
       </div>
       <div className="min-w-0 flex-1">
         <Link to={`/app/partidos/${match.id}`} className="block truncate font-semibold hover:underline">{match.home_name} <span className="text-slate-400">vs</span> {match.away_name}</Link>
-        <p className="truncate text-xs text-slate-500">{matchMeta(match)}{match.sub_field ? ` · mini cancha ${match.sub_field}` : ""}</p>
+        <p className="truncate text-xs text-slate-500">{matchMeta(match)}{match.sub_field && selectedField ? ` · mini cancha ${match.sub_field} de ${capacityFor(selectedField, match.rules)}` : ""}</p>
         <div className="mt-1.5 flex flex-wrap items-center gap-2">
           <div className="w-44">
             <SelectMenu value={match.field} clearable placeholder="Elegir cancha…" className="py-1 text-xs"
               onChange={(v) => save(() => matches.update(match.id, { field: v == null ? null : Number(v), sub_field: null }))}
-              options={fields.map((f) => ({ value: f.id, label: f.name, hint: `Capacidad ${f.capacity}` }))} />
+              options={fields.map((f) => ({ value: f.id, label: f.name, hint: `${capacityFor(f, match.rules)} a la vez` }))} />
           </div>
           <SaveIndicator state={state} error={error} />
           {state !== "error" && pendingLabels.length > 0 && <span className="text-[11px] text-amber-600">Falta: {pendingLabels.join(", ")}</span>}
@@ -446,7 +454,7 @@ function AddMatchesModal({ matchday, presetField, fields, onClose, onAdded }: {
       <div className="mr-auto flex items-center gap-2">
         <span className="text-sm text-slate-500">Cancha:</span>
         <div className="w-52"><SelectMenu value={field} clearable placeholder="Elegir después" onChange={(v) => setField(v == null ? null : Number(v))}
-          options={fields.map((f) => ({ value: f.id, label: f.name, hint: `Capacidad ${f.capacity}` }))} /></div>
+          options={fields.map((f) => ({ value: f.id, label: f.name, hint: `${fieldSize(f)}${f.is_divisible ? " · divisible" : ""}` }))} /></div>
       </div>
       <button className="btn-ghost" onClick={onClose}>Cancelar</button>
       <button className="btn-primary" disabled={!selected.size || busy} onClick={add}>{busy && <Spinner className="h-4 w-4" />}Agregar {selected.size || ""}</button>

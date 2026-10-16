@@ -9,6 +9,7 @@ import type { Tournament } from "@/types";
 import { cn } from "@/utils/cn";
 import { caracasToday, DATE_MAX, DATE_MIN, formatDate, formatTime, isReasonableDate, normalizeTime } from "@/utils/datetime";
 import { errorMessage } from "@/utils/errors";
+import { fieldSize } from "@/utils/fieldCapacity";
 
 const DEFAULT_START = "09:00";
 const DEFAULT_END = "18:00";
@@ -172,7 +173,7 @@ function Planner({ tournament, onCreated, onError }: { tournament: Tournament; o
                     <tr key={f.id} className={cn(!on && "opacity-50")}>
                       <td><input type="checkbox" className="h-4 w-4 accent-navy-700" checked={on} aria-label={`Usar ${f.name}`}
                         onChange={() => change(setExcludedFields)(toggle(excludedFields, f.id))} /></td>
-                      <td><b className="text-sm">{f.name}</b><span className="block text-xs text-slate-500">{f.capacity} partido(s) a la vez</span></td>
+                      <td><b className="text-sm">{f.name}</b><span className="block text-xs text-slate-500">{fieldSize(f)}{f.is_divisible ? " · divisible" : ""}</span></td>
                       <td><input type="time" step={60} disabled={!on} aria-label={`Inicio en ${f.name}`} className={cn("input w-32 py-1.5", problem && "input-error")} value={start} onChange={(e) => set("start", e.target.value)} /></td>
                       <td><input type="time" step={60} disabled={!on} aria-label={`Hora límite en ${f.name}`} className={cn("input w-32 py-1.5", problem && "input-error")} value={end} onChange={(e) => set("end", e.target.value)} /></td>
                       <td className="text-sm">{problem ? <span className="text-crimson-600">{problem}</span> : on ? plusMinutes(end, 30) : "—"}</td>

@@ -27,13 +27,12 @@ class CategorySerializer(CleanModelSerializer):
 
 
 class FieldSerializer(CleanModelSerializer):
-    capacity = serializers.IntegerField(read_only=True)
     full_address = serializers.CharField(read_only=True)
 
     class Meta:
         model = Field
         fields = BASE_READONLY + ["name"] + ADDRESS + [
-            "manager_name", "manager_phone", "length_m", "width_m", "is_divisible", "mini_fields_count", "capacity",
+            "manager_name", "manager_phone", "length_m", "width_m", "is_divisible",
         ]
         read_only_fields = BASE_READONLY
 

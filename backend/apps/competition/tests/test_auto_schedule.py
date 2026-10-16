@@ -1,6 +1,7 @@
-"""Generación automática de jornadas: días de juego, hora de inicio, máximo por cancha y orden del fixture."""
+"""Generación automática de jornadas: días de juego, horario y capacidad de cada cancha y orden del fixture."""
 from collections import Counter
-from datetime import date, timedelta
+from itertools import count
+from datetime import date, datetime, time, timedelta
 
 from django.core.management import call_command
 from django.db import connection
@@ -16,6 +17,7 @@ from apps.tournaments.models import Tournament
 
 SATURDAY = 5
 OPENING = date(2026, 11, 7)  # sábado
+TEAM_NUMBERS = count()
 
 
 class AutoScheduleTests(TestCase):
@@ -154,3 +156,80 @@ class AutoScheduleTests(TestCase):
         # 6 partidos o 45 partidos: la cantidad de consultas casi no cambia (solo crece con los días).
         self.assertLess(counts[1] - counts[0], 25, counts)
 
+
+
+class PlaySizeCapacityTests(TestCase):
+    """La capacidad de una cancha divisible depende de las medidas de juego de cada categoría."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_roles", verbosity=0)
+        cls.authority = f.user("autoridad", role=roles.AUTHORITY)
+        cls.sub6 = f.category("Sub 6", 5, match_duration_minutes=30, periods=2, break_minutes=5,
+                              play_length_m=30, play_width_m=25)
+        cls.sub12 = f.category("Sub 12", 11, match_duration_minutes=30, periods=2, break_minutes=5,
+                               play_length_m=64, play_width_m=50)
+        cls.big = f.field("Grande", divisible=True)  # 100 × 64
+
+    def test_capacity_depends_on_category_play_size(self):
+        self.assertEqual(self.big.capacity_for(self.sub6), 8)  # 4 × 2 (o 3 × 2 girada): 8
+        self.assertEqual(self.big.capacity_for(self.sub12), 2)  # 64 × 50 girada: 2 × 1
+        not_divisible = f.field("Fija")
+        self.assertEqual(not_divisible.capacity_for(self.sub6), 1)
+        self.assertEqual(f.field("Chica", divisible=True, length=40, width=20).capacity_for(self.sub12), 1)
+        self.assertEqual(self.big.capacity_for(f.category("Sub 18", 17)), 1)  # sin medidas: cancha completa
+
+    def test_tournament_can_adjust_play_size(self):
+        from apps.tournaments.models import CategoryRules
+
+        t = f.tournament(categories=[self.sub6], fields=[self.big])
+        CategoryRules.objects.create(tournament=t, category=self.sub6, play_length_m=50, play_width_m=32)
+        self.assertEqual(self.big.capacity_for(t.rules_for(self.sub6)), 4)
+
+    def match(self, t, category, start, minutes=35):
+        from django.utils import timezone
+
+        n = next(TEAM_NUMBERS)
+        home = f.register(t, f.team(f"L{n}", category, players=0), category, with_roster=False)
+        away = f.register(t, f.team(f"V{n}", category, players=0), category, with_roster=False)
+        start = timezone.make_aware(datetime.combine(OPENING, start))
+        return Match(tournament=t, category=category, home=home, away=away, field=self.big,
+                     scheduled_start=start, scheduled_end=start + timedelta(minutes=minutes))
+
+    def test_categories_share_the_field_by_occupied_fraction(self):
+        from django.core.exceptions import ValidationError
+
+        from apps.competition.services.scheduling import validate_schedule
+
+        t = f.tournament("Mixto", categories=[self.sub6, self.sub12], fields=[self.big])
+        half = self.match(t, self.sub12, time(9, 0))
+        validate_schedule(half)
+        half.save()
+        self.assertEqual(half.sub_field, 1)
+        for expected in (1, 2, 3, 4):  # la otra media cancha: 4 partidos de Sub 6
+            small = self.match(t, self.sub6, time(9, 0))
+            validate_schedule(small)
+            small.save()
+            self.assertEqual(small.sub_field, expected)
+        with self.assertRaises(ValidationError):
+            validate_schedule(self.match(t, self.sub6, time(9, 0)))
+        with self.assertRaises(ValidationError):
+            validate_schedule(self.match(t, self.sub12, time(9, 20)))
+        later = self.match(t, self.sub12, time(9, 35))  # cuando terminan los anteriores sí entra
+        validate_schedule(later)
+
+    def test_auto_schedule_fits_eight_small_matches_at_once(self):
+        t = f.tournament("Sub 6", categories=[self.sub6], fields=[self.big])
+        Tournament.objects.filter(pk=t.pk).update(start_date=OPENING, end_date=OPENING + timedelta(days=180))
+        for i in range(16):
+            f.register(t, f.team(f"S{i}", self.sub6, players=0), self.sub6, with_roster=False)
+        api = APIClient()
+        api.force_authenticate(self.authority)
+        api.post("/api/matches/generate-fixture/", {"tournament": t.id, "category": self.sub6.id}, format="json")
+        res = api.post("/api/matchdays/auto-schedule/", {"tournament": t.id, "start_date": OPENING.isoformat(),
+                                                         "days": [SATURDAY]}, format="json")
+        self.assertEqual(res.status_code, 200, res.data)
+        first = res.data["days"][0]["matches"]
+        self.assertEqual(len(first), 8)  # 16 equipos → 8 partidos por fecha, todos a las 9:00
+        self.assertEqual({m["start"][11:16] for m in first}, {"09:00"})
+        self.assertEqual(sorted(m["sub_field"] for m in first), list(range(1, 9)))

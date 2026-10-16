@@ -40,13 +40,15 @@ PLACES = [("Carabobo", "Valencia"), ("Carabobo", "Naguanagua"), ("Carabobo", "Sa
           ("Aragua", "Maracay"), ("Lara", "Barquisimeto"), ("Miranda", "Chacao"), ("Distrito Capital", "Libertador")]
 # (nombre, tope de edad, reglas): duración, tiempos, descanso, cambios, planilla, titulares, árbitros
 CATEGORIES = [
-    ("Sub 6", 5, (30, 2, 5, None, 10, 5, 1)), ("Sub 8", 7, (40, 2, 5, None, 12, 7, 1)),
-    ("Sub 10", 9, (50, 2, 10, None, 14, 9, 1)), ("Sub 12", 11, (60, 2, 10, 7, 16, 11, 2)),
-    ("Sub 14", 13, (70, 2, 10, 7, 18, 11, 3)), ("Sub 16", 15, (80, 2, 10, 5, 18, 11, 3)),
-    ("Sub 18", 17, (90, 2, 15, 5, 18, 11, 3)), ("Sub 21", 20, (90, 2, 15, 5, 18, 11, 3)),
+    ("Sub 6", 5, (30, 2, 5, None, 10, 5, 1, 30, 25)), ("Sub 8", 7, (40, 2, 5, None, 12, 7, 1, 40, 25)),
+    ("Sub 10", 9, (50, 2, 10, None, 14, 9, 1, 50, 32)), ("Sub 12", 11, (60, 2, 10, 7, 16, 11, 2, 64, 50)),
+    ("Sub 14", 13, (70, 2, 10, 7, 18, 11, 3, None, None)), ("Sub 16", 15, (80, 2, 10, 5, 18, 11, 3, None, None)),
+    ("Sub 18", 17, (90, 2, 15, 5, 18, 11, 3, None, None)), ("Sub 21", 20, (90, 2, 15, 5, 18, 11, 3, None, None)),
 ]
+# Medidas de juego (largo × ancho): en una cancha divisible de 100 × 64 m entran 8 Sub 6, 4 Sub 8 o Sub 10 y
+# 2 Sub 12; de Sub 14 en adelante se juega en la cancha completa.
 RULE_KEYS = ["match_duration_minutes", "periods", "break_minutes", "max_substitutions", "max_lineup_players",
-             "starters_count", "referees_required"]
+             "starters_count", "referees_required", "play_length_m", "play_width_m"]
 PLAYERS_PER_CATEGORY = 22
 TEAMS = 50
 
@@ -110,7 +112,7 @@ class Command(BaseCommand):
             result.append(Field.objects.create(
                 name=f"Cancha {i} · {municipality}", manager_name=" ".join(self.name()), manager_phone=self.phone(),
                 length_m=self.rng.choice([60, 80, 100, 105]), width_m=self.rng.choice([40, 50, 64, 68]),
-                is_divisible=divisible, mini_fields_count=3 if divisible else 1,
+                is_divisible=divisible,
                 state=state, municipality=municipality, address=f"Av. Principal, sector {i}",
             ))
         return result

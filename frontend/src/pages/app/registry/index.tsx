@@ -12,6 +12,7 @@ import { useAuth } from "@/hooks";
 import { categories, coaches, delegates, fields as fieldsService, guardians, players, referees, teams } from "@/services";
 import type { Category, Coach, Field, Guardian, Official, Player, Team, WithAccount } from "@/types";
 import { formatDate } from "@/utils/datetime";
+import { fieldSize } from "@/utils/fieldCapacity";
 
 import { PlayerProfile, teamsOf } from "./PlayerProfile";
 
@@ -85,15 +86,14 @@ export function FieldsPage() {
         { name: "manager_phone", label: "Teléfono del responsable", type: "phone", required: true, section: "Responsable" },
         { name: "length_m", label: "Largo / alto (m)", type: "number", step: "0.01", required: true, section: "Medidas y capacidad" },
         { name: "width_m", label: "Ancho (m)", type: "number", step: "0.01", required: true, section: "Medidas y capacidad" },
-        { name: "is_divisible", label: "Cancha divisible", type: "checkbox", placeholder: "Se puede dividir en mini canchas para jugar partidos en simultáneo", section: "Medidas y capacidad", wide: true },
-        { name: "mini_fields_count", label: "Cantidad de mini canchas", type: "number", min: 2, max: 16, defaultValue: 2, section: "Medidas y capacidad",
-          hidden: (v) => !v.is_divisible, help: "Determina cuántos partidos simultáneos soporta" },
+        { name: "is_divisible", label: "Cancha divisible", type: "checkbox", placeholder: "Se puede dividir para jugar varios partidos a la vez", section: "Medidas y capacidad", wide: true,
+          help: "Cuántos entran depende de las medidas de juego de cada categoría: en 100 × 64 m entran 8 de 30 × 25 m o 2 de 64 × 50 m" },
       ]}
       columns={[
         { key: "name", header: "Cancha", render: (r) => <span><b>{r.name}</b><span className="block text-xs text-slate-500">{r.municipality}, {r.state}</span></span> },
         { key: "manager", header: "Responsable", render: (r) => <span>{r.manager_name}<span className="block text-xs text-slate-500">{r.manager_phone}</span></span> },
-        { key: "size", header: "Medidas", render: (r) => `${Number(r.length_m)} × ${Number(r.width_m)} m` },
-        { key: "capacity", header: "Simultáneos", render: (r) => <Badge tone={r.is_divisible ? "gold" : "slate"}>{r.capacity} {r.is_divisible ? "(divisible)" : ""}</Badge> },
+        { key: "size", header: "Medidas", render: (r) => fieldSize(r) },
+        { key: "divisible", header: "Partidos a la vez", render: (r) => <Badge tone={r.is_divisible ? "gold" : "slate"}>{r.is_divisible ? "Divisible: según la categoría" : "Uno"}</Badge> },
       ]} />
   );
 }

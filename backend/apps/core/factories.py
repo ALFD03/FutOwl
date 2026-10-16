@@ -42,13 +42,12 @@ def category(name="Sub 12", max_age=11, **rules):
     return Category.objects.get_or_create(name=name, defaults={"max_age": max_age, **rules})[0]
 
 
-def field(name="Cancha Principal", divisible=False, mini=1):
+def field(name="Cancha Principal", divisible=False, length=100, width=64):
     from apps.registry.models import Field
 
     return Field.objects.get_or_create(name=name, defaults=dict(
         state="Carabobo", municipality="Valencia", address="Av. Bolívar Norte", manager_name="Pedro Pérez",
-        manager_phone="+58 412-1234567", length_m=100, width_m=64, is_divisible=divisible,
-        mini_fields_count=mini if divisible else 1,
+        manager_phone="+58 412-1234567", length_m=length, width_m=width, is_divisible=divisible,
     ))[0]
 
 

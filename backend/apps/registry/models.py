@@ -28,7 +28,7 @@ class LicenseStatus(models.TextChoices):
 
 
 RULE_FIELDS = ["match_duration_minutes", "periods", "break_minutes", "max_substitutions", "max_lineup_players",
-               "starters_count", "referees_required"]
+               "starters_count", "referees_required", "play_length_m", "play_width_m"]
 
 
 class GameRules(models.Model):
@@ -47,6 +47,11 @@ class GameRules(models.Model):
     referees_required = models.PositiveSmallIntegerField(
         "árbitros requeridos (terna)", default=3, validators=[MinValueValidator(1), MaxValueValidator(3)]
     )
+    # Superficie en la que se juega: define cuántos partidos de la categoría entran a la vez en una cancha divisible.
+    play_length_m = models.DecimalField("largo de juego (m)", max_digits=6, decimal_places=2, null=True, blank=True,
+                                        validators=[MinValueValidator(1)], help_text="Vacío = cancha completa")
+    play_width_m = models.DecimalField("ancho de juego (m)", max_digits=6, decimal_places=2, null=True, blank=True,
+                                       validators=[MinValueValidator(1)], help_text="Vacío = cancha completa")
 
     class Meta:
         abstract = True
@@ -54,6 +59,9 @@ class GameRules(models.Model):
     def clean_rules(self):
         if self.starters_count and self.max_lineup_players and self.starters_count > self.max_lineup_players:
             raise ValidationError({"starters_count": "Los titulares no pueden superar el máximo de la planilla."})
+        if bool(self.play_length_m) != bool(self.play_width_m):
+            field = "play_width_m" if self.play_length_m else "play_length_m"
+            raise ValidationError({field: "Indique el largo y el ancho de juego, o deje ambos vacíos (cancha completa)."})
 
 
 class Category(BaseEntity, GameRules):
@@ -81,7 +89,10 @@ class Category(BaseEntity, GameRules):
 
 
 class Field(BaseEntity, AddressMixin):
-    """Cancha. Si es divisible, admite tantos partidos simultáneos como mini canchas."""
+    """
+    Cancha. Si es divisible, admite varios partidos a la vez según las medidas de juego de cada categoría: en una
+    cancha de 100 × 64 m entran 8 partidos de una Sub 6 (25 × 30 m) pero solo 2 de una Sub 12 (64 × 50 m).
+    """
 
     name = models.CharField("nombre", max_length=120)
     manager_name = models.CharField("responsable", max_length=160)
@@ -89,10 +100,8 @@ class Field(BaseEntity, AddressMixin):
     length_m = models.DecimalField("largo / alto (m)", max_digits=6, decimal_places=2,
                                    validators=[MinValueValidator(1)])
     width_m = models.DecimalField("ancho (m)", max_digits=6, decimal_places=2, validators=[MinValueValidator(1)])
-    is_divisible = models.BooleanField("divisible", default=False)
-    mini_fields_count = models.PositiveSmallIntegerField(
-        "cantidad de mini canchas", default=1, validators=[MinValueValidator(1), MaxValueValidator(16)]
-    )
+    is_divisible = models.BooleanField("divisible", default=False,
+                                       help_text="Se puede dividir para jugar varios partidos a la vez")
 
     class Meta:
         ordering = ["name"]
@@ -102,16 +111,18 @@ class Field(BaseEntity, AddressMixin):
     def __str__(self):
         return self.name
 
-    @property
-    def capacity(self) -> int:
-        """Partidos que soporta en simultáneo."""
-        return self.mini_fields_count if self.is_divisible else 1
-
-    def clean(self):
-        if not self.is_divisible:
-            self.mini_fields_count = 1
-        elif self.mini_fields_count < 2:
-            raise ValidationError({"mini_fields_count": "Una cancha divisible debe tener al menos 2 mini canchas."})
+    def capacity_for(self, rules) -> int:
+        """
+        Partidos de una categoría que entran a la vez: cuántas superficies de juego (`rules.play_length_m` ×
+        `play_width_m`) caben en la cancha, en cualquiera de las dos orientaciones. Sin medidas de juego, o si la
+        cancha no es divisible, se usa la cancha completa (1). Nunca menos de 1.
+        """
+        length, width = getattr(rules, "play_length_m", None), getattr(rules, "play_width_m", None)
+        if not (self.is_divisible and length and width):
+            return 1
+        fits = max(int(self.length_m // length) * int(self.width_m // width),
+                   int(self.length_m // width) * int(self.width_m // length))
+        return max(1, fits)
 
 
 class Coach(BaseEntity, PersonMixin, IdentityDocumentMixin):

@@ -51,7 +51,7 @@ Transversal: Usuarios ── Roles ── Permisos · Auditoría · Notificacion
 | Equipo (categorías) | Inscripción | Solo categorías que el equipo tenga y el torneo permita. |
 | Inscripción | Fixture | El generador crea partidos entre las inscripciones de la categoría/grupo. |
 | Reglas del torneo | Jornada, alineación, mesa técnica, posiciones | Hora de fin, límites de planilla y cambios, tiempos, puntuación. |
-| Cancha (capacidad) | Programación | Partidos simultáneos y mini cancha asignada. |
+| Cancha (medidas, divisible) + medidas de juego de la categoría | Programación | Partidos simultáneos (fracción de cancha que ocupa cada uno) y mini cancha asignada. |
 | Usuario vinculado | Confirmaciones, mesa técnica, informes, Mis asignaciones | Identifica quién es quién en cada partido. |
 | Nómina | Alineación | Solo jugadores activos de la nómina. |
 | Alineación | Mesa técnica | Titulares en el campo, suplentes en el banco; verificación de documentos. |
