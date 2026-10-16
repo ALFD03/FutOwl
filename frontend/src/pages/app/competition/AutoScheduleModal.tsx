@@ -13,6 +13,11 @@ import { fieldSize } from "@/utils/fieldCapacity";
 
 const DEFAULT_START = "09:00";
 const DEFAULT_END = "18:00";
+const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
+
+/** Configuración de una cancha para el generador: horario y días de la semana en que se puede jugar en ella. */
+interface FieldConfig { start: string; end: string; days: number[] }
+const DEFAULT_CONFIG: FieldConfig = { start: DEFAULT_START, end: DEFAULT_END, days: ALL_DAYS };
 
 /** «HH:MM» + minutos, en formato de 12 horas para mostrar (p. ej. 18:00 + 30 → 6:30 p. m.). */
 function plusMinutes(value: string, minutes: number): string {
@@ -31,9 +36,27 @@ const WEEKDAYS = [
   { value: 6, short: "Do", label: "Domingo" },
 ];
 
+/** Días de la semana como botones compactos (Lu … Do). */
+function DayPicker({ value, onChange, disabled, label }: { value: number[]; onChange: (days: number[]) => void; disabled?: boolean; label: string }) {
+  return (
+    <div className="flex gap-1" role="group" aria-label={label}>
+      {WEEKDAYS.map((d) => {
+        const on = value.includes(d.value);
+        return (
+          <button key={d.value} type="button" title={d.label} aria-pressed={on} aria-label={`${d.label} (${label})`} disabled={disabled}
+            onClick={() => onChange(on ? value.filter((x) => x !== d.value) : [...value, d.value].sort())}
+            className={cn("h-7 w-7 rounded-md border text-[11px] font-bold transition disabled:cursor-not-allowed", on
+              ? "border-navy-700 bg-navy-700 text-white dark:border-gold-400 dark:bg-gold-400 dark:text-navy-950"
+              : "border-slate-200 text-slate-500 hover:border-slate-300 dark:border-white/10")}>{d.short}</button>
+        );
+      })}
+    </div>
+  );
+}
+
 /**
- * Genera jornadas que cubren los partidos sin jornada: fecha de apertura, días de juego con su hora de inicio y
- * máximo de partidos por cancha. Primero muestra el plan; las jornadas se crean al confirmar.
+ * Genera jornadas que cubren los partidos sin jornada: fecha de apertura y, por cancha, los días de la semana en
+ * que se puede jugar y su horario. Primero muestra el plan; las jornadas se crean al confirmar.
  */
 export function AutoScheduleModal({ tournamentId, onClose, onCreated }: {
   tournamentId?: number; onClose: () => void; onCreated: () => Promise<void>;
@@ -70,10 +93,9 @@ function Planner({ tournament, onCreated, onError }: { tournament: Tournament; o
   }, [allFields.data, tournament.fields]);
 
   const [startDate, setStartDate] = useState(tournament.start_date && tournament.start_date >= caracasToday() ? tournament.start_date : caracasToday());
-  const [days, setDays] = useState<Set<number>>(new Set([5, 6]));
-  // Horario por cancha: por defecto todas de 9:00 a 18:00 (el último partido puede terminar 30' después).
-  const [hours, setHours] = useState<Record<number, { start: string; end: string }>>({});
-  const [bulk, setBulk] = useState({ start: DEFAULT_START, end: DEFAULT_END });
+  // Días y horario por cancha: por defecto todos los días, de 9:00 a 18:00 (el último partido puede terminar 30' después).
+  const [config, setConfig] = useState<Record<number, FieldConfig>>({});
+  const [bulk, setBulk] = useState<FieldConfig>(DEFAULT_CONFIG);
   const [excludedFields, setExcludedFields] = useState<Set<number>>(new Set());
   const [excludedCategories, setExcludedCategories] = useState<Set<number>>(new Set());
   const [sameCapacity, setSameCapacity] = useState(true);
@@ -82,18 +104,21 @@ function Planner({ tournament, onCreated, onError }: { tournament: Tournament; o
   const [error, setError] = useState("");
   const [open, setOpen] = useState<number | null>(null);
 
-  const hoursOf = (id: number) => hours[id] ?? { start: DEFAULT_START, end: DEFAULT_END };
+  const configOf = (id: number) => config[id] ?? DEFAULT_CONFIG;
   const activeFields = fieldOptions.filter((f) => !excludedFields.has(f.id));
   const fieldError = (id: number) => {
-    const { start, end } = hoursOf(id);
+    const { start, end, days } = configOf(id);
     const [a, b] = [normalizeTime(start), normalizeTime(end)];
-    return !a || !b ? "Hora inválida" : b <= a ? "La hora límite debe ser posterior al inicio" : "";
+    return !days.length ? "Elija al menos un día" : !a || !b ? "Hora inválida" : b <= a ? "La hora límite debe ser posterior al inicio" : "";
   };
-  const ready = isReasonableDate(startDate) && days.size > 0 && activeFields.length > 0
+  const ready = isReasonableDate(startDate) && activeFields.length > 0
     && activeFields.every((f) => !fieldError(f.id)) && tournament.categories.some((c) => !excludedCategories.has(c));
   const body = (commit: boolean): AutoScheduleRequest => ({
-    tournament: tournament.id, start_date: startDate, commit, days: [...days].sort(),
-    fields: activeFields.map((f) => ({ id: f.id, start: normalizeTime(hoursOf(f.id).start)!, end: normalizeTime(hoursOf(f.id).end)! })),
+    tournament: tournament.id, start_date: startDate, commit,
+    fields: activeFields.map((f) => {
+      const { start, end, days } = configOf(f.id);
+      return { id: f.id, start: normalizeTime(start)!, end: normalizeTime(end)!, days };
+    }),
     categories: tournament.categories.filter((c) => !excludedCategories.has(c)),
     same_capacity: sameCapacity,
   });
@@ -120,26 +145,11 @@ function Planner({ tournament, onCreated, onError }: { tournament: Tournament; o
   return (
     <div className="space-y-5">
       <div className="grid gap-5 lg:grid-cols-2">
-        <Section title="Apertura y días de juego">
+        <Section title="Apertura">
           <label className="label" htmlFor="auto-start">Día de apertura</label>
           <input id="auto-start" type="date" className={cn("input w-48", !isReasonableDate(startDate) && "input-error")} min={tournament.start_date ?? DATE_MIN}
             max={tournament.end_date ?? DATE_MAX} value={startDate} onChange={(e) => change(setStartDate)(e.target.value)} />
-          <p className="help">Desde este día se recorren los días de juego{tournament.end_date ? ` hasta el fin del torneo (${formatDate(tournament.end_date)})` : ""}.</p>
-
-          <p className="label mt-4">Días de juego</p>
-          <div className="flex flex-wrap gap-1.5">
-            {WEEKDAYS.map((d) => {
-              const on = days.has(d.value);
-              return (
-                <button key={d.value} type="button" title={d.label} aria-pressed={on} aria-label={d.label}
-                  onClick={() => change(setDays)(toggle(days, d.value))}
-                  className={cn("h-9 w-10 rounded-lg border text-xs font-bold transition", on
-                    ? "border-navy-700 bg-navy-700 text-white dark:border-gold-400 dark:bg-gold-400 dark:text-navy-950"
-                    : "border-slate-200 text-slate-500 hover:border-slate-300 dark:border-white/10")}>{d.short}</button>
-              );
-            })}
-          </div>
-          {!days.size && <p className="mt-2 text-sm text-amber-600">Elija al menos un día de juego.</p>}
+          <p className="help">Desde este día se arma una jornada por cada día en que al menos una cancha se puede usar{tournament.end_date ? `, hasta el fin del torneo (${formatDate(tournament.end_date)})` : ""}. Los días de cada cancha se eligen abajo.</p>
         </Section>
 
         <Section title="Categorías">
@@ -152,8 +162,8 @@ function Planner({ tournament, onCreated, onError }: { tournament: Tournament; o
         </Section>
       </div>
 
-      <Section title="Horario de cada cancha">
-        <p className="help mb-3">Cada cancha encadena sus partidos desde su hora de inicio, con la duración de cada categoría (varios a la vez si es divisible, según las medidas de juego de la categoría). El último partido puede terminar hasta <b>30 minutos después</b> de la hora límite.</p>
+      <Section title="Días y horario de cada cancha">
+        <p className="help mb-3">Cada cancha dice qué <b>días de la semana</b> se puede jugar en ella (por defecto todos) y encadena sus partidos desde su hora de inicio, con la duración de cada categoría (varios a la vez si es divisible, según las medidas de juego de la categoría). El último partido puede terminar hasta <b>30 minutos después</b> de la hora límite.</p>
         <label className="mb-3 flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 px-3 py-2.5 dark:border-white/10">
           <input type="checkbox" className="mt-0.5 h-4 w-4 accent-navy-700" checked={sameCapacity} onChange={(e) => change(setSameCapacity)(e.target.checked)} />
           <span className="text-sm"><b>Misma capacidad toda la jornada en cada cancha</b>
@@ -161,28 +171,30 @@ function Planner({ tournament, onCreated, onError }: { tournament: Tournament; o
         </label>
         <div className="mb-3 flex flex-wrap items-end gap-2 rounded-lg bg-slate-50 px-3 py-2 dark:bg-white/[.03]">
           <span className="self-center text-sm font-semibold">Todas las canchas:</span>
+          <div className="self-center"><DayPicker label="todas las canchas" value={bulk.days} onChange={(days) => setBulk({ ...bulk, days })} /></div>
           <input type="time" step={60} aria-label="Inicio para todas" className="input w-32 py-1.5" value={bulk.start} onChange={(e) => setBulk({ ...bulk, start: e.target.value })} />
           <span className="self-center text-slate-400">a</span>
           <input type="time" step={60} aria-label="Hora límite para todas" className="input w-32 py-1.5" value={bulk.end} onChange={(e) => setBulk({ ...bulk, end: e.target.value })} />
-          <button type="button" className="btn-outline btn-sm" onClick={() => change(setHours)(Object.fromEntries(fieldOptions.map((f) => [f.id, { ...bulk }])))}>Aplicar a todas</button>
+          <button type="button" className="btn-outline btn-sm" onClick={() => change(setConfig)(Object.fromEntries(fieldOptions.map((f) => [f.id, { ...bulk }])))}>Aplicar a todas</button>
         </div>
         {!fieldOptions.length ? <p className="text-sm text-amber-600">No hay canchas: indíquelas en el torneo o regístrelas.</p> : (
           <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-white/10">
             <table className="table">
-              <thead><tr><th className="w-10" /><th>Cancha</th><th>Inicio</th><th>Hora límite</th><th>Último partido hasta</th></tr></thead>
+              <thead><tr><th className="w-10" /><th>Cancha</th><th>Días</th><th>Inicio</th><th>Hora límite</th><th>Último partido hasta</th></tr></thead>
               <tbody>
                 {fieldOptions.map((f) => {
                   const on = !excludedFields.has(f.id);
-                  const { start, end } = hoursOf(f.id);
+                  const { start, end, days } = configOf(f.id);
                   const problem = on ? fieldError(f.id) : "";
-                  const set = (key: "start" | "end", value: string) => change(setHours)({ ...hours, [f.id]: { ...hoursOf(f.id), [key]: value } });
+                  const set = (patch: Partial<FieldConfig>) => change(setConfig)({ ...config, [f.id]: { ...configOf(f.id), ...patch } });
                   return (
                     <tr key={f.id} className={cn(!on && "opacity-50")}>
                       <td><input type="checkbox" className="h-4 w-4 accent-navy-700" checked={on} aria-label={`Usar ${f.name}`}
                         onChange={() => change(setExcludedFields)(toggle(excludedFields, f.id))} /></td>
                       <td><b className="text-sm">{f.name}</b><span className="block text-xs text-slate-500">{fieldSize(f)}{f.is_divisible ? " · divisible" : ""}</span></td>
-                      <td><input type="time" step={60} disabled={!on} aria-label={`Inicio en ${f.name}`} className={cn("input w-32 py-1.5", problem && "input-error")} value={start} onChange={(e) => set("start", e.target.value)} /></td>
-                      <td><input type="time" step={60} disabled={!on} aria-label={`Hora límite en ${f.name}`} className={cn("input w-32 py-1.5", problem && "input-error")} value={end} onChange={(e) => set("end", e.target.value)} /></td>
+                      <td><DayPicker label={f.name} value={days} disabled={!on} onChange={(next) => set({ days: next })} /></td>
+                      <td><input type="time" step={60} disabled={!on} aria-label={`Inicio en ${f.name}`} className={cn("input w-32 py-1.5", problem && problem !== "Elija al menos un día" && "input-error")} value={start} onChange={(e) => set({ start: e.target.value })} /></td>
+                      <td><input type="time" step={60} disabled={!on} aria-label={`Hora límite en ${f.name}`} className={cn("input w-32 py-1.5", problem && problem !== "Elija al menos un día" && "input-error")} value={end} onChange={(e) => set({ end: e.target.value })} /></td>
                       <td className="text-sm">{problem ? <span className="text-crimson-600">{problem}</span> : on ? plusMinutes(end, 30) : "—"}</td>
                     </tr>
                   );

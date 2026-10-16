@@ -1,8 +1,9 @@
 """
 Generación automática de jornadas.
 
-Reparte los partidos del torneo que siguen en borrador y sin jornada en días de juego, a partir de una fecha de
-apertura: una jornada por día de juego elegido. Reglas:
+Reparte los partidos del torneo que siguen en borrador y sin jornada a partir de una fecha de apertura: una
+jornada por cada día en que al menos una cancha se puede usar. Cada cancha dice qué días de la semana se juega en
+ella (por defecto todos). Reglas:
 
 - Orden del fixture: fase regular por fecha (1, 2, …), luego la eliminación directa por ronda e ida/vuelta.
 - Un equipo juega como máximo un partido por jornada.
@@ -104,7 +105,10 @@ def _parse_time(value, label: str) -> time:
         raise ValidationError({"fields": f"{label}: use el formato HH:MM."})
 
 
-def _parse_days(days) -> set[int]:
+ALL_DAYS = frozenset(range(7))
+
+
+def _parse_days(days, label: str = "") -> set[int]:
     """Días de la semana en que se juega (lunes = 0). Acepta números o {"weekday": n}."""
     parsed = set()
     for item in days or []:
@@ -116,45 +120,63 @@ def _parse_days(days) -> set[int]:
             raise ValidationError({"days": "Día de la semana inválido."})
         parsed.add(weekday)
     if not parsed:
-        raise ValidationError({"days": "Elija al menos un día de juego."})
+        raise ValidationError({"days": f"{label}: elija al menos un día de juego." if label
+                               else "Elija al menos un día de juego."})
     return parsed
 
 
-def _fields(tournament: Tournament, config) -> list[tuple[Field, time, time]]:
+@dataclass
+class FieldPlan:
+    """Cancha elegida para el generador, con su horario y los días de la semana en que se puede jugar en ella."""
+    field: Field
+    start: time
+    end: time
+    weekdays: frozenset[int]
+
+
+def _fields(tournament: Tournament, config, default_days=None) -> list[FieldPlan]:
     """
-    Canchas a usar con su horario: `config` = [{"id", "start": "HH:MM", "end": "HH:MM"}]. Sin config, todas las
-    canchas del torneo (o todas las activas si el torneo no indicó) de 9:00 a 18:00.
+    Canchas a usar: `config` = [{"id", "start": "HH:MM", "end": "HH:MM", "days": [0..6]}]. Cada cancha dice qué
+    días de la semana se puede jugar en ella (por defecto todos, o `default_days`) y en qué horario (por defecto
+    de 9:00 a 18:00). Sin config, todas las canchas del torneo (o todas las activas si el torneo no indicó).
     """
     available = Field.objects.filter(is_active=True)
     own = list(tournament.fields.values_list("id", flat=True))
     if own:
         available = available.filter(pk__in=own)
     available = {f.id: f for f in available}
+    weekdays = frozenset(_parse_days(default_days)) if default_days else ALL_DAYS
     if config is None:
-        chosen = [(f, DEFAULT_START, DEFAULT_END) for f in available.values()]
+        chosen = [FieldPlan(f, DEFAULT_START, DEFAULT_END, weekdays) for f in available.values()]
     else:
         chosen = []
         for item in config:
+            item = item if isinstance(item, dict) else {"id": item}
             try:
-                field = available[int(item["id"] if isinstance(item, dict) else item)]
+                field = available[int(item["id"])]
             except (KeyError, TypeError, ValueError):
                 raise ValidationError({"fields": "Una de las canchas no está disponible para el torneo."})
-            start = _parse_time(item.get("start", "09:00"), field.name) if isinstance(item, dict) else DEFAULT_START
-            end = _parse_time(item.get("end", "18:00"), field.name) if isinstance(item, dict) else DEFAULT_END
+            start = _parse_time(item.get("start", "09:00"), field.name)
+            end = _parse_time(item.get("end", "18:00"), field.name)
             if end <= start:
                 raise ValidationError({"fields": f"{field.name}: la hora límite debe ser posterior a la de inicio."})
-            chosen.append((field, start, end))
+            days = frozenset(_parse_days(item["days"], field.name)) if "days" in item else weekdays
+            chosen.append(FieldPlan(field, start, end, days))
     if not chosen:
         raise ValidationError({"fields": "No hay canchas disponibles para el torneo."})
-    return sorted(chosen, key=lambda c: c[0].name)
+    return sorted(chosen, key=lambda c: c.field.name)
 
 
-def _fields_for_day(fields: list[tuple[Field, time, time]], day: date) -> dict[int, FieldDay]:
-    """Horario y ocupación de cada cancha ese día, con los partidos que ya la usan (de cualquier torneo)."""
-    days = {f.id: FieldDay(f, datetime.combine(day, start, OFFICIAL), datetime.combine(day, end, OFFICIAL) + GRACE)
-            for f, start, end in fields}
+def _fields_for_day(fields: list[FieldPlan], day: date) -> dict[int, FieldDay]:
+    """
+    Canchas que se pueden usar ese día de la semana, con su horario y ocupación (los partidos que ya las usan, de
+    cualquier torneo).
+    """
+    fields = [fp for fp in fields if day.weekday() in fp.weekdays]
+    days = {fp.field.id: FieldDay(fp.field, datetime.combine(day, fp.start, OFFICIAL),
+                                  datetime.combine(day, fp.end, OFFICIAL) + GRACE) for fp in fields}
     day_start = datetime.combine(day, time(0, 0), OFFICIAL)
-    busy = (Match.objects.filter(field__in=[f for f, _, _ in fields], status__in=ACTIVE_STATUSES,
+    busy = (Match.objects.filter(field__in=[fp.field for fp in fields], status__in=ACTIVE_STATUSES,
                                  scheduled_end__gt=day_start, scheduled_start__lt=day_start + timedelta(days=1))
             .select_related("tournament", "category").prefetch_related("tournament__category_rules"))
     for match in busy:
@@ -203,7 +225,7 @@ def _assign_modes(field_days: dict[int, FieldDay], demand: list[Slot]) -> None:
         left = rest
 
 
-def plan_matchdays(tournament: Tournament, *, start_date: date, days, fields=None, category_ids=None,
+def plan_matchdays(tournament: Tournament, *, start_date: date, days=None, fields=None, category_ids=None,
                    same_capacity: bool = True) -> dict:
     if error := reasonable_date_error(start_date):
         raise ValidationError({"start_date": error})
@@ -211,8 +233,8 @@ def plan_matchdays(tournament: Tournament, *, start_date: date, days, fields=Non
         raise ValidationError({"start_date": f"El torneo empieza el {tournament.start_date:%d/%m/%Y}."})
     if tournament.end_date and start_date > tournament.end_date:
         raise ValidationError({"start_date": f"El torneo termina el {tournament.end_date:%d/%m/%Y}."})
-    schedule = _parse_days(days)
-    fields = _fields(tournament, fields)
+    fields = _fields(tournament, fields, days)
+    schedule = set().union(*(fp.weekdays for fp in fields))  # días en que al menos una cancha se puede usar
 
     pending_qs = (Match.objects.filter(tournament=tournament, status=Match.Status.DRAFT, matchday__isnull=True)
                   .select_related("tournament", "category", "home__team", "away__team")
@@ -389,7 +411,8 @@ def create_matchdays(tournament: Tournament, user, **options) -> dict:
                      for md, e in zip(created, result["plan"])],
         "partidos": len(updated), "desde": options["start_date"].isoformat(),
         "misma_capacidad_por_cancha": options.get("same_capacity", True),
-        "canchas": [{"cancha": f.name, "desde": start.strftime("%H:%M"), "hasta": end.strftime("%H:%M")}
-                    for f, start, end in _fields(tournament, options.get("fields"))],
+        "canchas": [{"cancha": fp.field.name, "desde": fp.start.strftime("%H:%M"), "hasta": fp.end.strftime("%H:%M"),
+                     "dias": [WEEKDAYS[d] for d in sorted(fp.weekdays)]}
+                    for fp in _fields(tournament, options.get("fields"), options.get("days"))],
     })
     return serialize_plan(result, created)

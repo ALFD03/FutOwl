@@ -61,9 +61,9 @@ class MatchdayViewSet(viewsets.ModelViewSet):
     @require_perms("competition.add_matchday", "competition.change_match")
     def auto_schedule(self, request):
         """
-        Genera jornadas cubriendo los partidos sin jornada: `start_date`, `days` (días de la semana, lunes = 0),
-        `fields` [{id, start, end}] (horario de cada cancha; sin él, todas de 9:00 a 18:00) y opcionalmente
-        `categories`. `same_capacity` (por defecto sí): cada cancha divisible juega todo el día con la misma cantidad
+        Genera jornadas cubriendo los partidos sin jornada: `start_date`, `fields` [{id, start, end, days}] (horario
+        y días de la semana de cada cancha, lunes = 0; sin él, todas de 9:00 a 18:00 todos los días), opcionalmente
+        `days` (días por defecto de las canchas que no los indican) y `categories`. `same_capacity` (por defecto sí): cada cancha divisible juega todo el día con la misma cantidad
         de partidos a la vez. Con `commit` las crea; sin él, solo la vista previa.
         """
         data = request.data

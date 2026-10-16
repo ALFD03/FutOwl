@@ -185,10 +185,10 @@ export const publicApi = {
 export interface AutoScheduleRequest {
   tournament: ID;
   start_date: string;
-  /** Días de la semana en que se juega (lunes = 0). */
-  days: number[];
-  /** Horario de cada cancha a usar (inicio y hora límite, HH:MM). */
-  fields?: { id: ID; start: string; end: string }[];
+  /** Días por defecto (lunes = 0) de las canchas que no indican los suyos. */
+  days?: number[];
+  /** Canchas a usar: horario (inicio y hora límite, HH:MM) y días de la semana en que se puede jugar en cada una. */
+  fields?: { id: ID; start: string; end: string; days: number[] }[];
   categories?: ID[];
   /** Cada cancha divisible juega todo el día con la misma cantidad de partidos a la vez (por defecto sí). */
   same_capacity?: boolean;

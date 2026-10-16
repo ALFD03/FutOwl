@@ -106,7 +106,9 @@ class AutoScheduleTests(TestCase):
 
     def test_requires_days_and_valid_field_hours(self):
         t = self.tournament(4)
-        self.assertEqual(self.run_schedule(t, days=[]).status_code, 400)
+        no_days = self.run_schedule(t, fields=[{"id": self.field.id, "start": "09:00", "end": "18:00", "days": []}])
+        self.assertEqual(no_days.status_code, 400)
+        self.assertIn("Cancha 1", str(no_days.data))
         bad = self.run_schedule(t, fields=[{"id": self.field.id, "start": "18:00", "end": "09:00"}])
         self.assertEqual(bad.status_code, 400)
 
@@ -118,6 +120,31 @@ class AutoScheduleTests(TestCase):
         # 17:00–17:35 y 17:35–18:10 (≤ 18:30); 18:10–18:45 se pasa del margen
         self.assertEqual([(m["start"][11:16], m["end"][11:16]) for m in first["matches"]], [("17:00", "17:35"), ("17:35", "18:10")])
         self.assertEqual((first["start"], first["end"]), ("17:00", "18:10"))
+
+    def test_each_field_says_which_weekdays_it_can_be_used(self):
+        t = self.tournament(6)
+        sunday_field = f.field("Cancha Domingo")
+        t.fields.add(sunday_field)
+        self.api.post("/api/matches/generate-fixture/", {"tournament": t.id, "category": self.cat.id}, format="json")
+        body = {"tournament": t.id, "start_date": OPENING.isoformat(), "fields": [
+            {"id": self.field.id, "start": "09:00", "end": "18:00", "days": [SATURDAY]},
+            {"id": sunday_field.id, "start": "09:00", "end": "18:00", "days": [SATURDAY + 1]},
+        ]}
+        res = self.api.post("/api/matchdays/auto-schedule/", body, format="json")
+        self.assertEqual(res.status_code, 200, res.data)
+        days = res.data["days"]
+        self.assertEqual([d["date"] for d in days[:2]], ["2026-11-07", "2026-11-08"])  # sábado y domingo
+        for day in days:
+            expected = "Cancha 1" if date.fromisoformat(day["date"]).weekday() == SATURDAY else "Cancha Domingo"
+            self.assertEqual({m["field"] for m in day["matches"]}, {expected})
+
+    def test_by_default_every_weekday_is_a_play_day(self):
+        t = self.tournament(4)
+        self.api.post("/api/matches/generate-fixture/", {"tournament": t.id, "category": self.cat.id}, format="json")
+        res = self.api.post("/api/matchdays/auto-schedule/", {"tournament": t.id, "start_date": OPENING.isoformat()},
+                            format="json")
+        self.assertEqual(res.status_code, 200, res.data)
+        self.assertEqual([d["date"] for d in res.data["days"]], ["2026-11-07", "2026-11-08", "2026-11-09"])
 
     def test_default_hours_are_nine_to_six(self):
         t = self.tournament(4)

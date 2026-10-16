@@ -30,13 +30,13 @@ Mientras está en borrador, **Editar** (junto al título) cambia número, día o
 | Dato | Uso |
 |------|-----|
 | **Día de apertura** | Primer día desde el que se buscan días de juego (no antes del inicio del torneo; se detiene en su fecha de fin). |
-| **Días de juego** | Días de la semana en que se juega (p. ej. sábado y domingo). |
-| **Horario de cada cancha** | Hora de **inicio** y **hora límite** de cada cancha. Por defecto todas las canchas van de **9:00 a 18:00**; cambie una fila o use la fila *Todas las canchas* → **Aplicar a todas**. Desmarque una cancha para no usarla. |
+| **Días de cada cancha** | Días de la semana en que se puede jugar en cada cancha (botones *Lu … Do* de su fila). Por defecto, **todos los días**. Hay una jornada por cada día en que al menos una cancha se puede usar, y ese día solo se usan esas canchas. |
+| **Horario de cada cancha** | Hora de **inicio** y **hora límite** de cada cancha. Por defecto todas van de **9:00 a 18:00**. Cambie una fila o use la fila *Todas las canchas* (días y horario) → **Aplicar a todas**. Desmarque una cancha para no usarla. |
 | Categorías | Por defecto, todas las del torneo; pulse una para excluirla. |
 
 Reglas del reparto:
 
-- Una **jornada por día de juego**; se saltan los días que ya tienen una jornada del torneo.
+- Una **jornada por día de juego** (los días en que alguna cancha se puede usar); se saltan los días que ya tienen una jornada del torneo. Ejemplo: si la *Cancha 1* solo se usa sábado y domingo y las demás todos los días, de lunes a viernes se juega sin la Cancha 1.
 - Se respeta el orden del fixture: **Fecha 1, Fecha 2…** de todas las categorías y después la **eliminación directa** por ronda.
 - Un equipo juega **un solo partido por jornada**.
 - En cada cancha los partidos se **encadenan** desde la hora de inicio **de esa cancha** con la duración de su categoría (duración más descansos), varios a la vez si la cancha es **divisible** (según las medidas de juego de cada categoría: 8 de Sub 6 o 2 de Sub 12 en una cancha de 100 × 64 m, y se pueden mezclar categorías mientras quepan), y respetando lo que ya ocupa esa cancha ese día.
