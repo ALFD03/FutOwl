@@ -190,12 +190,16 @@ export interface AutoScheduleRequest {
   /** Horario de cada cancha a usar (inicio y hora límite, HH:MM). */
   fields?: { id: ID; start: string; end: string }[];
   categories?: ID[];
+  /** Cada cancha divisible juega todo el día con la misma cantidad de partidos a la vez (por defecto sí). */
+  same_capacity?: boolean;
   commit?: boolean;
 }
 
 export interface AutoSchedulePlan {
   days: {
     id: ID | null; number: number; date: string; weekday: string; start: string; end: string;
+    /** Cuántos partidos a la vez juega cada cancha usada ese día. */
+    fields: { field: string; at_once: number }[];
     matches: { id: ID; home: string; away: string; category: string; phase: string; field: string; sub_field: number | null; start: string; end: string }[];
   }[];
   total: number;

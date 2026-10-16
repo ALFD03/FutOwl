@@ -233,3 +233,33 @@ class PlaySizeCapacityTests(TestCase):
         self.assertEqual(len(first), 8)  # 16 equipos → 8 partidos por fecha, todos a las 9:00
         self.assertEqual({m["start"][11:16] for m in first}, {"09:00"})
         self.assertEqual(sorted(m["sub_field"] for m in first), list(range(1, 9)))
+
+    def test_each_field_keeps_the_same_capacity_all_day(self):
+        second = f.field("Grande 2", divisible=True)
+        t = f.tournament("Misma capacidad", categories=[self.sub6, self.sub12], fields=[self.big, second])
+        Tournament.objects.filter(pk=t.pk).update(start_date=OPENING, end_date=OPENING + timedelta(days=180))
+        api = APIClient()
+        api.force_authenticate(self.authority)
+        for category in (self.sub6, self.sub12):
+            for i in range(8):
+                f.register(t, f.team(f"{category.name}-{i}", category, players=0), category, with_roster=False)
+            api.post("/api/matches/generate-fixture/", {"tournament": t.id, "category": category.id}, format="json")
+
+        def plan(**extra):
+            res = api.post("/api/matchdays/auto-schedule/", {"tournament": t.id, "start_date": OPENING.isoformat(),
+                                                             "days": [SATURDAY], **extra}, format="json")
+            self.assertEqual(res.status_code, 200, res.data)
+            return res.data["days"]
+
+        for day in plan():
+            by_field = {}
+            for m in day["matches"]:
+                by_field.setdefault(m["field"], set()).add(m["category"])
+            self.assertTrue(all(len(c) == 1 for c in by_field.values()), by_field)  # 8 de Sub 6 o 2 de Sub 12
+            self.assertEqual({(x["field"], x["at_once"]) for x in day["fields"]},
+                             {(name, 8 if cats == {"Sub 6"} else 2) for name, cats in by_field.items()})
+        first = plan()[0]
+        self.assertEqual({m["category"] for m in first["matches"]}, {"Sub 6", "Sub 12"})  # una cancha para cada una
+        # Sin la regla, el generador puede mezclar categorías en una misma cancha.
+        mixed = plan(same_capacity=False)[0]
+        self.assertEqual(len(mixed["matches"]), 8)

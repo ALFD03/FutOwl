@@ -76,6 +76,7 @@ function Planner({ tournament, onCreated, onError }: { tournament: Tournament; o
   const [bulk, setBulk] = useState({ start: DEFAULT_START, end: DEFAULT_END });
   const [excludedFields, setExcludedFields] = useState<Set<number>>(new Set());
   const [excludedCategories, setExcludedCategories] = useState<Set<number>>(new Set());
+  const [sameCapacity, setSameCapacity] = useState(true);
   const [plan, setPlan] = useState<AutoSchedulePlan | null>(null);
   const [busy, setBusy] = useState<"preview" | "create" | null>(null);
   const [error, setError] = useState("");
@@ -94,6 +95,7 @@ function Planner({ tournament, onCreated, onError }: { tournament: Tournament; o
     tournament: tournament.id, start_date: startDate, commit, days: [...days].sort(),
     fields: activeFields.map((f) => ({ id: f.id, start: normalizeTime(hoursOf(f.id).start)!, end: normalizeTime(hoursOf(f.id).end)! })),
     categories: tournament.categories.filter((c) => !excludedCategories.has(c)),
+    same_capacity: sameCapacity,
   });
   // Cualquier cambio en la configuración invalida la vista previa.
   const change = <T,>(setter: (v: T) => void) => (v: T) => { setter(v); setPlan(null); setError(""); };
@@ -151,7 +153,12 @@ function Planner({ tournament, onCreated, onError }: { tournament: Tournament; o
       </div>
 
       <Section title="Horario de cada cancha">
-        <p className="help mb-3">Cada cancha encadena sus partidos desde su hora de inicio, con la duración de cada categoría (en paralelo si tiene mini canchas). El último partido puede terminar hasta <b>30 minutos después</b> de la hora límite.</p>
+        <p className="help mb-3">Cada cancha encadena sus partidos desde su hora de inicio, con la duración de cada categoría (varios a la vez si es divisible, según las medidas de juego de la categoría). El último partido puede terminar hasta <b>30 minutos después</b> de la hora límite.</p>
+        <label className="mb-3 flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 px-3 py-2.5 dark:border-white/10">
+          <input type="checkbox" className="mt-0.5 h-4 w-4 accent-navy-700" checked={sameCapacity} onChange={(e) => change(setSameCapacity)(e.target.checked)} />
+          <span className="text-sm"><b>Misma capacidad toda la jornada en cada cancha</b>
+            <span className="block text-xs text-slate-500">Una cancha divisible se arma una sola vez por día: si arranca con 4 partidos a la vez, todo el día juega 4 a la vez (solo categorías de ese tamaño). Las canchas se reparten entre las categorías según lo que pide cada jornada.</span></span>
+        </label>
         <div className="mb-3 flex flex-wrap items-end gap-2 rounded-lg bg-slate-50 px-3 py-2 dark:bg-white/[.03]">
           <span className="self-center text-sm font-semibold">Todas las canchas:</span>
           <input type="time" step={60} aria-label="Inicio para todas" className="input w-32 py-1.5" value={bulk.start} onChange={(e) => setBulk({ ...bulk, start: e.target.value })} />
@@ -207,6 +214,11 @@ function Planner({ tournament, onCreated, onError }: { tournament: Tournament; o
                     <span className="flex-1 capitalize text-slate-600 dark:text-slate-300">{d.weekday} {formatDate(d.date)} · {d.start}–{d.end}</span>
                     <Badge tone="gold">{d.matches.length} partido(s)</Badge>
                   </button>
+                  {open === d.number && d.fields.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 px-4 pb-2 text-xs">
+                      {d.fields.map((f) => <Badge key={f.field} tone="slate">{f.field}: {f.at_once === 1 ? "cancha completa" : `${f.at_once} a la vez`}</Badge>)}
+                    </div>
+                  )}
                   {open === d.number && (
                     <table className="table mb-2">
                       <thead><tr><th>Hora</th><th>Cancha</th><th>Partido</th><th>Categoría</th><th>Fase</th></tr></thead>

@@ -63,7 +63,8 @@ class MatchdayViewSet(viewsets.ModelViewSet):
         """
         Genera jornadas cubriendo los partidos sin jornada: `start_date`, `days` (días de la semana, lunes = 0),
         `fields` [{id, start, end}] (horario de cada cancha; sin él, todas de 9:00 a 18:00) y opcionalmente
-        `categories`. Con `commit` las crea; sin él, solo la vista previa.
+        `categories`. `same_capacity` (por defecto sí): cada cancha divisible juega todo el día con la misma cantidad
+        de partidos a la vez. Con `commit` las crea; sin él, solo la vista previa.
         """
         data = request.data
         tournament = get_object_or_404(Tournament, pk=data.get("tournament"))
@@ -73,6 +74,7 @@ class MatchdayViewSet(viewsets.ModelViewSet):
                 "days": data.get("days"),
                 "fields": data.get("fields") or None,
                 "category_ids": [int(i) for i in data.get("categories") or []],
+                "same_capacity": data.get("same_capacity", True) not in (False, "false", "0", 0),
             }
         except (TypeError, ValueError):
             raise ValidationError({"detail": "Revise la fecha de apertura."})
