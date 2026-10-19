@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, ArrowLeft, Check, CheckCircle2, Lock, MapPin, Pencil, Plus, Send, Trash2, X } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Check, CheckCircle2, Lock, MapPin, Pencil, Plus, Send, Trash2, Wand2, X } from "lucide-react";
 
 import { ResourceForm } from "@/components/forms";
 import { Can } from "@/components/layout/Guards";
@@ -10,7 +10,7 @@ import {
   usePaged,
 } from "@/components/ui";
 import { useCan, useDebounce, useToast } from "@/hooks";
-import { delegates, fields as fieldsService, groups as groupsService, matchdays, matches, referees, registrations, tournaments } from "@/services";
+import { delegates, fields as fieldsService, groups as groupsService, matchdays, matches, referees, registrations, tournaments, type AutoAssignResult, type OfficialRole } from "@/services";
 import type { Field, Match, Matchday } from "@/types";
 import { cn } from "@/utils/cn";
 import { capacityFor, fieldSize } from "@/utils/fieldCapacity";
@@ -34,7 +34,7 @@ export function MatchdayDetailPage() {
   const toast = useToast();
   const queryClient = useQueryClient();
   const [adding, setAdding] = useState<{ field: number | null } | null>(null);
-  const [confirm, setConfirm] = useState<"submit" | "close" | "delete" | null>(null);
+  const [confirm, setConfirm] = useState<"submit" | "close" | "delete" | "assign" | null>(null);
   const [editing, setEditing] = useState(false);
   const canSchedule = useCan("competition.change_match");
   // Los jefes de delegados / árbitros solo asignan a los oficiales de su tipo, y recién tras el envío.
@@ -70,6 +70,21 @@ export function MatchdayDetailPage() {
   const withoutField = rows.filter((m) => m.field == null);
   const missingTime = rows.filter((m) => !m.scheduled_start).length;
 
+  // Asignación automática: cada jefe llena lo suyo (la autoridad, ambos).
+  const autoRoles: OfficialRole[] = [...(scope.delegate ? ["delegate" as const] : []), ...(scope.referees ? ["referees" as const] : [])];
+  const autoAssign = async () => {
+    try {
+      const result = await matchdays.autoAssignOfficials(id, autoRoles);
+      const summary = assignSummary(result);
+      if (Object.values(result.missing).some(Boolean)) toast.warning(summary);
+      else toast.success(summary);
+      await refresh();
+    } catch (e) {
+      toast.error(errorMessage(e));
+      throw e;
+    }
+  };
+
   const doAction = async (action: "submit" | "close" | "delete") => {
     try {
       if (action === "submit") await matchdays.submit(id);
@@ -102,6 +117,9 @@ export function MatchdayDetailPage() {
           {draft && <Can perm="competition.delete_matchday"><button className="btn-ghost text-crimson-600" title="Eliminar borrador" onClick={() => setConfirm("delete")}><Trash2 className="h-4 w-4" /></button></Can>}
           {draft && canSchedule && <button className="btn-outline" onClick={() => setAdding({ field: null })}><Plus className="h-4 w-4" /> Agregar partidos</button>}
           {draft && <Can perm="competition.submit_matchday"><button className="btn-gold" disabled={!completeness.data?.ready} onClick={() => setConfirm("submit")}><Send className="h-4 w-4" /> Enviar jornada</button></Can>}
+          {matchday.status === "submitted" && autoRoles.length > 0 && rows.some((m) => m.status === "pending" && m.missing_officials.length > 0) && (
+            <button className="btn-gold" onClick={() => setConfirm("assign")}><Wand2 className="h-4 w-4" /> Asignar {autoRoles.length === 2 ? "oficiales" : autoRoles[0] === "delegate" ? "delegados" : "árbitros"} automáticamente</button>
+          )}
           {matchday.status !== "draft" && matchday.status !== "closed" && <Can perm="competition.close_matchday"><button className="btn-primary" onClick={() => setConfirm("close")}><Lock className="h-4 w-4" /> Cerrar jornada</button></Can>}
         </>} />
 
@@ -118,7 +136,7 @@ export function MatchdayDetailPage() {
             : <Alert tone="info" title="Arme la jornada">Agregue partidos a cada cancha y escriba su hora de inicio: el fin se calcula con las reglas de la categoría y todo se guarda solo. Cuando cada partido tenga cancha y hora, pulse «Enviar jornada». Delegado y árbitros los asignan los jefes después del envío.</Alert>}
         </div>
       )}
-      {matchday.status === "submitted" && <div className="mb-4"><Alert tone="info" title="Asignación y confirmación de oficiales">Los jefes asignan delegado y terna arbitral de cada partido (se guarda al elegir). Cada partido queda bloqueado cuando sus oficiales confirman, y entonces se avisa a los equipos. La jornada es válida cuando todos sus partidos están confirmados.</Alert></div>}
+      {matchday.status === "submitted" && <div className="mb-4"><Alert tone="info" title="Asignación y confirmación de oficiales">Los jefes asignan delegado y terna arbitral de cada partido (se guarda al elegir), o con «Asignar automáticamente» llenan todas las posiciones vacías con un reparto parejo. Cada partido queda bloqueado cuando sus oficiales confirman, y entonces se avisa a los equipos. La jornada es válida cuando todos sus partidos están confirmados.</Alert></div>}
 
       <div className="mb-4 flex flex-wrap gap-2 text-xs">
         <Badge tone="navy">{rows.length} partido(s)</Badge>
@@ -156,12 +174,34 @@ export function MatchdayDetailPage() {
       )}
       <ConfirmDialog open={confirm === "submit"} onClose={() => setConfirm(null)} onConfirm={() => doAction("submit")} title="Enviar jornada"
         message="Cancha y horario quedarán bloqueados (cambiarlos después requerirá un ajuste con exposición de motivos). Se avisará a los jefes de delegados y de árbitros para que asignen a los oficiales. La jornada ya no podrá eliminarse." confirmLabel="Enviar" />
+      <ConfirmDialog open={confirm === "assign"} onClose={() => setConfirm(null)} onConfirm={autoAssign} title="Asignación automática"
+        message={<>Se llenan las posiciones vacías ({autoRoles.map((r) => r === "delegate" ? "delegados" : "árbitros").join(" y ")}); lo ya asignado no cambia.
+          <ul className="mt-2 list-disc space-y-1 pl-5">
+            <li>Cada oficial trabaja en <b>una sola cancha</b> el día y nunca en dos partidos a la vez (también se cuentan sus partidos de otros torneos ese día).</li>
+            <li>El reparto es <b>parejo</b>: todos reciben una cantidad parecida de partidos; lo ideal es hasta 4 por persona y, si la jornada pide más, la carga sube para todos por igual.</li>
+            <li>A igual carga, va primero quien lleva menos partidos en el torneo.</li>
+          </ul>
+          <p className="mt-2">Cada oficial recibe un aviso con sus partidos para confirmar. Puede cambiar a cualquiera mientras no haya confirmado.</p></>}
+        confirmLabel="Asignar" />
       <ConfirmDialog open={confirm === "close"} onClose={() => setConfirm(null)} onConfirm={() => doAction("close")} title="Cerrar jornada"
         message="Solo es posible si todos los partidos están cerrados o suspendidos. Después solo se admitirán notas o apelaciones." confirmLabel="Cerrar jornada" />
       <ConfirmDialog open={confirm === "delete"} onClose={() => setConfirm(null)} onConfirm={() => doAction("delete")} title="Eliminar borrador" danger
         message="Solo las jornadas en borrador pueden eliminarse. Los partidos vuelven al fixture sin jornada, cancha ni horario." confirmLabel="Eliminar" />
     </div>
   );
+}
+
+/** Resumen de la asignación automática para el aviso. */
+function assignSummary(result: AutoAssignResult): string {
+  const label = (r: OfficialRole) => r === "delegate" ? "de delegado" : "de árbitro";
+  const parts = [result.assigned ? `Se asignaron ${result.assigned} posición(es).` : "No había posiciones que se pudieran llenar."];
+  for (const [role, n] of Object.entries(result.missing) as [OfficialRole, number][]) {
+    if (n) parts.push(`${n} posición(es) ${label(role)} sin cubrir: no hay oficiales libres en esa cancha y horario.`);
+  }
+  for (const [role, n] of Object.entries(result.over_target) as [OfficialRole, number][]) {
+    if (n) parts.push(`${n} ${role === "delegate" ? "delegado(s)" : "árbitro(s)"} con más de 4 partidos en el día (repartidos por igual).`);
+  }
+  return parts.join(" ");
 }
 
 // ------------------------------------------------------------------ Tarjeta por cancha

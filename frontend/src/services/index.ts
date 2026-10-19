@@ -43,6 +43,9 @@ export const matchdays = {
     (await api.get<{ total: number; incomplete: Record<string, string[]>; ready: boolean }>(`/matchdays/${id}/completeness/`)).data,
   /** Plan (o creación, con `commit`) de jornadas automáticas que cubren los partidos sin jornada. */
   autoSchedule: async (body: AutoScheduleRequest) => (await api.post<AutoSchedulePlan>("/matchdays/auto-schedule/", body)).data,
+  /** Llena las posiciones vacías de delegado y/o árbitros de una jornada enviada, con carga pareja. */
+  autoAssignOfficials: async (id: ID, roles?: OfficialRole[]) =>
+    (await api.post<AutoAssignResult>(`/matchdays/${id}/auto-assign-officials/`, roles ? { roles } : {})).data,
   /** Agrega varios partidos del fixture (opcionalmente ya en una cancha); los no elegibles se omiten. */
   addMatches: async (id: ID, ids: ID[], field?: ID | null) =>
     (await api.post<{ added: number; skipped: number }>(`/matchdays/${id}/add-matches/`, { ids, field: field ?? null })).data,
@@ -181,6 +184,17 @@ export const publicApi = {
   live: async () => (await api.get<{ today: PublicMatch[]; upcoming: PublicMatch[] }>("/public/matches/live/")).data,
   match: async (id: ID) => (await api.get<PublicMatch>(`/public/matches/${id}/`)).data,
 };
+
+export type OfficialRole = "delegate" | "referees";
+
+export interface AutoAssignResult {
+  /** Posiciones llenadas en total. */
+  assigned: number;
+  /** Por tipo de oficial: posiciones que quedaron sin cubrir, oficiales que recibieron partidos y cuántos pasan de 4 en el día. */
+  missing: Partial<Record<OfficialRole, number>>;
+  officials: Partial<Record<OfficialRole, number>>;
+  over_target: Partial<Record<OfficialRole, number>>;
+}
 
 export interface AutoScheduleRequest {
   tournament: ID;

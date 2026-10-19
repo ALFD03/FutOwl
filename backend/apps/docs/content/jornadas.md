@@ -41,10 +41,10 @@ Reglas del reparto:
 - Un equipo juega **un solo partido por jornada**.
 - En cada cancha los partidos se **encadenan** desde la hora de inicio **de esa cancha** con la duración de su categoría (duración más descansos), varios a la vez si la cancha es **divisible** (según las medidas de juego de cada categoría: 8 de Sub 6 o 2 de Sub 12 en una cancha de 100 × 64 m, y se pueden mezclar categorías mientras quepan), y respetando lo que ya ocupa esa cancha ese día.
 - El último partido de una cancha puede terminar como máximo **30 minutos después de su hora límite** (con límite 18:00, el último partido termina a más tardar a las 18:30). La columna *Último partido hasta* lo muestra.
-- **Misma capacidad toda la jornada en cada cancha** (opción activada por defecto): una cancha divisible se arma **una sola vez por día**. Si arranca con 4 partidos a la vez, todo el día juega 4 a la vez y solo recibe categorías de ese tamaño (por ejemplo Sub 8 y Sub 10); otra cancha puede ser de 8 a la vez (Sub 6) y otra de cancha completa (Sub 16). Las canchas se reparten según lo que pide cada jornada: primero una para cada tamaño que juega ese día y luego más canchas al tamaño con más partidos. Al abrir una jornada en **Ver plan** se ve cómo quedó armada cada cancha (*Cancha 3: 8 a la vez*). Con esta regla el calendario puede necesitar alguna jornada más; desactívela si prefiere mezclar tamaños en una cancha.
+- **Misma capacidad toda la jornada en cada cancha** (opción activada por defecto): una cancha divisible se arma **una sola vez por día**. Si arranca con 4 partidos a la vez, todo el día juega 4 a la vez y solo recibe categorías de ese tamaño (por ejemplo Sub 8 y Sub 10); otra cancha puede ser de 8 a la vez (Sub 6) y otra de cancha completa (Sub 16). Las canchas se reparten según lo que pide cada jornada: primero una para cada tamaño que juega ese día y luego más canchas al tamaño con más partidos. Con esta regla el calendario puede necesitar alguna jornada más; desactívela si prefiere mezclar tamaños en una cancha.
 - La eliminación directa de una categoría empieza en una jornada **posterior** a su fase de grupos, cada ronda después de la anterior y la **vuelta** después de la ida.
 
-Primero pulse **Ver plan**: muestra cada jornada con su día, horario y partidos (cancha, hora, categoría y fase) y avisa si quedan partidos sin ubicar. Si no caben todos antes de la fecha de fin del torneo, amplíe el horario de las canchas o agregue días de juego. Nada se guarda hasta pulsar **Crear jornadas**; se crean en **borrador** con cancha y horario, listas para revisar y enviar.
+Pulse **Generar jornadas**: se crean de una vez en **borrador**, con cancha y horario, listas para revisar y enviar. El aviso indica cuántas jornadas y partidos se crearon y si quedaron partidos sin ubicar; en ese caso amplíe el horario de las canchas o agregue días de juego y vuelva a generar (solo se toman los partidos que siguen sin jornada). Si no le convence el resultado, elimine los borradores desde la lista de jornadas: sus partidos vuelven al fixture.
 
 ## 2. Vista por canchas
 
@@ -88,6 +88,16 @@ A partir de aquí, cambiar cancha u horario requiere un **ajuste** con exposici�
 ## 6. Asignar los oficiales (jefes)
 
 En la jornada enviada, el **jefe de delegados** (*Asignar delegados*) y el **jefe de árbitros** (*Asignar árbitros*) ven cada partido pendiente con cancha y horario bloqueados y eligen **solo** a sus oficiales; la fila indica *Falta: …* hasta completar. La asignación **se guarda al elegir** a cada oficial (sin botón), y ese oficial recibe en ese momento la solicitud de confirmación. Un oficial que ya confirmó solo se cambia con un ajuste.
+
+### Asignación automática
+
+El botón **Asignar … automáticamente** llena de una vez **todas las posiciones vacías** de la jornada: cada jefe asigna solo lo suyo (delegados o árbitros) y quien programa jornadas, ambos. Lo ya asignado no cambia. Las reglas:
+
+- **Una cancha por día**: cada oficial trabaja todo el día en la misma cancha, y **nunca en dos partidos a la vez** (ni en dos posiciones del mismo partido). Se cuentan también sus partidos de otros torneos ese día: si ya trabaja en otra cancha, no se le asigna en esta.
+- **Reparto parejo**: los oficiales se reparten entre las canchas según los partidos de cada una para que todos tengan una carga parecida. Lo ideal es **hasta 4 partidos por persona**; si la jornada pide más, la carga sube **para todos por igual**. A igual carga, va primero quien lleva menos partidos en el torneo, y la posición de árbitro principal se rota.
+- Si no alcanzan los oficiales libres para los partidos simultáneos de una cancha, esas posiciones **quedan vacías** (nunca se duplica a nadie) y el aviso lo indica; complételas a mano.
+
+Cada oficial recibe **un solo aviso** con sus partidos (hora, cancha y posición) y confirma cada uno como siempre. Mientras no confirme, puede cambiarse eligiendo otro en la fila del partido.
 
 Cuando el delegado y la terna exigida **confirman**, el partido queda **Confirmado y bloqueado**, y recién entonces se **avisa a los equipos**, que confirman su asistencia de forma informativa.
 

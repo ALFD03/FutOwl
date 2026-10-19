@@ -1,13 +1,13 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { CalendarRange, ChevronDown, Wand2 } from "lucide-react";
+import { Wand2 } from "lucide-react";
 
-import { Alert, Badge, Modal, SelectMenu, Spinner } from "@/components/ui";
+import { Alert, Modal, SelectMenu, Spinner } from "@/components/ui";
 import { useToast } from "@/hooks";
 import { fields as fieldsService, matchdays, tournaments, type AutoSchedulePlan, type AutoScheduleRequest } from "@/services";
 import type { Tournament } from "@/types";
 import { cn } from "@/utils/cn";
-import { caracasToday, DATE_MAX, DATE_MIN, formatDate, formatTime, isReasonableDate, normalizeTime } from "@/utils/datetime";
+import { caracasToday, DATE_MAX, DATE_MIN, formatDate, isReasonableDate, normalizeTime } from "@/utils/datetime";
 import { errorMessage } from "@/utils/errors";
 import { fieldSize } from "@/utils/fieldCapacity";
 
@@ -56,7 +56,7 @@ function DayPicker({ value, onChange, disabled, label }: { value: number[]; onCh
 
 /**
  * Genera jornadas que cubren los partidos sin jornada: fecha de apertura y, por cancha, los días de la semana en
- * que se puede jugar y su horario. Primero muestra el plan; las jornadas se crean al confirmar.
+ * que se puede jugar y su horario. Las jornadas se crean en borrador directamente.
  */
 export function AutoScheduleModal({ tournamentId, onClose, onCreated }: {
   tournamentId?: number; onClose: () => void; onCreated: () => Promise<void>;
@@ -78,7 +78,10 @@ export function AutoScheduleModal({ tournamentId, onClose, onCreated }: {
       {selectedTournament == null ? null : tournament.isLoading || !tournament.data
         ? <div className="grid h-32 place-items-center"><Spinner /></div>
         : <Planner key={tournament.data.id} tournament={tournament.data} onCreated={async (plan) => {
-          toast.success(`${plan.days.length} jornada(s) creadas con ${plan.scheduled} partido(s).`);
+          const range = plan.days.length ? ` (del ${formatDate(plan.days[0].date)} al ${formatDate(plan.days[plan.days.length - 1].date)})` : "";
+          const created = `${plan.days.length} jornada(s) creadas${range} con ${plan.scheduled} de ${plan.total} partido(s).`;
+          if (plan.unscheduled || plan.warnings.length) toast.warning([created, ...plan.warnings].join(" "));
+          else toast.success(created);
           await onCreated();
         }} onError={(e) => toast.error(e)} />}
     </Modal>
@@ -99,10 +102,8 @@ function Planner({ tournament, onCreated, onError }: { tournament: Tournament; o
   const [excludedFields, setExcludedFields] = useState<Set<number>>(new Set());
   const [excludedCategories, setExcludedCategories] = useState<Set<number>>(new Set());
   const [sameCapacity, setSameCapacity] = useState(true);
-  const [plan, setPlan] = useState<AutoSchedulePlan | null>(null);
-  const [busy, setBusy] = useState<"preview" | "create" | null>(null);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [open, setOpen] = useState<number | null>(null);
 
   const configOf = (id: number) => config[id] ?? DEFAULT_CONFIG;
   const activeFields = fieldOptions.filter((f) => !excludedFields.has(f.id));
@@ -113,8 +114,8 @@ function Planner({ tournament, onCreated, onError }: { tournament: Tournament; o
   };
   const ready = isReasonableDate(startDate) && activeFields.length > 0
     && activeFields.every((f) => !fieldError(f.id)) && tournament.categories.some((c) => !excludedCategories.has(c));
-  const body = (commit: boolean): AutoScheduleRequest => ({
-    tournament: tournament.id, start_date: startDate, commit,
+  const body = (): AutoScheduleRequest => ({
+    tournament: tournament.id, start_date: startDate, commit: true,
     fields: activeFields.map((f) => {
       const { start, end, days } = configOf(f.id);
       return { id: f.id, start: normalizeTime(start)!, end: normalizeTime(end)!, days };
@@ -122,23 +123,20 @@ function Planner({ tournament, onCreated, onError }: { tournament: Tournament; o
     categories: tournament.categories.filter((c) => !excludedCategories.has(c)),
     same_capacity: sameCapacity,
   });
-  // Cualquier cambio en la configuración invalida la vista previa.
-  const change = <T,>(setter: (v: T) => void) => (v: T) => { setter(v); setPlan(null); setError(""); };
+  const change = <T,>(setter: (v: T) => void) => (v: T) => { setter(v); setError(""); };
   const toggle = (set: Set<number>, id: number) => { const next = new Set(set); if (next.has(id)) next.delete(id); else next.add(id); return next; };
 
-  const run = async (commit: boolean) => {
-    setBusy(commit ? "create" : "preview");
+  const run = async () => {
+    setBusy(true);
     setError("");
     try {
-      const result = await matchdays.autoSchedule(body(commit));
-      if (commit) await onCreated(result);
-      else setPlan(result);
+      await onCreated(await matchdays.autoSchedule(body()));
     } catch (e) {
       const message = errorMessage(e);
       setError(message);
-      if (commit) onError(message);
+      onError(message);
     } finally {
-      setBusy(null);
+      setBusy(false);
     }
   };
 
@@ -207,60 +205,10 @@ function Planner({ tournament, onCreated, onError }: { tournament: Tournament; o
 
       {error && <Alert tone="danger">{error}</Alert>}
 
-      {plan && (
-        <Section title="Plan propuesto">
-          <div className="mb-3 flex flex-wrap items-center gap-2 text-sm">
-            <Badge tone="navy">{plan.days.length} jornada(s)</Badge>
-            <Badge tone={plan.unscheduled ? "amber" : "emerald"}>{plan.scheduled} de {plan.total} partido(s)</Badge>
-            {plan.days.length > 0 && <span className="text-slate-500">del {formatDate(plan.days[0].date)} al {formatDate(plan.days[plan.days.length - 1].date)}</span>}
-          </div>
-          {plan.warnings.map((w) => <div key={w} className="mb-2"><Alert tone="warning">{w}</Alert></div>)}
-          {!plan.days.length ? <p className="text-sm text-slate-500">No hay partidos sin jornada para ubicar con esta configuración.</p> : (
-            <ul className="max-h-[38vh] divide-y divide-slate-100 overflow-y-auto rounded-xl border border-slate-200 dark:divide-white/5 dark:border-white/10">
-              {plan.days.map((d) => (
-                <li key={d.number}>
-                  <button type="button" onClick={() => setOpen(open === d.number ? null : d.number)} aria-expanded={open === d.number}
-                    className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition hover:bg-slate-50 dark:hover:bg-white/[.03]">
-                    <ChevronDown className={cn("h-4 w-4 shrink-0 text-slate-400 transition-transform", open !== d.number && "-rotate-90")} />
-                    <b className="w-24">Jornada {d.number}</b>
-                    <span className="flex-1 capitalize text-slate-600 dark:text-slate-300">{d.weekday} {formatDate(d.date)} · {d.start}–{d.end}</span>
-                    <Badge tone="gold">{d.matches.length} partido(s)</Badge>
-                  </button>
-                  {open === d.number && d.fields.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 px-4 pb-2 text-xs">
-                      {d.fields.map((f) => <Badge key={f.field} tone="slate">{f.field}: {f.at_once === 1 ? "cancha completa" : `${f.at_once} a la vez`}</Badge>)}
-                    </div>
-                  )}
-                  {open === d.number && (
-                    <table className="table mb-2">
-                      <thead><tr><th>Hora</th><th>Cancha</th><th>Partido</th><th>Categoría</th><th>Fase</th></tr></thead>
-                      <tbody>
-                        {d.matches.map((m) => (
-                          <tr key={m.id}>
-                            <td className="whitespace-nowrap text-sm">{formatTime(m.start)}–{formatTime(m.end)}</td>
-                            <td className="text-sm">{m.field}{m.sub_field ? ` · mini ${m.sub_field}` : ""}</td>
-                            <td className="text-sm font-semibold">{m.home} <span className="font-normal text-slate-400">vs</span> {m.away}</td>
-                            <td><Badge tone="gold">{m.category}</Badge></td>
-                            <td className="text-sm">{m.phase}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-        </Section>
-      )}
-
       <div className="sticky bottom-0 -mx-6 -mb-6 flex flex-wrap items-center justify-end gap-2 border-t border-slate-100 bg-white px-6 py-4 dark:border-white/5 dark:bg-ink-800">
         <p className="mr-auto text-xs text-slate-500">Las jornadas se crean en borrador: después puede ajustar horas o canchas y enviarlas.</p>
-        <button className="btn-outline" disabled={!ready || busy !== null} onClick={() => run(false)}>
-          {busy === "preview" ? <Spinner className="h-4 w-4" /> : <CalendarRange className="h-4 w-4" />} {plan ? "Recalcular plan" : "Ver plan"}
-        </button>
-        <button className="btn-gold" disabled={!plan || !plan.days.length || busy !== null} onClick={() => run(true)}>
-          {busy === "create" ? <Spinner className="h-4 w-4" /> : <Wand2 className="h-4 w-4" />} Crear {plan?.days.length ?? ""} jornada(s)
+        <button className="btn-gold" disabled={!ready || busy} onClick={run}>
+          {busy ? <Spinner className="h-4 w-4" /> : <Wand2 className="h-4 w-4" />} Generar jornadas
         </button>
       </div>
     </div>

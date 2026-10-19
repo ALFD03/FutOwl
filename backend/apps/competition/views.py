@@ -18,7 +18,7 @@ from apps.tournaments.models import Tournament
 
 from . import serializers as s
 from .models import Match, Matchday, MatchNote, MatchReport, ReviewCase, Stage
-from .services import auto_schedule, bracket, confirmations, fixtures, lineups, live, reports, reviews, scheduling, standings
+from .services import auto_schedule, bracket, confirmations, fixtures, lineups, live, officials, reports, reviews, scheduling, standings
 from .services.parties import confirmation_summary, parties_for_user
 
 PROTECTED = [ModelActionPermission]
@@ -106,6 +106,26 @@ class MatchdayViewSet(viewsets.ModelViewSet):
     def submit(self, request, pk=None):
         matchday = scheduling.submit_matchday(self.get_object(), request.user)
         return Response(self.get_serializer(matchday).data)
+
+    @action(detail=True, methods=["post"], url_path="auto-assign-officials")
+    @require_perms("competition.change_match", "competition.assign_delegate", "competition.assign_referees", any_of=True)
+    def auto_assign_officials(self, request, pk=None):
+        """
+        Asigna automáticamente delegados y/o árbitros a las posiciones vacías de la jornada enviada (`roles`:
+        "delegate" y/o "referees"; por defecto todo lo que el usuario puede asignar). Ver services.officials.
+        """
+        user = request.user
+        allowed = {key for key, perm in (("delegate", "competition.assign_delegate"), ("referees", "competition.assign_referees"))
+                   if user.has_perm("competition.change_match") or user.has_perm(perm)}
+        wanted = request.data.get("roles") or sorted(allowed)
+        if not isinstance(wanted, list) or not set(wanted) <= set(officials.ROLES):
+            raise ValidationError({"roles": "Indique «delegate» y/o «referees»."})
+        if set(wanted) - allowed:
+            raise PermissionDenied("Solo puede asignar automáticamente a los oficiales de su tipo.")
+        try:
+            return Response(officials.auto_assign_officials(self.get_object(), [r for r in officials.ROLES if r in wanted], user))
+        except DjangoValidationError as exc:
+            raise ValidationError(exc.message_dict if hasattr(exc, "error_dict") else {"detail": exc.messages})
 
     @action(detail=True, methods=["post"])
     @require_perms("competition.close_matchday")
