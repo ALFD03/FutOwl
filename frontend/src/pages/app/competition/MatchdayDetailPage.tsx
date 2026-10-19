@@ -177,7 +177,7 @@ export function MatchdayDetailPage() {
       <ConfirmDialog open={confirm === "assign"} onClose={() => setConfirm(null)} onConfirm={autoAssign} title="Asignación automática"
         message={<>Se llenan las posiciones vacías ({autoRoles.map((r) => r === "delegate" ? "delegados" : "árbitros").join(" y ")}); lo ya asignado no cambia.
           <ul className="mt-2 list-disc space-y-1 pl-5">
-            <li>Cada oficial trabaja en <b>una sola cancha</b> el día y nunca en dos partidos a la vez (también se cuentan sus partidos de otros torneos ese día).</li>
+            <li>Cada oficial trabaja en <b>una sola cancha</b> el día y nunca en dos partidos a la vez, con 20 minutos de preparación entre uno y otro (también se cuentan sus partidos de otros torneos ese día).</li>
             <li>El reparto es <b>parejo</b>: todos reciben una cantidad parecida de partidos; lo ideal es hasta 4 por persona y, si la jornada pide más, la carga sube para todos por igual.</li>
             <li>A igual carga, va primero quien lleva menos partidos en el torneo.</li>
           </ul>

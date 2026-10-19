@@ -9,17 +9,20 @@ semanas del torneo (bloques de 7 días desde la apertura). Cada cancha dice qué
   fecha pendiente). Lo que no cupo de una fecha pasa primero a la semana siguiente.
 - Un equipo juega como máximo un partido por semana (también cuentan sus partidos ya programados esa semana).
 - Los partidos de la semana se reparten de forma pareja entre sus días de juego, según el tiempo de cancha de
-  cada día; lo que no entra en su día se prueba en los otros días de esa semana.
+  cada día, usando solo los días necesarios para que cada cancha abierta tenga al menos ROUNDS_PER_FIELD turnos
+  (con pocos partidos, un solo día); lo que no entra en su día se prueba en los otros días de esa semana.
 - Orden del fixture: fase regular por fecha (1, 2, …), luego la eliminación directa por ronda e ida/vuelta.
 - Cada cancha tiene su horario (por defecto de 9:00 a 18:00) y encadena sus partidos desde la hora de inicio
-  (duración según las reglas de la categoría). Si es divisible, juegan varios a la vez según las medidas de
+  (duración según las reglas de la categoría), con 20 minutos de preparación entre uno y otro (PREP_GAP).
+- Jornada completa para los oficiales: cada cancha abierta en el día hace al menos ROUNDS_PER_FIELD (4) turnos
+  seguidos. Se arma con los partidos a la vez que hacen falta para eso (una cancha de 4 a la vez recibe 16
+  partidos), aunque le quepan más; si no alcanzan las canchas, hacen más turnos. Si es divisible, juegan varios a la vez según las medidas de
   juego de cada categoría: cada partido ocupa 1/capacidad de la cancha (8 de una Sub 6 o 2 de una Sub 12) y se
   pueden mezclar categorías mientras la suma no pase de la cancha completa. Un partido entra si termina a más
   tardar 30 minutos después de la hora límite de la cancha.
-- Misma capacidad toda la jornada (`same_capacity`, activo por defecto): una cancha divisible se arma una sola vez
-  por día. El primer partido que se ubica en ella fija cuántos se juegan a la vez (p. ej. 4) y ese día solo recibe
-  partidos de categorías con esa misma capacidad en la cancha; las demás van a otra cancha u otra jornada.
-  Se respetan los partidos que ya ocupan esa cancha ese día (de cualquier torneo).
+- Misma capacidad toda la jornada (`same_capacity`, activo por defecto): cada cancha se arma una sola vez por día
+  para un tamaño de partido (categorías con las mismas medidas de juego) y una cantidad de partidos a la vez.
+  Una cancha ya usada ese día por otro torneo solo recibe partidos de su mismo tamaño.
 - La eliminación directa de una categoría empieza en una semana posterior al último partido de su fase
   regular (y cada ronda después de la anterior); la vuelta, en una semana posterior a la ida.
 
@@ -42,13 +45,14 @@ from apps.registry.models import Field
 from apps.tournaments.models import Tournament
 
 from ..models import KNOCKOUT_STAGES, Leg, Match, Matchday, Stage
-from .scheduling import ACTIVE_STATUSES, free_sub_field, peak_load
+from .scheduling import ACTIVE_STATUSES, PREP_GAP, free_sub_field, peak_load
 
 OFFICIAL = dt_timezone(timedelta(hours=-4))  # hora oficial de Venezuela (UTC-4)
 STAGE_RANK = {Stage.REGULAR: 0, **{stage: i + 1 for i, (stage, _) in enumerate(KNOCKOUT_STAGES)}}
 MAX_WEEKS = 60  # tope de semanas recorridas (evita bucles con configuraciones imposibles)
 GRACE = timedelta(minutes=30)  # el último partido puede terminar hasta 30' después de la hora límite
 DEFAULT_START, DEFAULT_END = time(9, 0), time(18, 0)
+ROUNDS_PER_FIELD = 4  # turnos mínimos por cancha abierta en el día (jornada completa para sus oficiales)
 WEEKDAYS = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
 
 
@@ -63,28 +67,31 @@ class Slot:
 
 @dataclass
 class FieldDay:
-    """Ocupación de una cancha en un día: (inicio, fin, fracción de la cancha, capacidad, mini cancha)."""
+    """
+    Ocupación de una cancha en un día: (inicio, fin + preparación, fracción de la cancha, capacidad, mini cancha).
+    Cada partido ocupa su espacio hasta 20' después de terminar, para preparar el siguiente.
+    """
     field: Field
     opens: datetime
     deadline: datetime
     busy: list[tuple[datetime, datetime, Fraction, int, int | None]] = dc_field(default_factory=list)
     version: int = 0
-    mode: int | None = None  # partidos a la vez con que quedó armada la cancha ese día
+    mode: int | None = None  # capacidad (tamaño de partido) para la que quedó armada la cancha ese día
+    limit: int | None = None  # partidos a la vez que se juegan en ella (≤ capacidad), para dar turnos completos
+    group: tuple | None = None  # tamaño de partido (firma de capacidades) al que se asignó la cancha
 
-    def accepts(self, capacity: int, same_capacity: bool) -> bool:
-        return not same_capacity or self.mode is None or self.mode == capacity
-
-    def copy(self) -> "FieldDay":
-        return FieldDay(self.field, self.opens, self.deadline, list(self.busy), 0, self.mode)
+    def at_once(self, capacity: int) -> int:
+        return min(capacity, self.limit) if self.limit else capacity
 
     def earliest(self, duration: timedelta, capacity: int) -> tuple[datetime, int | None] | None:
         """Primera hora (y mini cancha) en que entra un partido de esa duración y capacidad, o None."""
+        capacity = self.at_once(capacity)
         share = Fraction(1, capacity)
         candidates = sorted({self.opens} | {e for _, e, _, _, _ in self.busy if e > self.opens})
         for start in candidates:
-            end = start + duration
-            if end > self.deadline:
+            if start + duration > self.deadline:
                 return None
+            end = start + duration + PREP_GAP
             overlapping = [b for b in self.busy if b[0] < end and b[1] > start]
             if peak_load([b[:3] for b in overlapping], start, end) + share > 1:
                 continue
@@ -186,47 +193,12 @@ def _fields_for_day(fields: list[FieldPlan], day: date) -> dict[int, FieldDay]:
     for match in busy:
         fd = days[match.field_id]
         capacity = fd.field.capacity_for(match.rules)
-        fd.busy.append((match.scheduled_start, match.scheduled_end, Fraction(1, capacity), capacity, match.sub_field))
+        fd.busy.append((match.scheduled_start, match.scheduled_end + PREP_GAP, Fraction(1, capacity), capacity,
+                        match.sub_field))
     for fd in days.values():  # la cancha ya armada ese día (por otro torneo) conserva su capacidad
         if fd.busy:
             fd.mode = Counter(b[3] for b in fd.busy).most_common(1)[0][0]
     return days
-
-
-def _assign_modes(field_days: dict[int, FieldDay], demand: list[Slot]) -> None:
-    """
-    Arma cada cancha libre del día para una sola cantidad de partidos a la vez, repartiendo las canchas según lo
-    que pide el día (`demand`: el día ubicado sin esta regla). Cada cancha va a la capacidad con más tiempo de
-    cancha pendiente, como se reparte la carga entre máquinas; así una Sub 6 (8 a la vez) y una Sub 16 (cancha
-    completa) tienen cada una sus canchas en lugar de quedarse con todas la primera categoría del fixture.
-    Las canchas que sobran quedan libres: las arma el primer partido que se ubique en ellas.
-    """
-    left = [(s.match.tournament.rules_for(s.match.category), s.end - s.start) for s in demand]
-    free = sorted((fd for fd in field_days.values() if fd.mode is None), key=lambda fd: fd.field.name)
-    served: set[int] = set()  # capacidades que ya tienen cancha
-    while free and left:
-        best = None
-        for fd in free:
-            need: dict[int, timedelta] = {}
-            for rules, duration in left:
-                capacity = fd.field.capacity_for(rules)
-                need[capacity] = need.get(capacity, timedelta()) + duration / capacity
-            # Primero una cancha para cada capacidad que pide el día; después, a la que más tiempo pide.
-            capacity, total = max(need.items(), key=lambda item: (item[0] not in served, item[1]))
-            score = (capacity not in served, total)
-            if best is None or score > best[0]:
-                best = (score, fd, capacity)
-        _, fd, capacity = best
-        served.add(capacity)
-        fd.mode = capacity
-        free.remove(fd)
-        window, rest = fd.deadline - fd.opens, []
-        for rules, duration in left:  # lo que cubre esta cancha deja de pedir cancha
-            if fd.field.capacity_for(rules) == capacity and duration / capacity <= window:
-                window -= duration / capacity
-            else:
-                rest.append((rules, duration))
-        left = rest
 
 
 def _split(total: int, weight: dict) -> dict:
@@ -293,18 +265,24 @@ def plan_matchdays(tournament: Tournament, *, start_date: date, days=None, field
                 return False
         return True
 
-    def place(matches: list[Match], field_days: dict[int, FieldDay], lock_modes: bool) -> list[Slot]:
-        """Ubica en el día los partidos que se puedan, cada uno a la hora más temprana en que entra."""
+    def place(matches: list[Match], field_days: dict[int, FieldDay], concentrate: bool = True) -> list[Slot]:
+        """
+        Ubica los partidos que se puedan, cada uno a la hora más temprana en que entra. Con `concentrate` (canchas
+        mezcladas) abre solo las canchas que hacen falta para que cada una tenga al menos ROUNDS_PER_FIELD turnos y,
+        si en ellas ya no cabe, abre otra.
+        """
         earliest: dict[tuple, tuple] = {}  # (cancha, duración, capacidad) → (versión, resultado)
         slots: list[Slot] = []
+        rounds = sum(Fraction(1, max(fd.field.capacity_for(m.tournament.rules_for(m.category))
+                                     for fd in field_days.values())) for m in matches) if field_days else 0
+        wanted = max(1, int(rounds // ROUNDS_PER_FIELD)) if concentrate else len(field_days)
+        opened = {fid for fid, fd in field_days.items() if fd.busy}
         for m in matches:
             duration, rules = _duration(m), m.tournament.rules_for(m.category)
             # Hora más temprana en cada cancha en que entra y termina a tiempo (hasta 30' tras la hora límite).
             options = []
             for fd in field_days.values():
                 capacity = fd.field.capacity_for(rules)
-                if not fd.accepts(capacity, lock_modes):
-                    continue  # la cancha ya está armada ese día para otra cantidad de partidos a la vez
                 cache_key = (fd.field.id, duration, capacity)
                 if cache_key not in earliest or earliest[cache_key][0] != fd.version:
                     earliest[cache_key] = (fd.version, fd.earliest(duration, capacity))
@@ -312,13 +290,89 @@ def plan_matchdays(tournament: Tournament, *, start_date: date, days=None, field
                     options.append((found[0], fd.field.name, fd, found[1], capacity))
             if not options:
                 continue  # no cabe ese día; uno más corto o más pequeño (otra categoría) quizá sí
-            start, _, fd, sub, capacity = min(options, key=lambda o: (o[0], o[1]))
+            in_use = [o for o in options if o[2].field.id in opened]
+            new = [o for o in options if o[2].field.id not in opened]
+            choice = min(in_use if in_use and (len(opened) >= wanted or not new) else new, key=lambda o: (o[0], o[1]))
+            start, _, fd, sub, capacity = choice
+            opened.add(fd.field.id)
             end = start + duration
-            fd.busy.append((start, end, Fraction(1, capacity), capacity, sub))
+            at_once = fd.at_once(capacity)
+            fd.busy.append((start, end + PREP_GAP, Fraction(1, at_once), at_once, sub))
             fd.version += 1
             fd.mode = fd.mode or capacity
             slots.append(Slot(m, fd.field, sub, start, end))
         return slots
+
+    index = {fp.field.id: i for i, fp in enumerate(fields)}
+
+    def size(m: Match) -> tuple:
+        """Tamaño de partido: cuántos entran a la vez en cada cancha (comparten cancha los del mismo tamaño)."""
+        rules = m.tournament.rules_for(m.category)
+        return tuple(fp.field.capacity_for(rules) for fp in fields)
+
+    def fill_day(matches: list[Match], field_days: dict[int, FieldDay]) -> list[Slot]:
+        """
+        Misma capacidad toda la jornada: cada tamaño de partido recibe sus canchas, armadas con los partidos a la
+        vez justos para que cada una haga al menos ROUNDS_PER_FIELD turnos (16 partidos → 4 a la vez). Se deja al
+        menos una cancha para cada tamaño; si no alcanzan, las canchas hacen más turnos y lo que no cabe queda
+        para otro día.
+        """
+        groups: dict[tuple, list[Match]] = {}
+        for m in matches:
+            groups.setdefault(size(m), []).append(m)
+        # Primero los menos flexibles (cancha completa) y, entre iguales, los que más partidos tienen.
+        order = sorted(groups.items(), key=lambda g: (min(g[0]), -len(g[1])))
+        sizes = [sig for sig, _ in order]
+
+        def versatility(fd: FieldDay) -> int:  # cuánto le sirve la cancha a los tamaños pequeños del día
+            return max(sig[index[fd.field.id]] for sig in sizes)
+
+        def assign(sig: tuple, count: int, spare: int) -> list[FieldDay]:
+            """Arma canchas libres para `count` partidos de ese tamaño; devuelve todas las del tamaño."""
+            own = [fd for fd in field_days.values() if fd.group == sig]
+            target = max(1, count // ROUNDS_PER_FIELD)  # partidos a la vez para ≥ ROUNDS_PER_FIELD turnos
+            have = sum(fd.limit for fd in own)
+            cap = lambda fd: sig[index[fd.field.id]]
+            while have < target and spare > 0:
+                # Libres, o usadas ese día por otro torneo con partidos de este mismo tamaño.
+                free = [fd for fd in field_days.values() if fd.group is None and fd.mode in (None, cap(fd))]
+                if not free:
+                    break
+                need = target - have
+                # La cancha más chica que alcanza para lo que falta; si ninguna, la más grande. A igualdad, la que
+                # menos sirve a los tamaños pequeños del día.
+                fd = min(free, key=lambda fd: (cap(fd) < need, cap(fd) if cap(fd) >= need else -cap(fd),
+                                               versatility(fd), fd.field.name))
+                fd.mode, fd.limit, fd.group = cap(fd), min(cap(fd), need), sig
+                own.append(fd)
+                have += fd.limit
+                spare -= 1
+            return own
+
+        slots: list[Slot] = []
+        left: list[tuple[tuple, list[Match]]] = []
+        for i, (sig, group) in enumerate(order):
+            free = sum(1 for fd in field_days.values() if fd.mode is None)
+            own = assign(sig, len(group), max(1, free - (len(order) - i - 1)))
+            got = place(group, {fd.field.id: fd for fd in own}, concentrate=False)
+            slots += got
+            done = {s.match.pk for s in got}
+            if rest := [m for m in group if m.pk not in done]:
+                left.append((sig, rest))
+        for sig, rest in left:  # lo que no entró: canchas libres que quedaron, con el mismo criterio
+            while rest and any(fd.mode is None for fd in field_days.values()):
+                before = [fd for fd in field_days.values() if fd.group == sig]
+                own = assign(sig, len(rest) + sum(fd.limit for fd in before) * ROUNDS_PER_FIELD, 1)
+                got = place(rest, {fd.field.id: fd for fd in own if fd not in before}, concentrate=False)
+                if not got:
+                    break
+                slots += got
+                done = {s.match.pk for s in got}
+                rest = [m for m in rest if m.pk not in done]
+        return slots
+
+    def place_day(matches: list[Match], field_days: dict[int, FieldDay]) -> list[Slot]:
+        return fill_day(matches, field_days) if same_capacity else place(matches, field_days)
 
     def place_week(week: int, week_start: date, days: list[date]) -> list[tuple[date, list[Slot], dict]]:
         """
@@ -341,29 +395,37 @@ def plan_matchdays(tournament: Tournament, *, start_date: date, days=None, field
         if not chosen:
             return []
 
-        # Cupo de cada día según su tiempo de cancha; cada partido va al día con menos partidos respecto de su cupo.
+        # Cada categoría se reparte entre los días con menos carga (respecto de su tiempo de cancha), en partes de al
+        # menos ROUNDS_PER_FIELD partidos: así cada cancha que la recibe hace una jornada completa.
         field_days = {d: _fields_for_day(fields, d) for d in days}
-        weight = {d: sum((fd.deadline - fd.opens).total_seconds() for fd in field_days[d].values()) for d in days}
-        quota = _split(len(chosen), weight)
-        buckets: dict[date, list[Match]] = {d: [] for d in days}
+        weight = {d: sum((fd.deadline - fd.opens).total_seconds() for fd in field_days[d].values()) or 1 for d in days}
+        by_category: dict[int, list[Match]] = {}
         for m in chosen:
-            day = min((d for d in days if len(buckets[d]) < quota[d]), key=lambda d: (len(buckets[d]) / quota[d], d))
-            buckets[day].append(m)
+            by_category.setdefault(m.category_id, []).append(m)
+        load = {d: 0 for d in days}
+        buckets: dict[date, list[Match]] = {d: [] for d in days}
+        for group in sorted(by_category.values(), key=len, reverse=True):
+            parts = min(len(days), max(1, len(group) // ROUNDS_PER_FIELD))
+            targets = sorted(days, key=lambda d: (load[d] / weight[d], d))[:parts]
+            share = _split(len(group), {d: weight[d] for d in targets})
+            rest = iter(group)
+            for day in sorted(targets):
+                buckets[day] += [next(rest) for _ in range(share[day])]
+                load[day] += share[day]
 
         placed: dict[date, list[Slot]] = {}
         left: list[Match] = []
         for day in days:
-            if same_capacity:
-                _assign_modes(field_days[day], place(buckets[day], {k: fd.copy() for k, fd in field_days[day].items()},
-                                                     lock_modes=False))
-            placed[day] = place(buckets[day], field_days[day], lock_modes=same_capacity)
+            placed[day] = place_day(buckets[day], field_days[day])
             done = {s.match.pk for s in placed[day]}
             left += [m for m in buckets[day] if m.pk not in done]
-        for m in sorted(left, key=chosen.index):  # lo que no entró en su día: a otro día de la semana
-            for day in sorted(days, key=lambda d: (len(placed[d]), d)):
-                if slots := place([m], field_days[day], lock_modes=same_capacity):
-                    placed[day] += slots
-                    break
+        for day in sorted(days, key=lambda d: (len(placed[d]) / weight[d], d)):  # lo que no entró: otro día
+            if not left:
+                break
+            if slots := place_day(left, field_days[day]):
+                placed[day] += slots
+                done = {s.match.pk for s in slots}
+                left = [m for m in left if m.pk not in done]
 
         result = []
         for day in days:
@@ -377,7 +439,7 @@ def plan_matchdays(tournament: Tournament, *, start_date: date, days=None, field
                     first_leg_week[(m.category_id, m.stage, m.bracket_position)] = week
             if placed[day]:
                 used = {s.field.id for s in placed[day]}
-                result.append((day, placed[day], {fd.field.name: fd.mode for fd in field_days[day].values()
+                result.append((day, placed[day], {fd.field.name: fd.at_once(fd.mode) for fd in field_days[day].values()
                                                   if fd.field.id in used}))
         return result
 

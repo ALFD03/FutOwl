@@ -44,12 +44,12 @@ class AutoAssignOfficialsTests(TestCase):
     def at(self, hour, minute=0):
         return timezone.make_aware(datetime.combine(self.day, time(hour, minute)))
 
-    def matches(self, per_field: int, minutes=70):
-        """`per_field` partidos seguidos en cada cancha, a las mismas horas en ambas."""
+    def matches(self, per_field: int, minutes=70, gap=20):
+        """`per_field` partidos seguidos en cada cancha (con `gap` minutos entre uno y otro), a las mismas horas en ambas."""
         created = []
         for field in self.fields:
             for i in range(per_field):
-                start = self.at(8) + timedelta(minutes=minutes * i)
+                start = self.at(8) + timedelta(minutes=(minutes + gap) * i)
                 created.append(Match.objects.create(
                     tournament=self.tournament, category=self.cat, home=self.home, away=self.away,
                     matchday=self.matchday, field=field, scheduled_start=start,
@@ -69,7 +69,7 @@ class AutoAssignOfficialsTests(TestCase):
                                                      body, format="json")
 
     def assert_humanly_possible(self):
-        """Cada oficial: una sola cancha en el día y nunca dos partidos (ni dos posiciones) a la vez."""
+        """Cada oficial: una sola cancha en el día, nunca dos partidos a la vez y 20' entre uno y otro."""
         rows = Match.objects.filter(matchday=self.matchday)
         for model, positions in ((Delegate, ["delegate"]), (Referee, REFEREE_FIELDS)):
             schedule = defaultdict(list)
@@ -82,7 +82,8 @@ class AutoAssignOfficialsTests(TestCase):
                 self.assertEqual(len({m.field_id for m in items}), 1, f"{model.__name__} {official_id} en dos canchas")
                 items.sort(key=lambda m: m.scheduled_start)
                 for a, b in zip(items, items[1:]):
-                    self.assertLessEqual(a.scheduled_end, b.scheduled_start, f"{model.__name__} {official_id} a la vez")
+                    self.assertLessEqual(a.scheduled_end + timedelta(minutes=20), b.scheduled_start,
+                                         f"{model.__name__} {official_id} sin preparación")
 
     def loads(self, positions):
         counts = Counter()
@@ -147,6 +148,14 @@ class AutoAssignOfficialsTests(TestCase):
         res = self.run_auto(roles=["delegate"])
         self.assertEqual(res.data["missing"], {"delegate": 4})  # ya trabaja ese día en otra cancha
         self.assertFalse(Match.objects.filter(matchday=self.matchday, delegate=busy).exists())
+
+    def test_officials_need_twenty_minutes_between_matches(self):
+        self.matches(4, gap=0)  # partidos pegados: un mismo delegado no puede hacer dos seguidos
+        self.officials("Delegate", 4)
+        res = self.run_auto(roles=["delegate"])
+        self.assertEqual(res.data["missing"], {"delegate": 0})
+        self.assert_humanly_possible()
+        self.assertEqual(set(self.loads(["delegate"]).values()), {2})  # alternan: 1.º y 3.º, 2.º y 4.º
 
     def test_notifies_each_official_once(self):
         self.matches(2)

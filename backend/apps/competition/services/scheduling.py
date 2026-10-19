@@ -24,13 +24,17 @@ OFFICIAL_FIELDS = {
 }
 REFEREE_FIELDS = ["referee", "assistant_referee_1", "assistant_referee_2"]
 
+# Preparación entre un partido y el siguiente en la misma cancha (o mini cancha) y para los mismos oficiales.
+PREP_GAP = timedelta(minutes=20)
 
-def _overlapping(match: Match):
+
+def _overlapping(match: Match, gap: timedelta = timedelta(0)):
+    """Partidos activos que se cruzan con este; con `gap`, también los que quedan a menos de `gap` antes o después."""
     return (
         Match.objects.filter(
             status__in=ACTIVE_STATUSES,
-            scheduled_start__lt=match.scheduled_end,
-            scheduled_end__gt=match.scheduled_start,
+            scheduled_start__lt=match.scheduled_end + gap,
+            scheduled_end__gt=match.scheduled_start - gap,
         )
         .exclude(pk=match.pk)
         .select_related("field")
@@ -60,24 +64,30 @@ def validate_schedule(match: Match) -> None:
     - Una cancha divisible admite a la vez tantos partidos como superficies de juego de la categoría caben en ella;
       partidos de distintas categorías comparten la cancha según lo que ocupa cada uno (1/2, 1/8…).
     - Un mismo delegado, árbitro o equipo no puede estar en dos partidos a la vez.
+    - Entre un partido y el siguiente quedan al menos PREP_GAP (20') de preparación en el mismo espacio de la
+      cancha y para los mismos oficiales.
     Asigna automáticamente la mini cancha libre si no se indicó.
     """
     if not (match.scheduled_start and match.scheduled_end):
         return
     overlapping = _overlapping(match)
+    with_gap = _overlapping(match, PREP_GAP)
     errors = {}
 
     if match.field_id:
         field = match.field
         capacity = field.capacity_for(match.rules)
-        same_field = list(overlapping.filter(field_id=match.field_id).select_related("tournament", "category")
+        same_field = list(with_gap.filter(field_id=match.field_id).select_related("tournament", "category")
                           .prefetch_related("tournament__category_rules"))
-        busy = [(m.scheduled_start, m.scheduled_end, Fraction(1, field.capacity_for(m.rules)), m) for m in same_field]
-        load = peak_load([b[:3] for b in busy], match.scheduled_start, match.scheduled_end)
+        # Cada partido ocupa su espacio hasta 20' después de terminar (preparación del siguiente).
+        busy = [(m.scheduled_start, m.scheduled_end + PREP_GAP, Fraction(1, field.capacity_for(m.rules)), m)
+                for m in same_field]
+        load = peak_load([b[:3] for b in busy], match.scheduled_start, match.scheduled_end + PREP_GAP)
         if load + Fraction(1, capacity) > 1:
             errors["field"] = (
                 f"La cancha {field} no tiene espacio en ese horario: ya tiene {len(same_field)} partido(s) "
-                f"y uno de {match.category} ocupa {share_label(capacity)} ({capacity} a la vez)."
+                f"y uno de {match.category} ocupa {share_label(capacity)} ({capacity} a la vez). "
+                f"Recuerde dejar {PREP_GAP.seconds // 60} minutos de preparación entre partidos."
             )
         elif capacity == 1:
             match.sub_field = None
@@ -93,15 +103,16 @@ def validate_schedule(match: Match) -> None:
                 if match.sub_field is None:
                     errors["field"] = f"No queda una mini cancha libre en {field} en ese horario."
 
-    if match.delegate_id and overlapping.filter(delegate_id=match.delegate_id).exists():
-        errors["delegate"] = "El delegado ya tiene otro partido asignado en ese horario."
+    gap = f"{PREP_GAP.seconds // 60} minutos"
+    if match.delegate_id and with_gap.filter(delegate_id=match.delegate_id).exists():
+        errors["delegate"] = f"El delegado ya tiene otro partido en ese horario (o a menos de {gap} de este)."
 
     for field in REFEREE_FIELDS:
         ref_id = getattr(match, f"{field}_id")
-        if ref_id and overlapping.filter(
+        if ref_id and with_gap.filter(
             Q(referee_id=ref_id) | Q(assistant_referee_1_id=ref_id) | Q(assistant_referee_2_id=ref_id)
         ).exists():
-            errors[field] = "El árbitro ya tiene otro partido asignado en ese horario."
+            errors[field] = f"El árbitro ya tiene otro partido en ese horario (o a menos de {gap} de este)."
 
     teams = [t for t in (match.home_id, match.away_id) if t]
     if overlapping.filter(Q(home_id__in=teams) | Q(away_id__in=teams)).exists():

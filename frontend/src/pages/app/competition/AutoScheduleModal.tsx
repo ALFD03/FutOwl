@@ -162,11 +162,11 @@ function Planner({ tournament, onCreated, onError }: { tournament: Tournament; o
       </div>
 
       <Section title="Días y horario de cada cancha">
-        <p className="help mb-3">Cada cancha dice qué <b>días de la semana</b> se puede jugar en ella (por defecto todos) y encadena sus partidos desde su hora de inicio, con la duración de cada categoría (varios a la vez si es divisible, según las medidas de juego de la categoría). El último partido puede terminar hasta <b>30 minutos después</b> de la hora límite.</p>
+        <p className="help mb-3">Cada cancha dice qué <b>días de la semana</b> se puede jugar en ella (por defecto todos) y encadena sus partidos desde su hora de inicio, con la duración de cada categoría y <b>20 minutos de preparación</b> entre uno y otro (varios a la vez si es divisible, según las medidas de juego de la categoría). Cada cancha que se usa hace <b>al menos 4 turnos seguidos</b> para dar una jornada completa a sus oficiales. El último partido puede terminar hasta <b>30 minutos después</b> de la hora límite.</p>
         <label className="mb-3 flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 px-3 py-2.5 dark:border-white/10">
           <input type="checkbox" className="mt-0.5 h-4 w-4 accent-navy-700" checked={sameCapacity} onChange={(e) => change(setSameCapacity)(e.target.checked)} />
           <span className="text-sm"><b>Misma capacidad toda la jornada en cada cancha</b>
-            <span className="block text-xs text-slate-500">Una cancha divisible se arma una sola vez por día: si arranca con 4 partidos a la vez, todo el día juega 4 a la vez (solo categorías de ese tamaño). Las canchas se reparten entre las categorías según lo que pide cada jornada.</span></span>
+            <span className="block text-xs text-slate-500">Cada cancha se arma una sola vez por día para un tamaño de partido y una cantidad a la vez: la justa para hacer 4 turnos (16 partidos → 4 a la vez), aunque le quepan más.</span></span>
         </label>
         <div className="mb-3 flex flex-wrap items-end gap-2 rounded-lg bg-slate-50 px-3 py-2 dark:bg-white/[.03]">
           <span className="self-center text-sm font-semibold">Todas las canchas:</span>

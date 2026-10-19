@@ -47,14 +47,15 @@ class AutoScheduleTests(TestCase):
     def test_preview_covers_all_matches_without_saving(self):
         t = self.tournament(6)
         self.api.post("/api/matches/generate-fixture/", {"tournament": t.id, "category": self.cat.id}, format="json")
-        # Cancha de 9:00 a 10:00: con el margen de 30' el último puede terminar 10:30 → 2 partidos de 35' por día.
+        # Cancha de 9:00 a 10:00: con el margen de 30' el último puede terminar 10:30 → 2 partidos de 35' por día
+        # (con 20' de preparación entre uno y otro).
         res = self.run_schedule(t, fields=[{"id": self.field.id, "start": "09:00", "end": "10:00"}])
         self.assertEqual(res.status_code, 200, res.data)
         self.assertEqual((res.data["total"], res.data["scheduled"], res.data["unscheduled"]), (15, 15, 0))
         first = res.data["days"][0]
         self.assertEqual((first["date"], first["start"], len(first["matches"])), ("2026-11-07", "09:00", 2))
-        # Encadenados con la duración de la categoría: 09:00–09:35 y 09:35–10:10 (el de 10:10–10:45 ya no entra)
-        self.assertEqual([m["start"][11:16] for m in first["matches"]], ["09:00", "09:35"])
+        # Encadenados con la duración de la categoría y 20' de preparación: 09:00–09:35 y 09:55–10:30
+        self.assertEqual([m["start"][11:16] for m in first["matches"]], ["09:00", "09:55"])
         for day in res.data["days"]:
             self.assertEqual(date.fromisoformat(day["date"]).weekday(), SATURDAY)
             teams = Counter(team for m in day["matches"] for team in (m["home"], m["away"]))
@@ -102,7 +103,7 @@ class AutoScheduleTests(TestCase):
         t = self.tournament(2)
         self.api.post("/api/matches/generate-fixture/", {"tournament": t.id, "category": self.cat.id}, format="json")
         res = self.run_schedule(t)
-        self.assertEqual(res.data["days"][0]["matches"][0]["start"][11:16], "10:00")
+        self.assertEqual(res.data["days"][0]["matches"][0]["start"][11:16], "10:20")  # 10:00 + 20' de preparación
 
     def test_requires_days_and_valid_field_hours(self):
         t = self.tournament(4)
@@ -117,12 +118,12 @@ class AutoScheduleTests(TestCase):
         self.api.post("/api/matches/generate-fixture/", {"tournament": t.id, "category": self.cat.id}, format="json")
         res = self.run_schedule(t, fields=[{"id": self.field.id, "start": "17:00", "end": "18:00"}])
         first = res.data["days"][0]
-        # 17:00–17:35 y 17:35–18:10 (≤ 18:30); 18:10–18:45 se pasa del margen
-        self.assertEqual([(m["start"][11:16], m["end"][11:16]) for m in first["matches"]], [("17:00", "17:35"), ("17:35", "18:10")])
-        self.assertEqual((first["start"], first["end"]), ("17:00", "18:10"))
+        # 17:00–17:35 y, tras 20' de preparación, 17:55–18:30 (≤ 18:30); el siguiente se pasa del margen
+        self.assertEqual([(m["start"][11:16], m["end"][11:16]) for m in first["matches"]], [("17:00", "17:35"), ("17:55", "18:30")])
+        self.assertEqual((first["start"], first["end"]), ("17:00", "18:30"))
 
     def test_each_field_says_which_weekdays_it_can_be_used(self):
-        t = self.tournament(6)
+        t = self.tournament(16)  # 8 partidos por fecha: alcanza para sábado y domingo con 4 turnos cada día
         sunday_field = f.field("Cancha Domingo")
         t.fields.add(sunday_field)
         self.api.post("/api/matches/generate-fixture/", {"tournament": t.id, "category": self.cat.id}, format="json")
@@ -144,17 +145,16 @@ class AutoScheduleTests(TestCase):
         res = self.api.post("/api/matchdays/auto-schedule/", {"tournament": t.id, "start_date": OPENING.isoformat()},
                             format="json")
         self.assertEqual(res.status_code, 200, res.data)
-        # Una fecha (2 partidos) por semana, repartida en sus primeros días: sábado y domingo de cada semana.
-        self.assertEqual([d["date"] for d in res.data["days"]],
-                         ["2026-11-07", "2026-11-08", "2026-11-14", "2026-11-15", "2026-11-21", "2026-11-22"])
-        self.assertEqual([len(d["matches"]) for d in res.data["days"]], [1] * 6)
+        # Una fecha (2 partidos) por semana; tan pocos van juntos el primer día para dar una jornada a los oficiales.
+        self.assertEqual([d["date"] for d in res.data["days"]], ["2026-11-07", "2026-11-14", "2026-11-21"])
+        self.assertEqual([len(d["matches"]) for d in res.data["days"]], [2] * 3)
 
     def weekend(self, t, start="09:00", end="18:00"):
         return self.api.post("/api/matchdays/auto-schedule/", {"tournament": t.id, "start_date": OPENING.isoformat(), "fields": [
             {"id": self.field.id, "start": start, "end": end, "days": [SATURDAY, SATURDAY + 1]}]}, format="json")
 
     def test_one_round_per_week_spread_evenly_over_its_days(self):
-        t = self.tournament(8)
+        t = self.tournament(16)
         self.api.post("/api/matches/generate-fixture/", {"tournament": t.id, "category": self.cat.id}, format="json")
         res = self.weekend(t)
         self.assertEqual(res.data["unscheduled"], 0, res.data)
@@ -163,8 +163,32 @@ class AutoScheduleTests(TestCase):
             week = (date.fromisoformat(day["date"]) - OPENING).days // 7 + 1
             self.assertEqual(day["week"], week)
             self.assertEqual({round_of[m["id"]] for m in day["matches"]}, {week})  # fecha k en la semana k
-            self.assertEqual(len(day["matches"]), 2)  # 4 partidos por fecha: 2 el sábado y 2 el domingo
-        self.assertEqual(len(res.data["days"]), 14)  # 7 fechas × 2 días
+            self.assertEqual(len(day["matches"]), 4)  # 8 partidos por fecha: 4 el sábado y 4 el domingo
+        self.assertEqual(len(res.data["days"]), 30)  # 15 fechas × 2 días
+
+    def test_each_open_field_gets_at_least_four_rounds(self):
+        second = f.field("Cancha 2")
+        t = self.tournament(16)
+        t.fields.add(second)
+        self.api.post("/api/matches/generate-fixture/", {"tournament": t.id, "category": self.cat.id}, format="json")
+        res = self.run_schedule(t)  # sábados de 9:00 a 18:00: 8 partidos por fecha
+        first = res.data["days"][0]["matches"]
+        self.assertEqual(len(first), 8)
+        # 8 turnos → 2 canchas con 4 partidos seguidos cada una (no 8 canchas con uno), con 20' entre partidos.
+        by_field = {}
+        for m in first:
+            by_field.setdefault(m["field"], []).append((m["start"][11:16], m["end"][11:16]))
+        self.assertEqual(sorted(len(v) for v in by_field.values()), [4, 4])
+        self.assertEqual(sorted(by_field["Cancha 1"]),
+                         [("09:00", "09:35"), ("09:55", "10:30"), ("10:50", "11:25"), ("11:45", "12:20")])
+
+    def test_few_matches_use_a_single_field(self):
+        second = f.field("Cancha 2")
+        t = self.tournament(6)
+        t.fields.add(second)
+        self.api.post("/api/matches/generate-fixture/", {"tournament": t.id, "category": self.cat.id}, format="json")
+        first = self.run_schedule(t).data["days"][0]["matches"]
+        self.assertEqual({m["field"] for m in first}, {"Cancha 1"})  # 3 partidos: una sola cancha, seguidos
 
     def test_a_team_plays_once_a_week_and_leftovers_go_first_next_week(self):
         t = self.tournament(6)
@@ -278,7 +302,9 @@ class PlaySizeCapacityTests(TestCase):
             validate_schedule(self.match(t, self.sub6, time(9, 0)))
         with self.assertRaises(ValidationError):
             validate_schedule(self.match(t, self.sub12, time(9, 20)))
-        later = self.match(t, self.sub12, time(9, 35))  # cuando terminan los anteriores sí entra
+        with self.assertRaises(ValidationError):  # terminan 9:35, pero faltan los 20' de preparación
+            validate_schedule(self.match(t, self.sub12, time(9, 35)))
+        later = self.match(t, self.sub12, time(9, 55))  # tras la preparación sí entra
         validate_schedule(later)
 
     def test_auto_schedule_fits_eight_small_matches_at_once(self):
@@ -292,10 +318,13 @@ class PlaySizeCapacityTests(TestCase):
         res = api.post("/api/matchdays/auto-schedule/", {"tournament": t.id, "start_date": OPENING.isoformat(),
                                                          "days": [SATURDAY]}, format="json")
         self.assertEqual(res.status_code, 200, res.data)
-        first = res.data["days"][0]["matches"]
-        self.assertEqual(len(first), 8)  # 16 equipos → 8 partidos por fecha, todos a las 9:00
-        self.assertEqual({m["start"][11:16] for m in first}, {"09:00"})
-        self.assertEqual(sorted(m["sub_field"] for m in first), list(range(1, 9)))
+        day = res.data["days"][0]
+        first = day["matches"]
+        self.assertEqual(len(first), 8)  # 16 equipos → 8 partidos por fecha
+        # Caben 8 a la vez, pero se arma con 2 a la vez para que los oficiales hagan 4 turnos (20' entre turnos).
+        self.assertEqual(day["fields"], [{"field": "Grande", "at_once": 2}])
+        self.assertEqual(Counter(m["start"][11:16] for m in first), {"09:00": 2, "09:55": 2, "10:50": 2, "11:45": 2})
+        self.assertEqual({m["sub_field"] for m in first}, {1, 2})
 
     def test_each_field_keeps_the_same_capacity_all_day(self):
         second = f.field("Grande 2", divisible=True)
@@ -318,9 +347,10 @@ class PlaySizeCapacityTests(TestCase):
             by_field = {}
             for m in day["matches"]:
                 by_field.setdefault(m["field"], set()).add(m["category"])
-            self.assertTrue(all(len(c) == 1 for c in by_field.values()), by_field)  # 8 de Sub 6 o 2 de Sub 12
-            self.assertEqual({(x["field"], x["at_once"]) for x in day["fields"]},
-                             {(name, 8 if cats == {"Sub 6"} else 2) for name, cats in by_field.items()})
+            self.assertTrue(all(len(c) == 1 for c in by_field.values()), by_field)  # una categoría por cancha
+            # 4 partidos por categoría y fecha: caben 8 (Sub 6) o 2 (Sub 12) a la vez, pero se juega 1 a la vez
+            # para que cada cancha haga 4 turnos.
+            self.assertEqual({(x["field"], x["at_once"]) for x in day["fields"]}, {(name, 1) for name in by_field})
         first = plan()[0]
         self.assertEqual({m["category"] for m in first["matches"]}, {"Sub 6", "Sub 12"})  # una cancha para cada una
         # Sin la regla, el generador puede mezclar categorías en una misma cancha.

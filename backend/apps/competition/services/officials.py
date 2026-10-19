@@ -3,7 +3,7 @@ Asignación automática de delegados y árbitros a los partidos de una jornada e
 
 Reglas:
 - Cada oficial trabaja en una sola cancha por día y no puede estar en dos partidos a la vez (ni ocupar dos
-  posiciones del mismo partido).
+  posiciones del mismo partido); entre un partido y el siguiente tiene 20 minutos de preparación (PREP_GAP).
 - El reparto es equitativo: los oficiales se distribuyen entre las canchas según el trabajo de cada una, de modo
   que todos tengan una carga parecida. Lo ideal es no pasar de DAILY_TARGET partidos por persona; si la jornada
   pide más, la carga sube para todos por igual.
@@ -23,7 +23,7 @@ from apps.notifications.services import notify
 from apps.registry.models import Delegate, Referee
 
 from ..models import Match, Matchday
-from .scheduling import ACTIVE_STATUSES, REFEREE_FIELDS
+from .scheduling import ACTIVE_STATUSES, PREP_GAP, REFEREE_FIELDS
 
 DAILY_TARGET = 4
 
@@ -66,7 +66,8 @@ class Day:
         self.as_position[(official_id, position)] += 1
 
     def is_free(self, official_id: int, match: Match) -> bool:
-        return all(not (s < match.scheduled_end and e > match.scheduled_start) for s, e in self.busy[official_id])
+        return all(not (s < match.scheduled_end + PREP_GAP and e + PREP_GAP > match.scheduled_start)
+                   for s, e in self.busy[official_id])
 
 
 def _peak(intervals: list[tuple]) -> int:
