@@ -30,19 +30,21 @@ Mientras está en borrador, **Editar** (junto al título) cambia número, día o
 | Dato | Uso |
 |------|-----|
 | **Día de apertura** | Primer día desde el que se buscan días de juego (no antes del inicio del torneo; se detiene en su fecha de fin). |
-| **Días de cada cancha** | Días de la semana en que se puede jugar en cada cancha (botones *Lu … Do* de su fila). Por defecto, **todos los días**. Hay una jornada por cada día en que al menos una cancha se puede usar, y ese día solo se usan esas canchas. |
+| **Días de cada cancha** | Días de la semana en que se puede jugar en cada cancha (botones *Lu … Do* de su fila). Por defecto, **todos los días**. Cada día de la semana con partidos es una jornada, y ese día solo se usan esas canchas. |
 | **Horario de cada cancha** | Hora de **inicio** y **hora límite** de cada cancha. Por defecto todas van de **9:00 a 18:00**. Cambie una fila o use la fila *Todas las canchas* (días y horario) → **Aplicar a todas**. Desmarque una cancha para no usarla. |
 | Categorías | Por defecto, todas las del torneo; pulse una para excluirla. |
 
 Reglas del reparto:
 
-- Una **jornada por día de juego** (los días en que alguna cancha se puede usar); se saltan los días que ya tienen una jornada del torneo. Ejemplo: si la *Cancha 1* solo se usa sábado y domingo y las demás todos los días, de lunes a viernes se juega sin la Cancha 1.
-- Se respeta el orden del fixture: **Fecha 1, Fecha 2…** de todas las categorías y después la **eliminación directa** por ronda.
-- Un equipo juega **un solo partido por jornada**.
+- **Una fecha por semana**: las semanas del torneo se cuentan en bloques de 7 días desde el día de apertura. La **Fecha 1 se juega en la semana 1**, la Fecha 2 en la semana 2, y así sucesivamente, en todas las categorías (cada una desde su primera fecha pendiente). Después viene la **eliminación directa**, una ronda por semana.
+- **Un equipo juega un solo partido por semana**, contando también sus partidos ya programados esa semana.
+- Los partidos de la semana se **reparten de forma pareja entre sus días de juego**, en proporción al tiempo de cancha de cada día. Por ejemplo, si se juega sábado y domingo con el mismo horario, cada día lleva la mitad de la fecha. Lo que no entra en su día se prueba en los otros días de esa semana.
+- Si una fecha no cabe completa en su semana, lo que falta pasa **primero** a la semana siguiente. Los equipos de esos partidos juegan su siguiente fecha una semana después.
+- Cada día con partidos es una **jornada**. Se saltan los días que ya tienen una jornada del torneo. Ejemplo: si la *Cancha 1* solo se usa sábado y domingo y las demás todos los días, de lunes a viernes se juega sin la Cancha 1.
 - En cada cancha los partidos se **encadenan** desde la hora de inicio **de esa cancha** con la duración de su categoría (duración más descansos), varios a la vez si la cancha es **divisible** (según las medidas de juego de cada categoría: 8 de Sub 6 o 2 de Sub 12 en una cancha de 100 × 64 m, y se pueden mezclar categorías mientras quepan), y respetando lo que ya ocupa esa cancha ese día.
 - El último partido de una cancha puede terminar como máximo **30 minutos después de su hora límite** (con límite 18:00, el último partido termina a más tardar a las 18:30). La columna *Último partido hasta* lo muestra.
 - **Misma capacidad toda la jornada en cada cancha** (opción activada por defecto): una cancha divisible se arma **una sola vez por día**. Si arranca con 4 partidos a la vez, todo el día juega 4 a la vez y solo recibe categorías de ese tamaño (por ejemplo Sub 8 y Sub 10); otra cancha puede ser de 8 a la vez (Sub 6) y otra de cancha completa (Sub 16). Las canchas se reparten según lo que pide cada jornada: primero una para cada tamaño que juega ese día y luego más canchas al tamaño con más partidos. Con esta regla el calendario puede necesitar alguna jornada más; desactívela si prefiere mezclar tamaños en una cancha.
-- La eliminación directa de una categoría empieza en una jornada **posterior** a su fase de grupos, cada ronda después de la anterior y la **vuelta** después de la ida.
+- La eliminación directa de una categoría empieza en una semana **posterior** a su fase de grupos, cada ronda en una semana posterior a la anterior y la **vuelta** en una semana posterior a la ida.
 
 Pulse **Generar jornadas**: se crean de una vez en **borrador**, con cancha y horario, listas para revisar y enviar. El aviso indica cuántas jornadas y partidos se crearon y si quedaron partidos sin ubicar; en ese caso amplíe el horario de las canchas o agregue días de juego y vuelva a generar (solo se toman los partidos que siguen sin jornada). Si no le convence el resultado, elimine los borradores desde la lista de jornadas: sus partidos vuelven al fixture.
 

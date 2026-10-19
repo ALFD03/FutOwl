@@ -144,7 +144,43 @@ class AutoScheduleTests(TestCase):
         res = self.api.post("/api/matchdays/auto-schedule/", {"tournament": t.id, "start_date": OPENING.isoformat()},
                             format="json")
         self.assertEqual(res.status_code, 200, res.data)
-        self.assertEqual([d["date"] for d in res.data["days"]], ["2026-11-07", "2026-11-08", "2026-11-09"])
+        # Una fecha (2 partidos) por semana, repartida en sus primeros días: sábado y domingo de cada semana.
+        self.assertEqual([d["date"] for d in res.data["days"]],
+                         ["2026-11-07", "2026-11-08", "2026-11-14", "2026-11-15", "2026-11-21", "2026-11-22"])
+        self.assertEqual([len(d["matches"]) for d in res.data["days"]], [1] * 6)
+
+    def weekend(self, t, start="09:00", end="18:00"):
+        return self.api.post("/api/matchdays/auto-schedule/", {"tournament": t.id, "start_date": OPENING.isoformat(), "fields": [
+            {"id": self.field.id, "start": start, "end": end, "days": [SATURDAY, SATURDAY + 1]}]}, format="json")
+
+    def test_one_round_per_week_spread_evenly_over_its_days(self):
+        t = self.tournament(8)
+        self.api.post("/api/matches/generate-fixture/", {"tournament": t.id, "category": self.cat.id}, format="json")
+        res = self.weekend(t)
+        self.assertEqual(res.data["unscheduled"], 0, res.data)
+        round_of = dict(Match.objects.filter(tournament=t).values_list("id", "round_number"))
+        for day in res.data["days"]:
+            week = (date.fromisoformat(day["date"]) - OPENING).days // 7 + 1
+            self.assertEqual(day["week"], week)
+            self.assertEqual({round_of[m["id"]] for m in day["matches"]}, {week})  # fecha k en la semana k
+            self.assertEqual(len(day["matches"]), 2)  # 4 partidos por fecha: 2 el sábado y 2 el domingo
+        self.assertEqual(len(res.data["days"]), 14)  # 7 fechas × 2 días
+
+    def test_a_team_plays_once_a_week_and_leftovers_go_first_next_week(self):
+        t = self.tournament(6)
+        self.api.post("/api/matches/generate-fixture/", {"tournament": t.id, "category": self.cat.id}, format="json")
+        # 9:00 a 9:00 (+30'): un partido de 35' por día → 2 por semana; cada fecha tiene 3.
+        res = self.weekend(t, "09:00", "09:05")
+        self.assertEqual(res.data["unscheduled"], 0, res.data)
+        by_week = {}
+        for day in res.data["days"]:
+            by_week.setdefault(day["week"], []).extend(day["matches"])
+        for matches in by_week.values():
+            teams = Counter(team for m in matches for team in (m["home"], m["away"]))
+            self.assertEqual(max(teams.values()), 1)  # nadie juega dos veces en la semana
+        round_of = dict(Match.objects.filter(tournament=t).values_list("id", "round_number"))
+        self.assertEqual(sorted(round_of[m["id"]] for m in by_week[1]), [1, 1])
+        self.assertEqual(round_of[by_week[2][0]["id"]], 1)  # el que no cupo de la fecha 1 va primero
 
     def test_default_hours_are_nine_to_six(self):
         t = self.tournament(4)

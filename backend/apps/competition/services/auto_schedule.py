@@ -1,12 +1,16 @@
 """
 Generación automática de jornadas.
 
-Reparte los partidos del torneo que siguen en borrador y sin jornada a partir de una fecha de apertura: una
-jornada por cada día en que al menos una cancha se puede usar. Cada cancha dice qué días de la semana se juega en
-ella (por defecto todos). Reglas:
+Reparte los partidos del torneo que siguen en borrador y sin jornada a partir de una fecha de apertura, por
+semanas del torneo (bloques de 7 días desde la apertura). Cada cancha dice qué días de la semana se juega en ella
+(por defecto todos) y cada día con partidos es una jornada. Reglas:
 
+- Una fecha del fixture por semana: la fecha 1 en la semana 1, la 2 en la 2… (cada categoría desde su primera
+  fecha pendiente). Lo que no cupo de una fecha pasa primero a la semana siguiente.
+- Un equipo juega como máximo un partido por semana (también cuentan sus partidos ya programados esa semana).
+- Los partidos de la semana se reparten de forma pareja entre sus días de juego, según el tiempo de cancha de
+  cada día; lo que no entra en su día se prueba en los otros días de esa semana.
 - Orden del fixture: fase regular por fecha (1, 2, …), luego la eliminación directa por ronda e ida/vuelta.
-- Un equipo juega como máximo un partido por jornada.
 - Cada cancha tiene su horario (por defecto de 9:00 a 18:00) y encadena sus partidos desde la hora de inicio
   (duración según las reglas de la categoría). Si es divisible, juegan varios a la vez según las medidas de
   juego de cada categoría: cada partido ocupa 1/capacidad de la cancha (8 de una Sub 6 o 2 de una Sub 12) y se
@@ -16,8 +20,8 @@ ella (por defecto todos). Reglas:
   por día. El primer partido que se ubica en ella fija cuántos se juegan a la vez (p. ej. 4) y ese día solo recibe
   partidos de categorías con esa misma capacidad en la cancha; las demás van a otra cancha u otra jornada.
   Se respetan los partidos que ya ocupan esa cancha ese día (de cualquier torneo).
-- La eliminación directa de una categoría empieza en una jornada posterior al último partido de su fase
-  regular (y cada ronda después de la anterior); la vuelta, en una jornada posterior a la ida.
+- La eliminación directa de una categoría empieza en una semana posterior al último partido de su fase
+  regular (y cada ronda después de la anterior); la vuelta, en una semana posterior a la ida.
 
 `plan_matchdays` solo calcula (vista previa); `create_matchdays` lo guarda.
 """
@@ -42,7 +46,7 @@ from .scheduling import ACTIVE_STATUSES, free_sub_field, peak_load
 
 OFFICIAL = dt_timezone(timedelta(hours=-4))  # hora oficial de Venezuela (UTC-4)
 STAGE_RANK = {Stage.REGULAR: 0, **{stage: i + 1 for i, (stage, _) in enumerate(KNOCKOUT_STAGES)}}
-MAX_DAYS = 400  # tope de días recorridos (evita bucles con configuraciones imposibles)
+MAX_WEEKS = 60  # tope de semanas recorridas (evita bucles con configuraciones imposibles)
 GRACE = timedelta(minutes=30)  # el último partido puede terminar hasta 30' después de la hora límite
 DEFAULT_START, DEFAULT_END = time(9, 0), time(18, 0)
 WEEKDAYS = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
@@ -225,6 +229,16 @@ def _assign_modes(field_days: dict[int, FieldDay], demand: list[Slot]) -> None:
         left = rest
 
 
+def _split(total: int, weight: dict) -> dict:
+    """Reparte `total` en partes enteras proporcionales a `weight` (mayor resto; a igual resto, el día anterior)."""
+    whole = sum(weight.values()) or 1
+    exact = {k: total * w / whole for k, w in weight.items()}
+    parts = {k: int(v) for k, v in exact.items()}
+    for k in sorted(exact, key=lambda k: (-(exact[k] - parts[k]), k))[: total - sum(parts.values())]:
+        parts[k] += 1
+    return parts
+
+
 def plan_matchdays(tournament: Tournament, *, start_date: date, days=None, fields=None, category_ids=None,
                    same_capacity: bool = True) -> dict:
     if error := reasonable_date_error(start_date):
@@ -247,41 +261,43 @@ def plan_matchdays(tournament: Tournament, *, start_date: date, days=None, field
     taken = set(Matchday.objects.filter(tournament=tournament).values_list("date", flat=True))
     number = (Matchday.objects.filter(tournament=tournament).aggregate(n=Max("number"))["n"] or 0) + 1
 
-    # Para la eliminación directa: cuántos partidos quedan por ubicar y en qué jornada del plan cayó el último,
-    # por (categoría, fase); y en qué jornada del plan quedó cada ida.
+    # Primera fecha pendiente de cada categoría: en la semana k del plan se juega hasta la fecha base + k.
+    base_round: dict[int, int] = {}
+    for m in pending:
+        if m.stage == Stage.REGULAR:
+            base_round[m.category_id] = min(base_round.get(m.category_id, m.round_number), m.round_number)
+
+    # Para la eliminación directa: cuántos partidos quedan por ubicar y en qué semana del plan cayó el último,
+    # por (categoría, fase); y en qué semana del plan quedó cada ida.
     remaining: dict[tuple[int, int], int] = {}
     for m in pending:
         key = (m.category_id, STAGE_RANK.get(m.stage, 99))
         remaining[key] = remaining.get(key, 0) + 1
-    last_day: dict[tuple[int, int], int] = {}
-    first_leg_day: dict[tuple, int] = {}
+    last_week: dict[tuple[int, int], int] = {}
+    first_leg_week: dict[tuple, int] = {}
 
-    def allowed(m: Match, day_index: int) -> bool:
+    def allowed(m: Match, week: int) -> bool:
+        if m.stage == Stage.REGULAR:
+            return m.round_number <= base_round[m.category_id] + week
         rank = STAGE_RANK.get(m.stage, 99)
         for previous in range(rank):
             key = (m.category_id, previous)
-            if remaining.get(key, 0) or last_day.get(key, -1) >= day_index:
+            if remaining.get(key, 0) or last_week.get(key, -1) >= week:
                 return False
         if m.leg == Leg.SECOND:
-            ida = first_leg_day.get((m.category_id, m.stage, m.bracket_position))
-            if ida is not None and ida >= day_index:
+            ida = first_leg_week.get((m.category_id, m.stage, m.bracket_position))
+            if ida is not None and ida >= week:
                 return False
             if ida is None and any(p.leg == Leg.FIRST and p.stage == m.stage and p.category_id == m.category_id
                                    and p.bracket_position == m.bracket_position for p in pending):
                 return False
         return True
 
-    def place_day(day_index: int, field_days: dict[int, FieldDay], lock_modes: bool) -> list[Slot]:
-        """Ubica en el día los partidos pendientes que se puedan (actualiza el estado del plan)."""
+    def place(matches: list[Match], field_days: dict[int, FieldDay], lock_modes: bool) -> list[Slot]:
+        """Ubica en el día los partidos que se puedan, cada uno a la hora más temprana en que entra."""
         earliest: dict[tuple, tuple] = {}  # (cancha, duración, capacidad) → (versión, resultado)
-        busy_teams: set[int] = set()
         slots: list[Slot] = []
-        for m in list(pending):
-            if not allowed(m, day_index):
-                continue
-            teams = {m.home_id, m.away_id} - {None}
-            if teams & busy_teams:
-                continue
+        for m in matches:
             duration, rules = _duration(m), m.tournament.rules_for(m.category)
             # Hora más temprana en cada cancha en que entra y termina a tiempo (hasta 30' tras la hora límite).
             options = []
@@ -295,55 +311,93 @@ def plan_matchdays(tournament: Tournament, *, start_date: date, days=None, field
                 if found := earliest[cache_key][1]:
                     options.append((found[0], fd.field.name, fd, found[1], capacity))
             if not options:
-                continue  # no cabe hoy; uno más corto o más pequeño (otra categoría) quizá sí
+                continue  # no cabe ese día; uno más corto o más pequeño (otra categoría) quizá sí
             start, _, fd, sub, capacity = min(options, key=lambda o: (o[0], o[1]))
             end = start + duration
             fd.busy.append((start, end, Fraction(1, capacity), capacity, sub))
             fd.version += 1
             fd.mode = fd.mode or capacity
-            busy_teams |= teams
             slots.append(Slot(m, fd.field, sub, start, end))
-            pending.remove(m)
-            # Al momento: así la ronda siguiente o la vuelta no caen en esta misma jornada.
-            key = (m.category_id, STAGE_RANK.get(m.stage, 99))
-            remaining[key] -= 1
-            last_day[key] = day_index
-            if m.leg == Leg.FIRST:
-                first_leg_day[(m.category_id, m.stage, m.bracket_position)] = day_index
         return slots
 
-    def trial_day(day_index: int, field_days: dict[int, FieldDay]) -> list[Slot]:
-        """Lo que entraría en el día sin armar las canchas (y sin tocar el plan): mide la demanda del día."""
-        saved = dict(remaining), dict(last_day), dict(first_leg_day), list(pending)
-        slots = place_day(day_index, {fid: fd.copy() for fid, fd in field_days.items()}, lock_modes=False)
-        for target, copy in zip((remaining, last_day, first_leg_day), saved[:3]):
-            target.clear()
-            target.update(copy)
-        pending[:] = saved[3]
-        return slots
+    def place_week(week: int, week_start: date, days: list[date]) -> list[tuple[date, list[Slot], dict]]:
+        """
+        Elige los partidos de la semana (en orden del fixture, un partido por equipo) y los reparte de forma pareja
+        entre sus días de juego. Devuelve [(día, partidos ubicados, cancha → partidos a la vez)] por día con partidos.
+        """
+        week_end = datetime.combine(week_start + timedelta(days=7), time(0, 0), OFFICIAL)
+        busy_teams: set[int] = set()
+        for home, away in Match.objects.filter(
+                tournament=tournament, status__in=ACTIVE_STATUSES,
+                scheduled_start__gte=datetime.combine(week_start, time(0, 0), OFFICIAL),
+                scheduled_start__lt=week_end).values_list("home_id", "away_id"):
+            busy_teams |= {home, away} - {None}
+        chosen = []
+        for m in pending:
+            teams = {m.home_id, m.away_id} - {None}
+            if allowed(m, week) and not teams & busy_teams:
+                busy_teams |= teams
+                chosen.append(m)
+        if not chosen:
+            return []
+
+        # Cupo de cada día según su tiempo de cancha; cada partido va al día con menos partidos respecto de su cupo.
+        field_days = {d: _fields_for_day(fields, d) for d in days}
+        weight = {d: sum((fd.deadline - fd.opens).total_seconds() for fd in field_days[d].values()) for d in days}
+        quota = _split(len(chosen), weight)
+        buckets: dict[date, list[Match]] = {d: [] for d in days}
+        for m in chosen:
+            day = min((d for d in days if len(buckets[d]) < quota[d]), key=lambda d: (len(buckets[d]) / quota[d], d))
+            buckets[day].append(m)
+
+        placed: dict[date, list[Slot]] = {}
+        left: list[Match] = []
+        for day in days:
+            if same_capacity:
+                _assign_modes(field_days[day], place(buckets[day], {k: fd.copy() for k, fd in field_days[day].items()},
+                                                     lock_modes=False))
+            placed[day] = place(buckets[day], field_days[day], lock_modes=same_capacity)
+            done = {s.match.pk for s in placed[day]}
+            left += [m for m in buckets[day] if m.pk not in done]
+        for m in sorted(left, key=chosen.index):  # lo que no entró en su día: a otro día de la semana
+            for day in sorted(days, key=lambda d: (len(placed[d]), d)):
+                if slots := place([m], field_days[day], lock_modes=same_capacity):
+                    placed[day] += slots
+                    break
+
+        result = []
+        for day in days:
+            for slot in placed[day]:
+                m = slot.match
+                pending.remove(m)
+                key = (m.category_id, STAGE_RANK.get(m.stage, 99))
+                remaining[key] -= 1
+                last_week[key] = week
+                if m.leg == Leg.FIRST:
+                    first_leg_week[(m.category_id, m.stage, m.bracket_position)] = week
+            if placed[day]:
+                used = {s.field.id for s in placed[day]}
+                result.append((day, placed[day], {fd.field.name: fd.mode for fd in field_days[day].values()
+                                                  if fd.field.id in used}))
+        return result
 
     plan: list[dict] = []
-    day = start_date
-    empty_days = 0  # días de juego seguidos en que no cupo nada (horario demasiado corto, canchas ocupadas)
-    for _ in range(MAX_DAYS):
-        if not pending or (tournament.end_date and day > tournament.end_date):
+    week_start, week = start_date, 0
+    empty_weeks = 0  # semanas de juego seguidas en que no cupo nada (horario demasiado corto, canchas ocupadas)
+    for _ in range(MAX_WEEKS):
+        if not pending or (tournament.end_date and week_start > tournament.end_date):
             break
-        if day.weekday() in schedule and day not in taken:
-            day_index = len(plan)
-            field_days = _fields_for_day(fields, day)
-            if same_capacity:
-                _assign_modes(field_days, trial_day(day_index, field_days))
-            slots = place_day(day_index, field_days, lock_modes=same_capacity)
-            if not slots:
-                empty_days += 1
-                if empty_days >= 8 or not any(allowed(m, day_index) for m in pending):
-                    break  # el horario de las canchas no alcanza para ningún partido pendiente
-            else:
-                empty_days = 0
-                used = {s.field.id for s in slots}
-                plan.append({"date": day, "number": number + day_index, "slots": slots,
-                             "modes": {fd.field.name: fd.mode for fd in field_days.values() if fd.field.id in used}})
-        day += timedelta(days=1)
+        days = [d for d in (week_start + timedelta(days=i) for i in range(7))
+                if d.weekday() in schedule and d not in taken and not (tournament.end_date and d > tournament.end_date)]
+        if days:
+            entries = place_week(week, week_start, days)
+            for day, slots, modes in entries:
+                plan.append({"date": day, "number": number + len(plan), "week": week + 1, "slots": slots, "modes": modes})
+            week += 1
+            empty_weeks = 0 if entries else empty_weeks + 1
+            if empty_weeks >= 3:
+                break  # el horario de las canchas no alcanza para ningún partido pendiente
+        week_start += timedelta(days=7)
 
     warnings = []
     if pending:
@@ -363,6 +417,7 @@ def serialize_plan(result: dict, created: list[Matchday] | None = None) -> dict:
         days.append({
             "id": created[index].id if created else None,
             "number": entry["number"],
+            "week": entry["week"],
             "date": entry["date"].isoformat(),
             "weekday": WEEKDAYS[entry["date"].weekday()],
             "start": min(s.start for s in slots).astimezone(OFFICIAL).strftime("%H:%M"),

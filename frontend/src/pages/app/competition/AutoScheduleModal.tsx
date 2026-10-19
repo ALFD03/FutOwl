@@ -67,7 +67,7 @@ export function AutoScheduleModal({ tournamentId, onClose, onCreated }: {
   const tournament = useQuery({ queryKey: ["tournaments", selectedTournament], queryFn: () => tournaments.get(selectedTournament!), enabled: selectedTournament != null });
 
   return (
-    <Modal open onClose={onClose} title="Generar jornadas" subtitle="Reparte los partidos sin jornada en los días de juego, con cancha y horario" size="xl">
+    <Modal open onClose={onClose} title="Generar jornadas" subtitle="Una fecha por semana, repartida en sus días de juego, con cancha y horario" size="xl">
       {!tournamentId && (
         <div className="mb-4 w-80">
           <label className="label">Torneo</label>
@@ -79,7 +79,8 @@ export function AutoScheduleModal({ tournamentId, onClose, onCreated }: {
         ? <div className="grid h-32 place-items-center"><Spinner /></div>
         : <Planner key={tournament.data.id} tournament={tournament.data} onCreated={async (plan) => {
           const range = plan.days.length ? ` (del ${formatDate(plan.days[0].date)} al ${formatDate(plan.days[plan.days.length - 1].date)})` : "";
-          const created = `${plan.days.length} jornada(s) creadas${range} con ${plan.scheduled} de ${plan.total} partido(s).`;
+          const weeks = new Set(plan.days.map((d) => d.week)).size;
+          const created = `${plan.days.length} jornada(s) en ${weeks} semana(s)${range} con ${plan.scheduled} de ${plan.total} partido(s).`;
           if (plan.unscheduled || plan.warnings.length) toast.warning([created, ...plan.warnings].join(" "));
           else toast.success(created);
           await onCreated();
@@ -147,7 +148,7 @@ function Planner({ tournament, onCreated, onError }: { tournament: Tournament; o
           <label className="label" htmlFor="auto-start">Día de apertura</label>
           <input id="auto-start" type="date" className={cn("input w-48", !isReasonableDate(startDate) && "input-error")} min={tournament.start_date ?? DATE_MIN}
             max={tournament.end_date ?? DATE_MAX} value={startDate} onChange={(e) => change(setStartDate)(e.target.value)} />
-          <p className="help">Desde este día se arma una jornada por cada día en que al menos una cancha se puede usar{tournament.end_date ? `, hasta el fin del torneo (${formatDate(tournament.end_date)})` : ""}. Los días de cada cancha se eligen abajo.</p>
+          <p className="help">Desde este día se cuentan las semanas del torneo (7 días cada una){tournament.end_date ? `, hasta el fin del torneo (${formatDate(tournament.end_date)})` : ""}: la fecha 1 en la semana 1, la 2 en la 2… Cada equipo juega una sola vez por semana y los partidos se reparten de forma pareja entre los días de juego de la semana. Los días de cada cancha se eligen abajo.</p>
         </Section>
 
         <Section title="Categorías">
