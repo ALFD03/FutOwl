@@ -13,6 +13,7 @@ import { formatDate } from "@/utils/datetime";
 import { errorMessage } from "@/utils/errors";
 
 import { AutoScheduleModal } from "./AutoScheduleModal";
+import { MineSwitch, useMineFilter } from "./MatchesPage";
 
 export function MatchdaysList({ tournamentId }: { tournamentId?: number }) {
   const navigate = useNavigate();
@@ -24,9 +25,10 @@ export function MatchdaysList({ tournamentId }: { tournamentId?: number }) {
   const [deleting, setDeleting] = useState(false);
   const canDelete = useCan("competition.delete_matchday");
   const [status, setStatus] = useState("");
+  const { takesPart, mine, setMine } = useMineFilter();
   const { data, isLoading } = useQuery({
-    queryKey: ["matchdays", tournamentId, status],
-    queryFn: () => matchdays.all({ tournament: tournamentId, status, ordering: "-date" }),
+    queryKey: ["matchdays", tournamentId, status, mine],
+    queryFn: () => matchdays.all({ tournament: tournamentId, status, mine: mine ? 1 : undefined, ordering: "-date" }),
   });
   // Solo las jornadas en borrador se pueden eliminar.
   const drafts = (data ?? []).filter((m) => m.status === "draft");
@@ -57,6 +59,7 @@ export function MatchdaysList({ tournamentId }: { tournamentId?: number }) {
     <Card>
       <CardHeader title="Jornadas" subtitle="Borrador → enviada → válida (confirmada) → cerrada" icon={<CalendarDays className="h-5 w-5" />}
         actions={<>
+          {takesPart && <MineSwitch checked={mine} onChange={setMine} />}
           <div className="w-44"><SelectMenu value={status || null} clearable placeholder="Todos los estados" onChange={(v) => setStatus(v == null ? "" : String(v))}
             options={[{ value: "draft", label: "Borrador" }, { value: "submitted", label: "Enviada" }, { value: "confirmed", label: "Válida" }, { value: "closed", label: "Cerrada" }]} /></div>
           <Can perm={["competition.add_matchday", "competition.change_match"]}><button className="btn-outline btn-sm" onClick={() => setGenerating(true)}><Wand2 className="h-4 w-4" /> Generar jornadas</button></Can>

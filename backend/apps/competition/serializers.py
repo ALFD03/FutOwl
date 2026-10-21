@@ -102,6 +102,8 @@ class MatchSerializer(serializers.ModelSerializer):
     missing_fields = serializers.SerializerMethodField()
     missing_officials = serializers.SerializerMethodField()
     rules = serializers.SerializerMethodField()
+    # Respuesta del usuario actual si es parte del partido (la calcula la vista en bloque: ver my_confirmations).
+    my_confirmation = serializers.SerializerMethodField()
 
     class Meta:
         model = Match
@@ -114,13 +116,17 @@ class MatchSerializer(serializers.ModelSerializer):
             "delegate_name", "referee", "referee_name", "assistant_referee_1", "assistant_referee_1_name",
             "assistant_referee_2", "assistant_referee_2_name", "status", "status_display", "phase",
             "phase_display", "current_period", "period_started_at", "assignment_version", "home_score",
-            "away_score", "is_locked", "missing_fields", "missing_officials", "rules", "created_at", "updated_at",
+            "away_score", "is_locked", "missing_fields", "missing_officials", "rules", "my_confirmation",
+            "created_at", "updated_at",
         ]
         read_only_fields = fields
 
     def get_rules(self, obj):
         rules = obj.rules
         return {name: getattr(rules, name) for name in RULE_FIELDS}
+
+    def get_my_confirmation(self, obj):
+        return self.context.get("my_confirmations", {}).get(obj.pk)
 
     def get_matchday_label(self, obj):
         return _name(obj.matchday)

@@ -15,7 +15,8 @@ from apps.registry.models import Category, Team
 from . import documents, services
 from .models import CategoryRules, Group, TeamPlayer, Tournament, TournamentTeam
 from .serializers import (
-    BulkRegistrationSerializer, CategoryRulesSerializer, GroupSerializer, TeamPlayerSerializer, TournamentSerializer, TournamentTeamSerializer,
+    BulkRegistrationSerializer, BulkRosterSerializer, CategoryRulesSerializer, GroupSerializer, RosterCandidateSerializer,
+    TeamPlayerSerializer, TournamentSerializer, TournamentTeamSerializer,
 )
 
 
@@ -170,6 +171,31 @@ class RosterViewSet(NoDeleteModelViewSet):
         if player.current_team_id != registration.team_id:
             player.current_team_id = registration.team_id
             player.save(update_fields=["current_team", "updated_at"])
+
+    def _registration(self, value) -> TournamentTeam:
+        if not str(value).isdigit():
+            raise ValidationError({"registration": "Indique la inscripción."})
+        registration = get_object_or_404(TournamentTeam.objects.select_related("tournament", "team", "category"),
+                                         pk=value, is_active=True)
+        self._assert_can_manage(registration)
+        return registration
+
+    @action(detail=False, methods=["get"])
+    def candidates(self, request):
+        """Propuesta de nómina de una inscripción (?registration=id): los jugadores del equipo de esa categoría."""
+        registration = self._registration(request.query_params.get("registration"))
+        return Response(RosterCandidateSerializer(services.roster_candidates(registration), many=True,
+                                                  context={"request": request}).data)
+
+    @action(detail=False, methods=["post"])
+    @require_perms("tournaments.add_teamplayer")
+    def bulk(self, request):
+        """Inscribe en la nómina, de una vez, los jugadores revisados de la propuesta."""
+        serializer = BulkRosterSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        registration = self._registration(serializer.validated_data["registration"])
+        result = services.enroll_players(registration, serializer.validated_data["players"], request.user)
+        return Response(result, status=status.HTTP_201_CREATED if result["created"] else status.HTTP_200_OK)
 
     def perform_update(self, serializer):
         self._assert_can_manage(serializer.instance.registration)

@@ -33,6 +33,7 @@ Pulse un equipo del listado. Arriba verá logo, RIF, dirección, categorías, cu
 
 Lista los jugadores inscritos con el equipo en un torneo/categoría. Elija la inscripción en el selector y use:
 
+- **Cargar categoría**: propone, ya marcados, los jugadores del plantel actual que son de esa categoría (con su último dorsal en el equipo, si sigue libre). Solo queda revisar, ajustar dorsales y confirmar.
 - **Inscribir jugador**: busca jugadores ya registrados que sean **elegibles** para la categoría y estén **libres** en ese torneo.
 - **Nuevo jugador**: crea la ficha y la inscribe en un solo paso.
 - Ícono de lápiz: **edita la ficha** del jugador (datos, fotos, documento, representante).
@@ -42,8 +43,12 @@ Detalle en [Inscripciones, grupos y nómina](/app/ayuda/inscripciones-grupos-y-n
 
 ### Jugadores
 
+Arriba hay un **buscador** (nombre o documento) y filtros por **categoría** (la del jugador en el equipo: la más baja en la que entra por edad), **situación** (en el plantel, libre o en otro equipo) y **torneo** jugado con el equipo.
+
 - **Plantel actual**: jugadores cuyo *equipo actual* es este. El equipo puede actualizar su ficha (fotos, documento…) con el ícono de lápiz; pulsar la fila abre su perfil.
-- **Han jugado con el equipo**: historial de quienes estuvieron en alguna nómina y hoy están en otro equipo o libres.
+  - **Desvincular** (ícono de quitar): el jugador salió del equipo (p. ej. dejó la escuela) y queda **libre**; otro equipo puede incorporarlo. Sus nóminas de torneos no cambian: si ya no jugará, dele de baja desde *Nómina por torneo*.
+  - **Incorporar un jugador libre**: busque por nombre o cédula a un jugador sin equipo y súmelo al plantel.
+- **Desvinculados y anteriores**: los que el equipo desvinculó y los que estuvieron en alguna de sus nóminas y hoy están en otro equipo o libres. A los **libres** se les puede **readmitir** (ícono de volver).
 
 ### Cuerpo técnico
 
@@ -63,6 +68,7 @@ Usuarios **gestores** del equipo: cargan nómina y alineaciones y confirman asis
 |--------|:---:|:---:|
 | Editar datos del equipo, categorías, acceso | ✅ | ❌ |
 | Inscribir/dar de baja jugadores en la nómina | ✅ | ✅ (con *Gestionar nómina*) |
+| Desvincular, readmitir o incorporar jugadores libres | ✅ | ✅ solo en su equipo (con *Gestionar plantilla*) |
 | Crear jugadores para el equipo | ✅ | ✅ (con *Gestionar plantilla*) |
 | Actualizar la ficha de jugadores del plantel actual | ✅ | ✅ (con *Gestionar plantilla*) |
 | Asignar o liberar entrenadores | ✅ | ✅ solo entrenadores libres o propios (con *Gestionar entrenadores*) |

@@ -99,6 +99,23 @@ class RosterPlayerSerializer(serializers.Serializer):
         return str(obj.guardian) if obj.guardian_id else None
 
 
+class RosterCandidateSerializer(serializers.Serializer):
+    player = RosterPlayerSerializer()
+    category_name = serializers.CharField()
+    suggested = serializers.BooleanField()
+    shirt_number = serializers.IntegerField(allow_null=True)
+
+
+class BulkRosterEntrySerializer(serializers.Serializer):
+    player = serializers.IntegerField()
+    shirt_number = serializers.IntegerField(required=False, allow_null=True, min_value=0, max_value=99)
+
+
+class BulkRosterSerializer(serializers.Serializer):
+    registration = serializers.IntegerField()
+    players = BulkRosterEntrySerializer(many=True, allow_empty=False)
+
+
 class TeamPlayerSerializer(CleanModelSerializer):
     tournament_name = serializers.CharField(source="tournament.name", read_only=True)
     team = serializers.IntegerField(source="registration.team_id", read_only=True)

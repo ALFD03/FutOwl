@@ -1,7 +1,9 @@
 """Partes involucradas en un partido: quién debe confirmar y quién es quién."""
+from collections import defaultdict
+
 from django.contrib.auth import get_user_model
 
-from ..models import OFFICIAL_PARTIES, TEAM_PARTIES, Match, MatchConfirmation, Party, ReviewCase
+from ..models import OFFICIAL_PARTIES, TEAM_PARTIES, Match, MatchAdjustment, MatchConfirmation, Party, ReviewCase
 
 
 def required_official_parties(match: Match) -> list[str]:
@@ -71,3 +73,56 @@ def officials_confirmed(match: Match) -> bool:
         party_status(match, p)["response"] == MatchConfirmation.Response.ACCEPTED
         for p in required_official_parties(match)
     )
+
+
+def my_confirmations(matches, user) -> dict[int, str]:
+    """
+    Estado de la respuesta del usuario en cada partido donde es parte (oficial asignado o gestor de un equipo):
+    `accepted`, `rejected`, `review` (su rechazo está en revisión) o `pending`. Se calcula en bloque para un
+    listado; los partidos donde no participa, o que aún no esperan confirmación sin haberla, no aparecen.
+    """
+    matches = list(matches)
+    if not matches or not user.is_authenticated:
+        return {}
+    team_ids = set(user.managed_teams.values_list("id", flat=True))
+    mine = {}
+    for match in matches:
+        parties = [p for p in required_official_parties(match)
+                   if (official := match.party_official(p)) and official.user_id == user.pk]
+        parties += [p for p in TEAM_PARTIES if (team := match.team_for(p)) and team.team_id in team_ids]
+        if parties:
+            mine[match.pk] = parties
+    if not mine:
+        return {}
+
+    required = defaultdict(lambda: 1)
+    for adjustment in MatchAdjustment.objects.filter(match_id__in=mine).only("match_id", "version_to", "affected_parties"):
+        for party in adjustment.affected_parties:
+            key = (adjustment.match_id, party)
+            required[key] = max(required[key], adjustment.version_to)
+    latest = {}
+    for confirmation in MatchConfirmation.objects.filter(match_id__in=mine).order_by("created_at", "id"):
+        latest[(confirmation.match_id, confirmation.party)] = confirmation
+    in_review = set(ReviewCase.objects.filter(match_id__in=mine, status=ReviewCase.Status.OPEN)
+                    .exclude(confirmation=None).values_list("match_id", "confirmation__party"))
+
+    awaiting = {Match.Status.PENDING, Match.Status.CONFIRMED}
+    result = {}
+    for match in matches:
+        states = set()
+        for party in mine.get(match.pk, []):
+            key = (match.pk, party)
+            confirmation = latest.get(key)
+            if key in in_review:
+                states.add("review")
+            elif confirmation and confirmation.assignment_version >= required[key]:
+                states.add(confirmation.response)
+            else:
+                states.add("pending")
+        if not states:
+            continue
+        state = next(s for s in ("review", "rejected", "pending", MatchConfirmation.Response.ACCEPTED) if s in states)
+        if state == "pending" and match.status not in awaiting:
+            continue
+        result[match.pk] = state
+    return result

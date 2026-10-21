@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Clock3, Eye, ThumbsDown, ThumbsUp } from "lucide-react";
+import { Check, CheckCircle2, Clock3, Eye, ThumbsDown, ThumbsUp } from "lucide-react";
 
-import { Badge, Card, CardHeader, ConfirmDialog, StatusBadge } from "@/components/ui";
+import { Alert, Badge, Card, CardHeader, ConfirmDialog, StatusBadge } from "@/components/ui";
+import { cn } from "@/utils/cn";
 import { useCan, useToast } from "@/hooks";
 import { matches } from "@/services";
 import type { Match, Party } from "@/types";
@@ -30,20 +31,32 @@ export function ConfirmationPanel({ match }: { match: Match }) {
     }
   };
 
+  const mineConfirmed = (data?.summary ?? []).filter((s) => data?.my_parties.includes(s.party) && s.response === "accepted");
+
   return (
     <Card>
       <CardHeader title="Confirmaciones de asistencia" subtitle={`Versión de asignación ${match.assignment_version}`} icon={<Check className="h-5 w-5" />} />
+      {mineConfirmed.length > 0 && (
+        <div className="px-5 pt-4">
+          <Alert tone="success">
+            <span className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 shrink-0" />
+              Ya confirmaste tu asistencia como {mineConfirmed.map((s) => PARTY_LABELS[s.party].toLowerCase()).join(" y ")}
+              {mineConfirmed[0].responded_at && ` (${formatDateTime(mineConfirmed[0].responded_at)})`}.</span>
+          </Alert>
+        </div>
+      )}
       <ul className="divide-y divide-slate-100 dark:divide-white/5">
         {(data?.summary ?? []).map((s) => {
           const mine = data?.my_parties.includes(s.party);
           const official = !["home", "away"].includes(s.party);
           return (
-            <li key={s.party} className="flex flex-wrap items-center gap-3 px-5 py-3">
+            <li key={s.party} className={cn("flex flex-wrap items-center gap-3 px-5 py-3", mine && "bg-gold-50/60 dark:bg-gold-500/[.06]")}>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold">{PARTY_LABELS[s.party]} {!official && <span className="text-xs font-normal text-slate-400">(opcional)</span>}</p>
+                <p className="text-sm font-semibold">{PARTY_LABELS[s.party]} {mine && <Badge tone="gold" className="ml-1">Tú</Badge>} {!official && <span className="text-xs font-normal text-slate-400">(opcional)</span>}</p>
                 {s.responded_at && <p className="text-xs text-slate-500">{formatDateTime(s.responded_at)}{s.reason && ` · “${s.reason}”`}</p>}
               </div>
               {s.under_review ? <Badge tone="amber"><Eye className="h-3 w-3" /> En revisión</Badge>
+                : s.response === "accepted" && mine ? <Badge tone="emerald"><CheckCircle2 className="h-3 w-3" /> Confirmaste</Badge>
                 : s.response ? <StatusBadge status={s.response} label={s.response === "accepted" ? "Confirmado" : "Rechazado"} />
                   : <Badge><Clock3 className="h-3 w-3" /> Pendiente</Badge>}
               {mine && canConfirm && awaiting && s.response !== "accepted" && !s.under_review && (

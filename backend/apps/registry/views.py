@@ -1,7 +1,11 @@
 from django.db.models import Case, Count, IntegerField, OuterRef, Prefetch, Q, Subquery, Value, When
 from django.db.models.functions import Coalesce
-from rest_framework.exceptions import PermissionDenied
+from django.shortcuts import get_object_or_404
+from rest_framework.decorators import action
+from rest_framework.exceptions import PermissionDenied, ValidationError
+from rest_framework.response import Response
 
+from apps.audit.services import record
 from apps.core.mixins import NoDeleteModelViewSet
 
 from . import serializers as s
@@ -158,7 +162,7 @@ class PlayerViewSet(NoDeleteModelViewSet):
             "registration__team", "registration__tournament", "registration__category"
         )
         return (
-            Player.objects.select_related("guardian", "current_team")
+            Player.objects.select_related("guardian", "current_team", "released_from")
             .prefetch_related(Prefetch("entries", queryset=entries))
             .annotate(**player_stats_annotations())
         )
@@ -185,6 +189,39 @@ class PlayerViewSet(NoDeleteModelViewSet):
         self.assert_can_write(serializer.instance)
         self._check_current_team(serializer)
         serializer.save()
+
+    # Sin decorador: ModelActionPermission exige registry.change_player.
+    @action(detail=True, methods=["post"])
+    def release(self, request, pk=None):
+        """
+        Desvincula al jugador de su equipo actual (salió de la escuela): queda libre. Sus nóminas no cambian;
+        el equipo lo sigue viendo entre sus jugadores para readmitirlo si vuelve.
+        """
+        player = self.get_object()
+        team = player.current_team
+        if team is None:
+            raise ValidationError("El jugador ya está libre (sin equipo actual).")
+        self.assert_can_write(player)
+        player.released_from, player.current_team = team, None
+        player.save(update_fields=["current_team", "released_from", "updated_at"])
+        record("release_player", player, user=request.user, changes={"equipo": team.name})
+        return Response(self.get_serializer(self.get_queryset().get(pk=player.pk)).data)
+
+    @action(detail=True, methods=["post"])
+    def readmit(self, request, pk=None):
+        """Incorpora a un jugador libre al equipo indicado (que debe ser propio, salvo para administradores)."""
+        player = self.get_object()
+        team = get_object_or_404(Team, pk=request.data.get("team"), is_active=True)
+        if not player.is_active:
+            raise ValidationError("El jugador está inactivo.")
+        if player.current_team_id is not None:
+            raise ValidationError(f"El jugador pertenece a «{player.current_team.name}»: ese equipo debe desvincularlo primero.")
+        if not (is_registry_admin(request.user) or team.is_staff_user(request.user)):
+            raise PermissionDenied("Solo puede incorporar jugadores a sus equipos.")
+        player.current_team = team
+        player.save(update_fields=["current_team", "updated_at"])
+        record("readmit_player", player, user=request.user, changes={"equipo": team.name})
+        return Response(self.get_serializer(self.get_queryset().get(pk=player.pk)).data)
 
 
 class DelegateViewSet(NoDeleteModelViewSet):

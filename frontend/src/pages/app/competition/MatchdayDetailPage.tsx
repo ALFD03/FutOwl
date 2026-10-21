@@ -5,6 +5,7 @@ import { AlertTriangle, ArrowLeft, Check, CheckCircle2, Lock, MapPin, Pencil, Pl
 
 import { ResourceForm } from "@/components/forms";
 import { Can } from "@/components/layout/Guards";
+import { MyConfirmationBadge } from "@/components/match/MyConfirmationBadge";
 import {
   Alert, Badge, ConfirmDialog, EmptyState, Modal, PageHeader, PageLoader, Pagination, SearchInput, SelectMenu, Spinner, StatusBadge,
   usePaged,
@@ -362,6 +363,7 @@ function ReadOnlyRow({ match }: { match: Match }) {
         <p className="truncate text-xs text-slate-500">{matchMeta(match)} · Delegado: {match.delegate_name ?? "sin asignar"} · Árbitro: {match.referee_name ?? "sin asignar"}</p>
       </div>
       {match.home_score != null && <Badge tone="navy">{match.home_score} - {match.away_score}</Badge>}
+      <MyConfirmationBadge state={match.my_confirmation} />
       <StatusBadge status={match.status} label={match.status_display} />
     </Link>
   );

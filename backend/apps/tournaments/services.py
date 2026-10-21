@@ -75,3 +75,63 @@ def register_teams(tournament: Tournament, entries: list[dict], user) -> dict:
                 errors.append({"team": entry["team"], "category": category_id, "label": label,
                                "message": " ".join(exc.messages)})
     return {"created": created, "errors": errors}
+
+
+def roster_candidates(registration: TournamentTeam) -> list[dict]:
+    """
+    Propuesta de nómina para una inscripción: jugadores del equipo (equipo actual) elegibles por edad para la
+    categoría y libres en el torneo. `suggested` marca los que son de esa categoría, es decir, aquellos cuya
+    categoría más baja del equipo en la que entran es esta; los de categorías menores también son elegibles,
+    pero vienen sin marcar. El dorsal sugerido es el último que usó con el equipo, si sigue libre.
+    """
+    category, team = registration.category, registration.team
+    taken = TeamPlayer.objects.filter(tournament_id=registration.tournament_id, is_active=True).values("player_id")
+    players = list(team.current_players.filter(is_active=True, birth_date__year__gte=category.birth_year_limit)
+                   .exclude(pk__in=taken).select_related("guardian"))
+    ladder = sorted({*team.categories.filter(is_active=True), category}, key=lambda c: (c.max_age, c.name))
+    used = set(registration.roster.filter(is_active=True).exclude(shirt_number=None)
+               .values_list("shirt_number", flat=True))
+    last_shirt = dict(TeamPlayer.objects.filter(player__in=players, registration__team=team)
+                      .exclude(shirt_number=None).order_by("created_at").values_list("player_id", "shirt_number"))
+    result = []
+    for player in players:
+        own = next((c for c in ladder if c.is_player_eligible(player)), category)
+        shirt = last_shirt.get(player.pk)
+        if shirt in used:
+            shirt = None
+        elif shirt is not None:
+            used.add(shirt)
+        result.append({"player": player, "category_name": own.name, "suggested": own.pk == category.pk,
+                       "shirt_number": shirt})
+    result.sort(key=lambda c: (not c["suggested"], c["player"].last_name, c["player"].first_name))
+    return result
+
+
+def enroll_players(registration: TournamentTeam, entries: list[dict], user) -> dict:
+    """
+    Inscribe varios jugadores en la nómina (`entries` = [{"player": id, "shirt_number": n|None}]). Cada uno se
+    guarda por separado: uno que falle no frena a los demás. Igual que al inscribir uno, el equipo de la
+    inscripción pasa a ser su equipo actual.
+    """
+    from apps.registry.models import Player
+
+    players = Player.objects.in_bulk({e["player"] for e in entries})
+    created, errors = 0, []
+    for entry in entries:
+        player = players.get(entry["player"])
+        try:
+            if player is None:
+                raise ValidationError("El jugador no existe.")
+            with transaction.atomic():
+                row = TeamPlayer(registration=registration, player=player, shirt_number=entry.get("shirt_number"),
+                                 created_by=user)
+                row.full_clean()
+                row.save()
+                if player.current_team_id != registration.team_id:
+                    player.current_team_id = registration.team_id
+                    player.save(update_fields=["current_team", "updated_at"])
+            created += 1
+        except ValidationError as exc:
+            errors.append({"player": entry["player"], "label": str(player) if player else str(entry["player"]),
+                           "message": " ".join(exc.messages)})
+    return {"created": created, "errors": errors}

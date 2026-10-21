@@ -203,6 +203,7 @@ class PlayerSerializer(IdentityFieldsMixin, CleanModelSerializer):
     is_minor = serializers.BooleanField(read_only=True)
     guardian_detail = GuardianSerializer(source="guardian", read_only=True)
     current_team_name = serializers.CharField(source="current_team.name", read_only=True, default=None)
+    released_from_name = serializers.CharField(source="released_from.name", read_only=True, default=None)
     history = serializers.SerializerMethodField()
     stats = serializers.SerializerMethodField()
 
@@ -219,9 +220,9 @@ class PlayerSerializer(IdentityFieldsMixin, CleanModelSerializer):
         model = Player
         fields = BASE_READONLY + PERSON + IDENTITY + [
             "document_kind", "birth_date", "age", "is_minor", "guardian", "guardian_detail", "current_team",
-            "current_team_name", "history", "stats",
+            "current_team_name", "released_from", "released_from_name", "history", "stats",
         ] + ["guardian_mode"] + [f"guardian_{f}" for f in GUARDIAN_INLINE]
-        read_only_fields = BASE_READONLY
+        read_only_fields = BASE_READONLY + ["released_from"]
 
     def validate(self, attrs):
         inline = {f: attrs.pop(f"guardian_{f}") for f in GUARDIAN_INLINE if f"guardian_{f}" in attrs}

@@ -5,9 +5,10 @@ from .models import Coach, Player
 
 
 class PlayerFilter(django_filters.FilterSet):
-    # Jugadores del equipo: los actuales y los que han pasado por él en algún torneo.
+    # Jugadores del equipo: los actuales, los que desvinculó y los que han pasado por él en algún torneo.
     team = django_filters.NumberFilter(method="filter_team")
     current_team = django_filters.NumberFilter(field_name="current_team")
+    free = django_filters.BooleanFilter(field_name="current_team", lookup_expr="isnull")
     tournament = django_filters.NumberFilter(field_name="entries__tournament", distinct=True)
     # Candidatos para la nómina de una inscripción: elegibles por edad y libres en ese torneo.
     available_for = django_filters.NumberFilter(method="filter_available_for")
@@ -17,7 +18,9 @@ class PlayerFilter(django_filters.FilterSet):
         fields = ["is_active", "document_kind", "guardian"]
 
     def filter_team(self, queryset, name, value):
-        return queryset.filter(Q(current_team=value) | Q(entries__registration__team=value)).distinct()
+        return queryset.filter(
+            Q(current_team=value) | Q(released_from=value) | Q(entries__registration__team=value)
+        ).distinct()
 
     def filter_available_for(self, queryset, name, value):
         from apps.tournaments.models import TournamentTeam

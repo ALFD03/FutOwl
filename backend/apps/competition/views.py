@@ -19,9 +19,19 @@ from apps.tournaments.models import Tournament
 from . import serializers as s
 from .models import Match, Matchday, MatchNote, MatchReport, ReviewCase, Stage
 from .services import auto_schedule, bracket, confirmations, fixtures, lineups, live, officials, reports, reviews, scheduling, standings
-from .services.parties import confirmation_summary, parties_for_user
+from .services.parties import confirmation_summary, my_confirmations, parties_for_user
 
 PROTECTED = [ModelActionPermission]
+
+
+def participation(user) -> Q:
+    """Partidos donde participa el usuario: como oficial asignado o como gestor/entrenador de uno de los equipos."""
+    paths = ["delegate__user", "referee__user", "assistant_referee_1__user", "assistant_referee_2__user",
+             "home__team__managers", "away__team__managers", "home__team__coaches__user", "away__team__coaches__user"]
+    q = Q()
+    for path in paths:
+        q |= Q(**{path: user})
+    return q
 
 
 class MatchdayViewSet(viewsets.ModelViewSet):
@@ -30,6 +40,12 @@ class MatchdayViewSet(viewsets.ModelViewSet):
     permission_classes = viewsets.ModelViewSet.permission_classes + PROTECTED
     filterset_fields = ["tournament", "status", "date"]
     ordering_fields = ["date", "number"]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        if self.request.query_params.get("mine") == "1":
+            qs = qs.filter(pk__in=Match.objects.filter(participation(self.request.user)).values("matchday_id"))
+        return qs
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
@@ -172,16 +188,19 @@ class MatchViewSet(viewsets.ModelViewSet):
             return s.MatchWriteSerializer
         return s.MatchSerializer
 
+    def get_serializer(self, *args, **kwargs):
+        """En listados y detalle, cada partido trae la respuesta del usuario (calculada para toda la página)."""
+        if self.action in ("list", "retrieve") and args:
+            instances = args[0] if kwargs.get("many") else [args[0]]
+            kwargs["context"] = {**self.get_serializer_context(),
+                                 "my_confirmations": my_confirmations(instances, self.request.user)}
+        return super().get_serializer(*args, **kwargs)
+
     def get_queryset(self):
         qs = super().get_queryset()
         params = self.request.query_params
         if params.get("mine") == "1":
-            user = self.request.user
-            qs = qs.filter(
-                Q(delegate__user=user) | Q(referee__user=user) | Q(assistant_referee_1__user=user)
-                | Q(assistant_referee_2__user=user) | Q(home__team__managers=user) | Q(away__team__managers=user)
-                | Q(home__team__coaches__user=user) | Q(away__team__coaches__user=user)
-            ).distinct()
+            qs = qs.filter(pk__in=Match.objects.filter(participation(self.request.user)).values("pk"))
         if params.get("unscheduled") == "1":
             qs = qs.filter(matchday__isnull=True)
         if params.get("date"):

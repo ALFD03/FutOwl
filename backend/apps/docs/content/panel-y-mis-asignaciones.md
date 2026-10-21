@@ -19,6 +19,8 @@ Es la primera pantalla tras iniciar sesión. Muestra:
 
 Pulse cualquier partido para abrir su ficha.
 
+En cada partido donde usted es parte, junto al estado aparece **su respuesta**: ✅ *Confirmaste*, *Por confirmar*, *Rechazaste* o *En revisión*. Así, en *Por confirmar* distingue los que ya respondió (el partido sigue pendiente mientras faltan otros oficiales). En la ficha del partido sus posiciones se marcan con **Tú**.
+
 ## Mis asignaciones (`/app/mis-partidos`)
 
 Bandeja con **solo los partidos que le corresponden**. Tiene tres pestañas:
@@ -28,6 +30,10 @@ Bandeja con **solo los partidos que le corresponden**. Tiene tres pestañas:
 | **Por confirmar** | Partidos en estado *Pendiente de confirmación* | Delegados, árbitros y gestores entran aquí a confirmar o rechazar. |
 | **Confirmados** | Partidos ya confirmados por los oficiales | Revisar horario y cancha, cargar alineaciones, operar la mesa técnica. |
 | **Todos** | Historial completo, del más reciente al más antiguo | Consultar resultados e informes anteriores. |
+
+### Solo donde participo (Partidos y Jornadas)
+
+Las listas generales de **Partidos** y **Jornadas** tienen el interruptor **Solo donde participo**, que deja solo los partidos (o las jornadas con algún partido) donde usted participa, con el mismo criterio de abajo. Se muestra a quien tiene ficha de delegado, árbitro o entrenador, o gestiona un equipo, y este navegador recuerda su elección.
 
 ### ¿Cómo sabe FutOwl qué partidos son «míos»?
 

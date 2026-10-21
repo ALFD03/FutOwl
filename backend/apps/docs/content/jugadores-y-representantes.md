@@ -39,6 +39,7 @@ El *equipo actual* es el que administra hoy la ficha del jugador:
 
 - Al crear un jugador desde un equipo, queda con ese equipo como actual.
 - **Cambia automáticamente** cuando el jugador se inscribe en la nómina de un torneo con otro equipo.
+- Si el jugador sale del equipo, el equipo lo **desvincula** y queda **libre** (sin equipo actual). Lo sigue viendo en *Desvinculados y anteriores* y puede **readmitirlo** si vuelve; mientras esté libre, cualquier equipo puede **incorporarlo**. Un jugador que está en otro equipo no se puede tomar: ese equipo debe desvincularlo primero.
 - Solo el **equipo actual** (sus gestores o entrenadores con usuario) o un administrador del registro puede **editar** la ficha.
 
 ## Reglas de elegibilidad en la nómina
@@ -54,7 +55,7 @@ Al inscribir a un jugador en un torneo, FutOwl comprueba que:
 ## Ejemplos
 
 - *Luis Mora*, nacido el 05/05/2016 (10 años): necesita representante. Puede inscribirse en Sub 12 (2026: desde 2015).
-- *Luis* juega la *Copa Apertura* con Águilas FC. En la *Copa Clausura* lo inscriben con Leones del Este: su equipo actual pasa a ser Leones y en Águilas aparece en *Han jugado con el equipo*.
+- *Luis* juega la *Copa Apertura* con Águilas FC. En la *Copa Clausura* lo inscriben con Leones del Este: su equipo actual pasa a ser Leones y en Águilas aparece en *Desvinculados y anteriores*.
 - Intentar inscribirlo también con Toros en la *Copa Apertura* da el error *«El jugador ya está inscrito con «Águilas FC» en este torneo»*.
 
 Vea también [Preguntas frecuentes de registro](/app/ayuda/faq-registro).

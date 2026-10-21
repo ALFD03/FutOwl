@@ -50,8 +50,13 @@ La nómina es la lista de jugadores habilitados para jugar con un equipo **en es
 ### Inscribir jugadores
 
 1. Elija el torneo/categoría en el selector.
-2. **Inscribir jugador** → busque al jugador (solo aparecen los **elegibles por año de nacimiento** y **libres** en ese torneo) → indique el **dorsal** (0 a 99, opcional) → **Inscribir**.
-3. O **Nuevo jugador** para crear la ficha e inscribirla de una vez.
+2. **Cargar categoría** (lo habitual): FutOwl propone los jugadores del **plantel actual** del equipo elegibles para la categoría y libres en el torneo.
+   - Vienen **marcados** los que son de esa categoría (su categoría en el equipo, la más baja en la que entran por edad, es esta).
+   - Los de **categorías menores** aparecen en *Otros elegibles*, sin marcar: si los marca, juegan esta categoría y ya no podrán jugar otra del mismo torneo.
+   - El **dorsal** sugerido es el último que usó con el equipo (si sigue libre). **Numerar los sin dorsal** asigna los primeros números libres. Los dorsales repetidos se señalan antes de enviar.
+   - Revise y pulse **Inscribir (n)**. Cada jugador se guarda por separado: si alguno falla, se avisa el motivo y los demás quedan inscritos.
+3. **Inscribir jugador** para sumar a uno solo → busque al jugador (solo aparecen los **elegibles por año de nacimiento** y **libres** en ese torneo) → indique el **dorsal** (0 a 99, opcional) → **Inscribir**.
+4. O **Nuevo jugador** para crear la ficha e inscribirla de una vez.
 
 Al inscribirlo, el equipo pasa a ser el **equipo actual** del jugador.
 

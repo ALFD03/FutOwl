@@ -1,17 +1,18 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, KeyRound, Pencil, Plus, Save, UserMinus, UserPlus, UserX } from "lucide-react";
+import { ArrowLeft, KeyRound, ListChecks, Pencil, Plus, RotateCcw, Save, UserMinus, UserPlus, UserX, X } from "lucide-react";
 
 import { accountField, ResourceForm, type FieldDef, type Values } from "@/components/forms";
 import { TeamCrest } from "@/components/match/TeamCrest";
 import {
-  Alert, Avatar, Badge, Card, CardHeader, DataTable, EmptyState, KeyValue, Modal, MultiSelectMenu, PageLoader, SelectMenu,
-  Spinner, StatusBadge, Tabs,
+  Alert, Avatar, Badge, Card, CardHeader, ConfirmDialog, DataTable, EmptyState, KeyValue, Modal, MultiSelectMenu, normalize, PageLoader,
+  SearchInput, SelectMenu, Spinner, StatusBadge, Tabs,
 } from "@/components/ui";
 import { useAuth, useToast } from "@/hooks";
 import { categories, coaches, players, registrations, roster, teams } from "@/services";
-import type { Coach, Player, Registration, Team, TeamPlayer } from "@/types";
+import type { Category, Coach, Player, Registration, RosterCandidate, Team, TeamPlayer } from "@/types";
+import { cn } from "@/utils/cn";
 import { formatDate } from "@/utils/datetime";
 import { errorMessage } from "@/utils/errors";
 
@@ -113,7 +114,7 @@ function RosterTab({ team, canManage, canEditPlayers }: { team: Team; canManage:
   const queryClient = useQueryClient();
   const [selected, setSelected] = useState<number | null>(null);
   const [editing, setEditing] = useState<number | null>(null);
-  const [adding, setAdding] = useState<"existing" | "new" | null>(null);
+  const [adding, setAdding] = useState<"existing" | "new" | "category" | null>(null);
 
   const regsQ = useQuery({ queryKey: ["registrations", "team", team.id], queryFn: () => registrations.all({ team: team.id, is_active: true }) });
   const regs = regsQ.data ?? [];
@@ -155,13 +156,14 @@ function RosterTab({ team, canManage, canEditPlayers }: { team: Team; canManage:
             </div>
             {canManage && (
               <>
+                <button className="btn-gold btn-sm" onClick={() => setAdding("category")}><ListChecks className="h-4 w-4" /> Cargar categoría</button>
                 <button className="btn-outline btn-sm" onClick={() => setAdding("existing")}><Plus className="h-4 w-4" /> Inscribir jugador</button>
-                <button className="btn-gold btn-sm" onClick={() => setAdding("new")}><UserPlus className="h-4 w-4" /> Nuevo jugador</button>
+                <button className="btn-outline btn-sm" onClick={() => setAdding("new")}><UserPlus className="h-4 w-4" /> Nuevo jugador</button>
               </>
             )}
           </div>
         } />
-      <DataTable<TeamPlayer> key={registration?.id} paginate loading={rosterQ.isLoading} rows={rosterQ.data ?? []} empty="Nadie inscrito todavía en la nómina de este torneo." columns={[
+      <DataTable<TeamPlayer> key={registration?.id} paginate loading={rosterQ.isLoading} rows={rosterQ.data ?? []} columns={[
         { key: "n", header: "Dorsal", render: (r) => <span className="grid h-8 w-8 place-items-center rounded-lg bg-navy-900 font-display font-bold text-gold-400">{r.shirt_number ?? "–"}</span> },
         { key: "p", header: "Jugador", render: (r) => playerCell(r.player_detail) },
         { key: "age", header: "Edad", render: (r) => `${r.player_detail.age} años (${formatDate(r.player_detail.birth_date)})` },
@@ -177,8 +179,15 @@ function RosterTab({ team, canManage, canEditPlayers }: { team: Team; canManage:
             )}
           </span>
         ) },
-      ]} />
+      ]} empty={<EmptyState title="Nómina vacía" message={canManage
+        ? `Cargue la categoría: se proponen los jugadores del equipo de ${registration?.category_name} para revisarlos y confirmarlos.`
+        : "Nadie inscrito todavía en la nómina de este torneo."}
+        action={canManage && <button className="btn-gold btn-sm" onClick={() => setAdding("category")}><ListChecks className="h-4 w-4" /> Cargar categoría</button>} />} />
       <EditPlayerModal playerId={editing} onClose={() => setEditing(null)} />
+      {adding === "category" && registration && (
+        <RosterByCategoryModal registration={registration} taken={(rosterQ.data ?? []).flatMap((r) => (r.shirt_number == null ? [] : [r.shirt_number]))}
+          onClose={() => setAdding(null)} onDone={() => Promise.all([refresh(), queryClient.invalidateQueries({ queryKey: ["players"] })])} />
+      )}
 
       <Modal open={adding === "existing"} onClose={() => setAdding(null)} title="Inscribir jugador registrado" size="sm"
         subtitle={registration && `${registration.tournament_name} · ${registration.category_name}`}>
@@ -198,45 +207,286 @@ function RosterTab({ team, canManage, canEditPlayers }: { team: Team; canManage:
   );
 }
 
+/**
+ * Nómina por categoría: propone los jugadores del equipo de esa categoría (ya marcados) y los de categorías
+ * menores (elegibles, sin marcar). Solo queda revisar, ajustar dorsales y confirmar.
+ */
+function RosterByCategoryModal({ registration, taken, onClose, onDone }: {
+  registration: Registration; taken: number[]; onClose: () => void; onDone: () => Promise<unknown>;
+}) {
+  const { data, isLoading, dataUpdatedAt } = useQuery({ queryKey: ["roster", "candidates", registration.id], queryFn: () => roster.candidates(registration.id) });
+  const [errors, setErrors] = useState<{ label: string; message: string }[]>([]);
+  return (
+    <Modal open onClose={onClose} title={`Cargar nómina · ${registration.category_name}`} subtitle={registration.tournament_name} size="lg">
+      {errors.length > 0 && (
+        <div className="mb-4"><Alert tone="danger" title="No se pudieron inscribir algunos jugadores">
+          <ul className="list-disc pl-5">{errors.map((e) => <li key={e.label}><b>{e.label}:</b> {e.message}</li>)}</ul>
+        </Alert></div>
+      )}
+      {isLoading || !data ? <div className="grid place-items-center py-10"><Spinner /></div>
+        : !data.length ? (
+          <EmptyState title="Sin jugadores por proponer" message={`Todos los jugadores del equipo elegibles para ${registration.category_name} ya están en una nómina de este torneo, o no hay ninguno registrado. Use «Nuevo jugador» para registrar más.`} />
+        ) : (
+          <CandidatesForm key={dataUpdatedAt} candidates={data} taken={taken} registration={registration} onClose={onClose}
+            onSaved={async (result) => { setErrors(result.errors); await onDone(); if (!result.errors.length) onClose(); }} />
+        )}
+    </Modal>
+  );
+}
+
+type Pick = { checked: boolean; shirt: string };
+
+function CandidatesForm({ candidates, taken, registration, onClose, onSaved }: {
+  candidates: RosterCandidate[]; taken: number[]; registration: Registration; onClose: () => void;
+  onSaved: (result: { created: number; errors: { label: string; message: string }[] }) => Promise<void>;
+}) {
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+  const [picks, setPicks] = useState<Record<number, Pick>>(() => Object.fromEntries(
+    candidates.map((c) => [c.player.id, { checked: c.suggested, shirt: c.shirt_number?.toString() ?? "" }])));
+  const set = (id: number, change: Partial<Pick>) => setPicks((p) => ({ ...p, [id]: { ...p[id], ...change } }));
+
+  const chosen = candidates.filter((c) => picks[c.player.id].checked);
+  const counts = new Map<string, number>();
+  chosen.forEach((c) => { const v = picks[c.player.id].shirt.trim(); if (v) counts.set(v, (counts.get(v) ?? 0) + 1); });
+  const shirtError = (id: number) => {
+    const { checked, shirt } = picks[id];
+    const v = shirt.trim();
+    if (!checked || !v) return null;
+    const n = Number(v);
+    if (!Number.isInteger(n) || n < 0 || n > 99) return "Dorsal de 0 a 99";
+    if (taken.includes(n)) return "Ya está en la nómina";
+    return (counts.get(v) ?? 0) > 1 ? "Dorsal repetido" : null;
+  };
+  const invalid = chosen.some((c) => shirtError(c.player.id));
+  const empties = chosen.filter((c) => !picks[c.player.id].shirt.trim());
+
+  const numberEmpties = () => {
+    const used = new Set([...taken, ...chosen.map((c) => picks[c.player.id].shirt.trim()).filter(Boolean).map(Number)]);
+    const next: Record<number, Pick> = { ...picks };
+    let n = 1;
+    for (const c of empties) {
+      while (used.has(n) && n <= 99) n++;
+      if (n > 99) break;
+      next[c.player.id] = { ...next[c.player.id], shirt: String(n) };
+      used.add(n);
+    }
+    setPicks(next);
+  };
+
+  const submit = async () => {
+    setBusy(true);
+    try {
+      const result = await roster.bulk({ registration: registration.id, players: chosen.map((c) => {
+        const v = picks[c.player.id].shirt.trim();
+        return { player: c.player.id, shirt_number: v ? Number(v) : null };
+      }) });
+      if (result.created) toast.success(`${result.created} jugador(es) inscrito(s) en la nómina.`);
+      await onSaved(result);
+    } catch (e) { toast.error(errorMessage(e)); }
+    finally { setBusy(false); }
+  };
+
+  const section = (title: string, help: string, rows: RosterCandidate[]) => {
+    if (!rows.length) return null;
+    const all = rows.every((c) => picks[c.player.id].checked);
+    return (
+      <div>
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+          <div><p className="text-sm font-semibold">{title} ({rows.length})</p><p className="text-xs text-slate-500">{help}</p></div>
+          <button type="button" className="btn-ghost btn-sm" onClick={() => setPicks((p) => ({ ...p, ...Object.fromEntries(rows.map((c) => [c.player.id, { ...p[c.player.id], checked: !all }])) }))}>
+            {all ? "Desmarcar todos" : "Marcar todos"}
+          </button>
+        </div>
+        <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200 dark:divide-white/5 dark:border-white/10">
+          {rows.map((c) => {
+            const pick = picks[c.player.id];
+            const error = shirtError(c.player.id);
+            return (
+              <li key={c.player.id} className={cn("flex flex-wrap items-center gap-3 px-4 py-2.5", !pick.checked && "opacity-60")}>
+                <input type="checkbox" className="h-4 w-4 accent-navy-700" checked={pick.checked} aria-label={`Inscribir a ${c.player.full_name}`}
+                  onChange={(e) => set(c.player.id, { checked: e.target.checked })} />
+                <span className="min-w-0 flex-1">{playerCell(c.player)}</span>
+                <span className="text-xs text-slate-500">{c.player.age} años · <Badge tone="gold">{c.category_name}</Badge></span>
+                <label className="flex flex-col items-end">
+                  <span className="sr-only">Dorsal</span>
+                  <input className={cn("input w-20 text-center", error && "border-crimson-400")} inputMode="numeric" placeholder="Dorsal" disabled={!pick.checked}
+                    value={pick.shirt} onChange={(e) => set(c.player.id, { shirt: e.target.value.replace(/\D/g, "").slice(0, 2) })} />
+                  {error && <span className="mt-0.5 text-[11px] text-crimson-600">{error}</span>}
+                </label>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    );
+  };
+
+  return (
+    <div className="space-y-5">
+      <p className="text-sm text-slate-600 dark:text-slate-300">
+        Jugadores del plantel actual elegibles para <b>{registration.category_name}</b> y libres en este torneo. Ya vienen marcados los de esta categoría;
+        revise, ajuste los dorsales y confirme.
+      </p>
+      {section(`De ${registration.category_name}`, "Su categoría en el equipo es esta.", candidates.filter((c) => c.suggested))}
+      {section("Otros elegibles", "De categorías menores: pueden jugar aquí si los marca (y ya no podrán jugar otra categoría de este torneo).", candidates.filter((c) => !c.suggested))}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4 dark:border-white/5">
+        <span className="text-sm text-slate-500">{chosen.length} seleccionado(s){empties.length > 0 && ` · ${empties.length} sin dorsal`}</span>
+        <div className="flex flex-wrap gap-2">
+          {empties.length > 0 && <button type="button" className="btn-ghost btn-sm" onClick={numberEmpties}>Numerar los sin dorsal</button>}
+          <button type="button" className="btn-outline" onClick={onClose}>Cancelar</button>
+          <button type="button" className="btn-primary" disabled={!chosen.length || invalid || busy} onClick={() => void submit()}>
+            {busy ? <Spinner className="h-4 w-4" /> : <ListChecks className="h-4 w-4" />} Inscribir {chosen.length}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ------------------------------------------------------------------ Jugadores (actuales e históricos)
+type Situation = "" | "current" | "free" | "other";
+
+/** Categorías del equipo de la menor a la mayor (para ubicar a cada jugador en la suya). */
+function useTeamLadder(team: Team) {
+  const { data = [] } = useQuery({ queryKey: ["categories", "all"], queryFn: () => categories.all({ is_active: true }) });
+  return useMemo(() => data.filter((c) => team.categories.includes(c.id)).sort((a, b) => a.max_age - b.max_age), [data, team.categories]);
+}
+
+/** Categoría del jugador en el equipo: la más baja de las del equipo en la que entra por edad. */
+const ownCategory = (player: { birth_date: string }, ladder: Category[]) =>
+  ladder.find((c) => Number(player.birth_date.slice(0, 4)) >= c.birth_year_limit) ?? null;
+
 function PlayersTab({ team, canCreate, canEdit, canEditFormer }: { team: Team; canCreate: boolean; canEdit: boolean; canEditFormer: boolean }) {
   const toast = useToast();
   const queryClient = useQueryClient();
   const [profile, setProfile] = useState<number | null>(null);
   const [editing, setEditing] = useState<number | null>(null);
   const [creating, setCreating] = useState(false);
+  const [releasing, setReleasing] = useState<Player | null>(null);
+  const [pick, setPick] = useState<number | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [search, setSearch] = useState("");
+  const [category, setCategory] = useState<number | null>(null);
+  const [situation, setSituation] = useState<Situation>("");
+  const [tournament, setTournament] = useState<number | null>(null);
+  const ladder = useTeamLadder(team);
   const { data = [], isLoading } = useQuery({ queryKey: ["players", "team", team.id], queryFn: () => players.all({ team: team.id }) });
-  const current = data.filter((p) => p.current_team === team.id);
-  const former = data.filter((p) => p.current_team !== team.id);
+
+  const refresh = () => Promise.all([
+    queryClient.invalidateQueries({ queryKey: ["players"] }), queryClient.invalidateQueries({ queryKey: ["teams", team.id] }),
+  ]);
+  const readmit = async (playerId: number) => {
+    setBusy(true);
+    try { await players.readmit(playerId, team.id); toast.success("Jugador incorporado al plantel actual."); setPick(null); await refresh(); }
+    catch (e) { toast.error(errorMessage(e)); }
+    finally { setBusy(false); }
+  };
+  const loadFree = async (query: string) => (await players.list({ free: true, is_active: true, search: query })).results
+    .map((p: Player) => ({ value: p.id, label: p.full_name,
+      hint: [p.vat_display || "Partida de nacimiento", `${p.age} años`, p.released_from_name && `Desvinculado de ${p.released_from_name}`].filter(Boolean).join(" · ") }));
+
+  const withTeam = (p: Player) => p.history.filter((h) => h.team === team.id);
+  const tournamentOptions = [...new Map(data.flatMap(withTeam).map((h) => [h.tournament, h.tournament_name])).entries()]
+    .map(([value, label]) => ({ value, label }));
+  const term = normalize(search.trim());
+  const visible = data.filter((p) => {
+    if (term && !normalize(`${p.full_name} ${p.vat_display}`).includes(term)) return false;
+    if (category != null && ownCategory(p, ladder)?.id !== category) return false;
+    if (tournament != null && !withTeam(p).some((h) => h.tournament === tournament)) return false;
+    if (situation === "current") return p.current_team === team.id;
+    if (situation === "free") return p.current_team === null;
+    if (situation === "other") return p.current_team !== null && p.current_team !== team.id;
+    return true;
+  });
+  const current = visible.filter((p) => p.current_team === team.id);
+  const former = visible.filter((p) => p.current_team !== team.id);
+  const filtering = Boolean(term || category != null || tournament != null || situation);
 
   const columns = [
     { key: "p", header: "Jugador", render: (r: Player) => playerCell(r) },
     { key: "age", header: "Edad", render: (r: Player) => `${r.age} años` },
-    { key: "t", header: "Torneos con el equipo", render: (r: Player) => r.history.filter((h) => h.team === team.id).map((h) => <Badge key={h.id} className="mr-1">{h.tournament_name}</Badge>) },
+    { key: "c", header: "Categoría", render: (r: Player) => { const c = ownCategory(r, ladder); return c ? <Badge tone="gold">{c.name}</Badge> : <span className="text-slate-400">Fuera de edad</span>; } },
+    { key: "t", header: "Torneos con el equipo", render: (r: Player) => withTeam(r).map((h) => <Badge key={h.id} className="mr-1">{h.tournament_name}</Badge>) },
     { key: "s", header: "G · PJ", render: (r: Player) => <span className="font-mono text-xs"><b className="text-gold-600 dark:text-gold-400">{r.stats.goals}</b> · {r.stats.matches}</span> },
   ];
   // Solo el equipo actual (o un administrador) puede actualizar la ficha del jugador.
-  const editColumn = (enabled: boolean) => ({ key: "e", header: "", className: "text-right",
-    render: (r: Player) => enabled && editButton("Editar jugador", () => setEditing(r.id)) });
+  const currentActions = { key: "e", header: "", className: "text-right", render: (r: Player) => canEdit && (
+    <span className="flex justify-end gap-1">
+      {editButton("Editar jugador", () => setEditing(r.id))}
+      <button className="btn-ghost btn-sm text-crimson-600" title="Desvincular del equipo (queda libre)" aria-label="Desvincular del equipo"
+        onClick={(e) => { e.stopPropagation(); setReleasing(r); }}><UserMinus className="h-4 w-4" /></button>
+    </span>
+  ) };
+  const formerActions = { key: "e", header: "", className: "text-right", render: (r: Player) => (
+    <span className="flex justify-end gap-1">
+      {canEditFormer && editButton("Editar jugador", () => setEditing(r.id))}
+      {canEdit && r.is_active && r.current_team === null && (
+        <button className="btn-ghost btn-sm text-emerald-600" title="Readmitir en el equipo" aria-label="Readmitir en el equipo" disabled={busy}
+          onClick={(e) => { e.stopPropagation(); void readmit(r.id); }}><RotateCcw className="h-4 w-4" /></button>
+      )}
+    </span>
+  ) };
 
   return (
     <div className="space-y-6">
       <Card>
-        <CardHeader title="Plantel actual" subtitle="Jugadores cuyo equipo actual es este: el equipo puede actualizar su ficha (fotos, documento…)."
-          actions={canCreate && <button className="btn-gold btn-sm" onClick={() => setCreating(true)}><UserPlus className="h-4 w-4" /> Nuevo jugador</button>} />
-        <DataTable<Player> paginate loading={isLoading} rows={current} onRowClick={(r) => setProfile(r.id)} empty="Sin jugadores actuales." columns={[...columns, editColumn(canEdit)]} />
+        <div className="flex flex-col gap-3 px-5 py-4 lg:flex-row lg:items-center">
+          <SearchInput value={search} onChange={setSearch} placeholder="Buscar por nombre o documento…" />
+          <div className="lg:w-44"><SelectMenu value={category} clearable placeholder="Todas las categorías" onChange={(v) => setCategory(v == null ? null : Number(v))}
+            options={ladder.map((c) => ({ value: c.id, label: c.name, hint: `Nacidos desde ${c.birth_year_limit}` }))} /></div>
+          <div className="lg:w-48"><SelectMenu value={situation || null} clearable placeholder="Toda situación" onChange={(v) => setSituation((v ?? "") as Situation)}
+            options={[{ value: "current", label: "En el plantel actual" }, { value: "free", label: "Libres (desvinculados)" }, { value: "other", label: "En otro equipo" }]} /></div>
+          <div className="lg:w-52"><SelectMenu value={tournament} clearable placeholder="Todos los torneos" searchable={tournamentOptions.length > 6}
+            onChange={(v) => setTournament(v == null ? null : Number(v))} options={tournamentOptions} /></div>
+          {filtering && (
+            <button className="btn-ghost btn-sm" onClick={() => { setSearch(""); setCategory(null); setSituation(""); setTournament(null); }}>
+              <X className="h-4 w-4" /> Limpiar
+            </button>
+          )}
+        </div>
       </Card>
-      <Card>
-        <CardHeader title="Han jugado con el equipo" subtitle="Registro histórico: jugadores que estuvieron en la nómina de algún torneo y hoy están en otro equipo o libres." />
-        <DataTable<Player> paginate loading={isLoading} rows={former} onRowClick={(r) => setProfile(r.id)} empty="Sin registros históricos." columns={[
-          ...columns.slice(0, 1),
-          { key: "now", header: "Equipo actual", render: (r: Player) => r.current_team_name ? <Badge tone="navy">{r.current_team_name}</Badge> : <span className="text-slate-400">Libre</span> },
-          ...columns.slice(2),
-          editColumn(canEditFormer),
-        ]} />
-      </Card>
+      {situation !== "free" && situation !== "other" && (
+        <Card>
+          <CardHeader title={`Plantel actual (${current.length})`} subtitle="Jugadores cuyo equipo actual es este: el equipo puede actualizar su ficha (fotos, documento…)."
+            actions={canCreate && <button className="btn-gold btn-sm" onClick={() => setCreating(true)}><UserPlus className="h-4 w-4" /> Nuevo jugador</button>} />
+          {canEdit && (
+            <div className="flex flex-col gap-2 border-b border-slate-100 px-5 py-4 sm:flex-row dark:border-white/5">
+              <div className="flex-1">
+                <SelectMenu value={pick} onChange={(v) => setPick(v as number | null)} load={loadFree} placeholder="Incorporar un jugador libre: buscar por nombre o cédula…" searchPlaceholder="Nombre o cédula…" />
+              </div>
+              <button className="btn-primary" disabled={!pick || busy} onClick={() => void readmit(pick!)}>
+                {busy ? <Spinner className="h-4 w-4" /> : <Plus className="h-4 w-4" />} Incorporar
+              </button>
+            </div>
+          )}
+          <DataTable<Player> paginate loading={isLoading} rows={current} onRowClick={(r) => setProfile(r.id)}
+            empty={filtering ? "Ningún jugador del plantel coincide con los filtros." : "Sin jugadores actuales."} columns={[...columns, currentActions]} />
+        </Card>
+      )}
+      {situation !== "current" && (
+        <Card>
+          <CardHeader title={`Desvinculados y anteriores (${former.length})`} subtitle="Jugadores que el equipo desvinculó o que estuvieron en alguna de sus nóminas y hoy están en otro equipo o libres. Los libres se pueden readmitir." />
+          <DataTable<Player> paginate loading={isLoading} rows={former} onRowClick={(r) => setProfile(r.id)}
+            empty={filtering ? "Ningún jugador coincide con los filtros." : "Sin registros históricos."} columns={[
+              ...columns.slice(0, 1),
+              { key: "now", header: "Situación", render: (r: Player) => r.current_team_name ? <Badge tone="navy">{r.current_team_name}</Badge>
+                : <span className="flex flex-wrap gap-1"><Badge tone="emerald">Libre</Badge>{r.released_from === team.id && <Badge tone="amber">Desvinculado</Badge>}</span> },
+              ...columns.slice(1),
+              formerActions,
+            ]} />
+        </Card>
+      )}
       <PlayerProfile playerId={profile} onClose={() => setProfile(null)} />
       <EditPlayerModal playerId={editing} onClose={() => setEditing(null)} />
+      <ConfirmDialog open={releasing !== null} onClose={() => setReleasing(null)} danger confirmLabel="Desvincular"
+        title={`Desvincular a ${releasing?.full_name ?? ""}`}
+        message={<>El jugador deja el plantel actual y queda <b>libre</b>: otro equipo podrá incorporarlo. Sus nóminas de torneos no cambian
+          (si ya no jugará, dele de baja desde «Nómina por torneo»). Seguirá apareciendo aquí para readmitirlo si vuelve.</>}
+        onConfirm={async () => {
+          try { await players.release(releasing!.id); toast.success("Jugador desvinculado: quedó libre."); await refresh(); }
+          catch (e) { toast.error(errorMessage(e)); throw e; }
+        }} />
       <Modal open={creating} onClose={() => setCreating(false)} title="Nuevo jugador" subtitle={`Queda con ${team.name} como equipo actual`} size="lg">
         <ResourceForm fields={PLAYER_FIELDS} onCancel={() => setCreating(false)} submitLabel="Crear jugador"
           onSubmit={async (v) => {

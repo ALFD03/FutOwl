@@ -128,6 +128,9 @@ export interface Player extends BaseEntity, Person, Identity {
   guardian_detail: Guardian | null;
   current_team: ID | null;
   current_team_name: string | null;
+  /** Último equipo que lo desvinculó (lo sigue viendo para readmitirlo). */
+  released_from: ID | null;
+  released_from_name: string | null;
   history: PlayerHistory[];
   stats: PlayerStats;
 }
@@ -151,6 +154,11 @@ export interface Team extends BaseEntity, Identity, Address {
 }
 
 /** Jugador inscrito en la nómina de un equipo para un torneo. */
+export interface RosterPlayer {
+  id: ID; full_name: string; photo: string | null; vat_display: string; birth_date: string; age: number;
+  is_minor: boolean; guardian_name: string | null;
+}
+
 export interface TeamPlayer extends BaseEntity {
   registration: ID;
   tournament: ID;
@@ -160,10 +168,15 @@ export interface TeamPlayer extends BaseEntity {
   category: ID;
   category_name: string;
   player: ID;
-  player_detail: {
-    id: ID; full_name: string; photo: string | null; vat_display: string; birth_date: string; age: number;
-    is_minor: boolean; guardian_name: string | null;
-  };
+  player_detail: RosterPlayer;
+  shirt_number: number | null;
+}
+
+/** Jugador propuesto para la nómina de una inscripción. `suggested`: es de esa categoría (viene marcado). */
+export interface RosterCandidate {
+  player: RosterPlayer;
+  category_name: string;
+  suggested: boolean;
   shirt_number: number | null;
 }
 
@@ -367,7 +380,11 @@ export interface Match {
   missing_fields: string[];
   /** Posiciones de oficiales sin asignar (borrador o pendiente). */
   missing_officials: string[];
+  /** Respuesta del usuario actual si es parte del partido (oficial asignado o gestor de un equipo). */
+  my_confirmation: MyConfirmation | null;
 }
+
+export type MyConfirmation = "accepted" | "rejected" | "review" | "pending";
 
 export type Party = "delegate" | "referee" | "assistant_1" | "assistant_2" | "home" | "away";
 

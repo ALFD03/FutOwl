@@ -214,6 +214,11 @@ class Player(BaseEntity, PersonMixin, IdentityDocumentMixin):
         "Team", verbose_name="equipo actual", on_delete=models.SET_NULL, null=True, blank=True,
         related_name="current_players",
     )
+    # Último equipo que lo desvinculó (salió de la escuela): lo sigue viendo entre sus jugadores para readmitirlo.
+    released_from = models.ForeignKey(
+        "Team", verbose_name="desvinculado de", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="released_players", editable=False,
+    )
 
     class Meta:
         ordering = ["last_name", "first_name"]

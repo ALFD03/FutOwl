@@ -2,7 +2,7 @@ import { api } from "@/api/client";
 import type {
   Adjustment, AuditLog, CapabilityCatalog, Category, CategoryRules, Coach, Confirmation, DocPage, DocPageSummary, DocRevision, Field, Group, Guardian, ID, Lineup, LiveState, Match,
   KnockoutView, Matchday, MatchEvent, MatchNote, MatchReport, Me, Notification, Official, Paginated, PartyStatus, Permission, PermissionCatalog,
-  Player, PlayerStat, PublicMatch, PublicTournament, Registration, ReportComparison, ReviewCase, Role,
+  Player, PlayerStat, PublicMatch, PublicTournament, Registration, ReportComparison, ReviewCase, Role, RosterCandidate,
   StandingRow, Team, TeamPlayer, Terms, Tournament, User,
 } from "@/types";
 
@@ -13,11 +13,25 @@ export const categories = createResource<Category>("categories");
 export const fields = createResource<Field>("fields");
 export const coaches = createResource<Coach>("coaches");
 export const guardians = createResource<Guardian>("guardians");
-export const players = createResource<Player>("players");
+export const players = {
+  ...createResource<Player>("players"),
+  /** Sale del equipo (p. ej. dejó la escuela): queda libre y el equipo lo sigue viendo para readmitirlo. */
+  release: async (id: ID) => (await api.post<Player>(`/players/${id}/release/`)).data,
+  /** Incorpora un jugador libre al equipo. */
+  readmit: async (id: ID, team: ID) => (await api.post<Player>(`/players/${id}/readmit/`, { team })).data,
+};
 export const delegates = createResource<Official>("delegates");
 export const referees = createResource<Official>("referees");
 export const teams = createResource<Team>("teams");
-export const roster = createResource<TeamPlayer>("roster");
+export const roster = {
+  ...createResource<TeamPlayer>("roster"),
+  /** Propuesta de nómina de una inscripción: los jugadores del equipo de esa categoría, libres en el torneo. */
+  candidates: async (registration: ID) =>
+    (await api.get<RosterCandidate[]>("/roster/candidates/", { params: { registration } })).data,
+  /** Inscribe varios jugadores; cada uno que falle se informa sin frenar a los demás. */
+  bulk: async (data: { registration: ID; players: { player: ID; shirt_number: number | null }[] }) =>
+    (await api.post<{ created: number; errors: { player: ID; label: string; message: string }[] }>("/roster/bulk/", data)).data,
+};
 
 // ---------------------------------------------------------------- Torneos
 export const tournaments = {
