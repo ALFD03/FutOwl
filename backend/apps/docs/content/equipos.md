@@ -31,7 +31,7 @@ Pulse un equipo del listado. Arriba verá logo, RIF, dirección, categorías, cu
 
 ### Nómina por torneo
 
-Lista los jugadores inscritos con el equipo en un torneo/categoría. Elija la inscripción en el selector y use:
+Muestra los **torneos donde está inscrito el equipo**, cada uno con sus **categorías** y cuántos jugadores hay en la nómina de cada una (las que aún no tienen nómina se resaltan). Pulse un torneo, o directamente una categoría, para abrirlo: cada **categoría inscrita es una página** (pestaña) con su nómina. *Todos los torneos* vuelve a la lista. En la página de la categoría use:
 
 - **Cargar categoría**: propone, ya marcados, los jugadores del plantel actual que son de esa categoría (con su último dorsal en el equipo, si sigue libre). Solo queda revisar, ajustar dorsales y confirmar.
 - **Inscribir jugador**: busca jugadores ya registrados que sean **elegibles** para la categoría y estén **libres** en ese torneo.

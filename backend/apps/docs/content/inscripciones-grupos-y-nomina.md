@@ -43,13 +43,13 @@ Los grupos se usan para:
 
 La nómina es la lista de jugadores habilitados para jugar con un equipo **en ese torneo y categoría**. Solo los jugadores de la nómina pueden ir a una alineación.
 
-**Dónde:** Registro → Equipos → (equipo) → **Nómina por torneo**. Desde el torneo, la columna *Nómina* de cada equipo inscrito lleva directo a esa pestaña.
+**Dónde:** Registro → Equipos → (equipo) → **Nómina por torneo**. Ahí aparece la lista de torneos del equipo con sus categorías; al abrir un torneo, cada categoría inscrita tiene su propia página. Desde el torneo, la columna *Nómina* de cada equipo inscrito lleva directo a la página de esa categoría.
 
 **Quién:** administradores del registro o del torneo, y los **gestores / entrenadores con usuario** del propio equipo (con permisos de nómina).
 
 ### Inscribir jugadores
 
-1. Elija el torneo/categoría en el selector.
+1. Abra el torneo y elija la pestaña de la categoría.
 2. **Cargar categoría** (lo habitual): FutOwl propone los jugadores del **plantel actual** del equipo elegibles para la categoría y libres en el torneo.
    - Vienen **marcados** los que son de esa categoría (su categoría en el equipo, la más baja en la que entran por edad, es esta).
    - Los de **categorías menores** aparecen en *Otros elegibles*, sin marcar: si los marca, juegan esta categoría y ya no podrán jugar otra del mismo torneo.

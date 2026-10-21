@@ -62,7 +62,7 @@ export function TeamsTab({ tournament }: { tournament: Tournament }) {
                             <tr key={r.id} className="border-t border-slate-200/70 dark:border-white/5">
                               <td className="py-2 pl-7"><Badge tone="gold">{r.category_name}</Badge></td>
                               <td className="py-2 text-slate-600 dark:text-slate-300">{r.group_name ?? "—"}</td>
-                              <td className="py-2"><Link to={`/app/equipos/${r.team}`} className="font-semibold text-navy-700 hover:underline dark:text-gold-400">{r.roster_count} jugadores</Link></td>
+                              <td className="py-2"><Link to={`/app/equipos/${r.team}?inscripcion=${r.id}`} className="font-semibold text-navy-700 hover:underline dark:text-gold-400">{r.roster_count} jugadores</Link></td>
                             </tr>
                           ))}
                         </tbody>

@@ -1,9 +1,10 @@
 import { useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, KeyRound, ListChecks, Pencil, Plus, RotateCcw, Save, UserMinus, UserPlus, UserX, X } from "lucide-react";
+import { ArrowLeft, ChevronRight, KeyRound, ListChecks, Pencil, Plus, RotateCcw, Save, Trophy, UserMinus, UserPlus, UserX, X } from "lucide-react";
 
 import { accountField, ResourceForm, type FieldDef, type Values } from "@/components/forms";
+import { Can } from "@/components/layout/Guards";
 import { TeamCrest } from "@/components/match/TeamCrest";
 import {
   Alert, Avatar, Badge, Card, CardHeader, ConfirmDialog, DataTable, EmptyState, KeyValue, Modal, MultiSelectMenu, normalize, PageLoader,
@@ -109,61 +110,143 @@ export function TeamDetailPage() {
 }
 
 // ------------------------------------------------------------------ Nómina por torneo
-function RosterTab({ team, canManage, canEditPlayers }: { team: Team; canManage: boolean; canEditPlayers: boolean }) {
-  const toast = useToast();
-  const queryClient = useQueryClient();
-  const [selected, setSelected] = useState<number | null>(null);
-  const [editing, setEditing] = useState<number | null>(null);
-  const [adding, setAdding] = useState<"existing" | "new" | "category" | null>(null);
+const TOURNAMENT_STATUS: Record<Registration["tournament_status"], string> = {
+  draft: "Borrador", registration: "Inscripciones abiertas", in_progress: "En curso", finished: "Finalizado",
+};
+const STATUS_ORDER: Registration["tournament_status"][] = ["in_progress", "registration", "draft", "finished"];
 
+/**
+ * Torneos donde está inscrito el equipo, con sus categorías. Al abrir uno, cada categoría inscrita es una
+ * página con su nómina. La inscripción abierta va en la URL (?inscripcion=id) para enlazarla y volver atrás.
+ */
+function RosterTab({ team, canManage, canEditPlayers }: { team: Team; canManage: boolean; canEditPlayers: boolean }) {
+  const [params, setParams] = useSearchParams();
   const regsQ = useQuery({ queryKey: ["registrations", "team", team.id], queryFn: () => registrations.all({ team: team.id, is_active: true }) });
   const regs = regsQ.data ?? [];
-  const registration: Registration | undefined = regs.find((r) => r.id === selected) ?? regs[0];
-  const rosterQ = useQuery({
-    queryKey: ["roster", registration?.id], queryFn: () => roster.all({ registration: registration!.id, is_active: true }), enabled: Boolean(registration),
+  const open = (id: number | null) => setParams((prev) => {
+    const next = new URLSearchParams(prev);
+    if (id == null) next.delete("inscripcion"); else next.set("inscripcion", String(id));
+    return next;
   });
-  const refresh = () => queryClient.invalidateQueries({ queryKey: ["roster"] });
-
-  const enroll = async (playerId: number, shirt: unknown) => {
-    await roster.create({ registration: registration!.id, player: playerId, shirt_number: shirt });
-    toast.success("Jugador inscrito en la nómina del torneo.");
-    setAdding(null);
-    await Promise.all([refresh(), queryClient.invalidateQueries({ queryKey: ["players"] })]);
-  };
 
   if (regsQ.isLoading) return <PageLoader />;
   if (!regs.length) {
     return <Card><EmptyState title="Sin torneos" message="El equipo aún no está inscrito en ningún torneo. La inscripción se hace desde el torneo; luego aquí se carga su nómina." /></Card>;
   }
 
+  const selected = regs.find((r) => r.id === Number(params.get("inscripcion")));
+  const byTournament = new Map<number, Registration[]>();
+  regs.forEach((r) => byTournament.set(r.tournament, [...(byTournament.get(r.tournament) ?? []), r]));
+  const tournaments = [...byTournament.values()]
+    .map((items) => items.sort((a, b) => a.category_name.localeCompare(b.category_name, "es", { numeric: true })))
+    .sort((a, b) => STATUS_ORDER.indexOf(a[0].tournament_status) - STATUS_ORDER.indexOf(b[0].tournament_status)
+      || a[0].tournament_name.localeCompare(b[0].tournament_name, "es"));
+
+  if (selected) {
+    const categoriesOf = tournaments.find((items) => items[0].tournament === selected.tournament) ?? [selected];
+    const editable = selected.tournament_status !== "finished";
+    return (
+      <div>
+        <button className="btn-ghost mb-3 -ml-3" onClick={() => open(null)}><ArrowLeft className="h-4 w-4" /> Todos los torneos</button>
+        <div className="mb-4 flex flex-wrap items-center gap-3">
+          <h2 className="text-xl font-bold">{selected.tournament_name}</h2>
+          <StatusBadge status={selected.tournament_status} label={TOURNAMENT_STATUS[selected.tournament_status]} />
+          <Can perm="tournaments.view_tournament">
+            <Link to={`/app/torneos/${selected.tournament}`} className="text-sm font-semibold text-navy-700 hover:underline dark:text-gold-400">Ver torneo</Link>
+          </Can>
+        </div>
+        <Tabs<string> value={String(selected.id)} onChange={(id) => open(Number(id))}
+          tabs={categoriesOf.map((r) => ({ id: String(r.id), label: <>{r.category_name} <span className="ml-1 opacity-70">({r.roster_count})</span></> }))} />
+        <CategoryRoster key={selected.id} team={team} registration={selected} canManage={canManage && editable} canEditPlayers={canEditPlayers} />
+      </div>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader title="Torneos inscritos" subtitle="Abra un torneo para cargar la nómina de cada categoría. Un jugador solo puede estar en un equipo por torneo; en otros torneos puede jugar con otro equipo." />
+      <ul className="divide-y divide-slate-100 dark:divide-white/5">
+        {tournaments.map((items) => {
+          const first = items[0];
+          const players = items.reduce((n, r) => n + r.roster_count, 0);
+          const empty = items.filter((r) => !r.roster_count).length;
+          return (
+            <li key={first.tournament} className="flex flex-col gap-3 px-5 py-4 transition hover:bg-slate-50 lg:flex-row lg:items-center dark:hover:bg-white/[.03]">
+              <button className="min-w-0 flex-1 text-left" onClick={() => open(first.id)}>
+                <span className="flex flex-wrap items-center gap-2">
+                  <Trophy className="h-4 w-4 text-gold-500" />
+                  <b>{first.tournament_name}</b>
+                  <StatusBadge status={first.tournament_status} label={TOURNAMENT_STATUS[first.tournament_status]} />
+                </span>
+                <span className="mt-1 block text-xs text-slate-500">
+                  {items.length} categoría(s) · {players} jugador(es) en nómina
+                  {empty > 0 && first.tournament_status !== "finished" && <span className="text-amber-600 dark:text-amber-400"> · {empty} sin nómina</span>}
+                </span>
+              </button>
+              <div className="flex flex-wrap items-center gap-2">
+                {items.map((r) => (
+                  <button key={r.id} onClick={() => open(r.id)} title={`Abrir la nómina de ${r.category_name}`}
+                    className={cn("rounded-lg border px-3 py-1.5 text-xs font-semibold transition hover:border-navy-400 hover:bg-navy-50 dark:hover:border-gold-500/50 dark:hover:bg-gold-500/10",
+                      r.roster_count ? "border-slate-200 dark:border-white/10" : "border-dashed border-amber-300 text-amber-700 dark:border-amber-500/40 dark:text-amber-300")}>
+                    {r.category_name} · {r.roster_count}
+                  </button>
+                ))}
+                <ChevronRight className="hidden h-4 w-4 text-slate-400 lg:block" />
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </Card>
+  );
+}
+
+/** Página de una categoría inscrita: su nómina, y desde aquí se carga la categoría o se inscribe uno a uno. */
+function CategoryRoster({ team, registration, canManage, canEditPlayers }: {
+  team: Team; registration: Registration; canManage: boolean; canEditPlayers: boolean;
+}) {
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const [editing, setEditing] = useState<number | null>(null);
+  const [adding, setAdding] = useState<"existing" | "new" | "category" | null>(null);
+  const rosterQ = useQuery({
+    queryKey: ["roster", registration.id], queryFn: () => roster.all({ registration: registration.id, is_active: true }),
+  });
+  // Los contadores de cada categoría salen de las inscripciones: se refrescan junto con la nómina.
+  const refresh = () => Promise.all([
+    queryClient.invalidateQueries({ queryKey: ["roster"] }), queryClient.invalidateQueries({ queryKey: ["registrations"] }),
+  ]);
+
+  const enroll = async (playerId: number, shirt: unknown) => {
+    await roster.create({ registration: registration.id, player: playerId, shirt_number: shirt });
+    toast.success("Jugador inscrito en la nómina del torneo.");
+    setAdding(null);
+    await Promise.all([refresh(), queryClient.invalidateQueries({ queryKey: ["players"] })]);
+  };
+
   const enrollFields: FieldDef[] = [
     { name: "player", label: "Jugador", type: "remote", required: true, wide: true,
-      help: `Solo aparecen jugadores nacidos desde el año tope de ${registration?.category_name} y libres en este torneo.`,
-      remote: { service: players, params: { available_for: registration?.id },
+      help: `Solo aparecen jugadores nacidos desde el año tope de ${registration.category_name} y libres en este torneo.`,
+      remote: { service: players, params: { available_for: registration.id },
         label: (p: Player) => p.full_name,
         hint: (p: Player) => [p.vat_display || "Partida de nacimiento", `${p.age} años`, p.current_team_name ? `Equipo actual: ${p.current_team_name}` : "Sin equipo"].join(" · ") } },
     { name: "shirt_number", label: "Dorsal", type: "number", min: 0, max: 99 },
   ];
+  const subtitle = [registration.group_name && `Grupo ${registration.group_name}`,
+    registration.tournament_status === "finished" ? "Torneo finalizado: la nómina ya no se modifica." : "Cargue la categoría completa o inscriba jugadores uno a uno."]
+    .filter(Boolean).join(" · ");
 
   return (
     <Card>
-      <CardHeader title="Nómina del torneo" subtitle="Un jugador solo puede estar en un equipo por torneo; en otros torneos puede jugar con otro equipo."
-        actions={
+      <CardHeader title={`Nómina · ${registration.category_name}`} subtitle={subtitle}
+        actions={canManage && (
           <div className="flex flex-wrap items-center gap-2">
-            <div className="w-72">
-              <SelectMenu value={registration?.id ?? null} onChange={(v) => setSelected(Number(v))} searchable={regs.length > 6}
-                options={regs.map((r) => ({ value: r.id, label: `${r.tournament_name} · ${r.category_name}`, hint: r.group_name ?? undefined }))} />
-            </div>
-            {canManage && (
-              <>
-                <button className="btn-gold btn-sm" onClick={() => setAdding("category")}><ListChecks className="h-4 w-4" /> Cargar categoría</button>
-                <button className="btn-outline btn-sm" onClick={() => setAdding("existing")}><Plus className="h-4 w-4" /> Inscribir jugador</button>
-                <button className="btn-outline btn-sm" onClick={() => setAdding("new")}><UserPlus className="h-4 w-4" /> Nuevo jugador</button>
-              </>
-            )}
+            <button className="btn-gold btn-sm" onClick={() => setAdding("category")}><ListChecks className="h-4 w-4" /> Cargar categoría</button>
+            <button className="btn-outline btn-sm" onClick={() => setAdding("existing")}><Plus className="h-4 w-4" /> Inscribir jugador</button>
+            <button className="btn-outline btn-sm" onClick={() => setAdding("new")}><UserPlus className="h-4 w-4" /> Nuevo jugador</button>
           </div>
-        } />
-      <DataTable<TeamPlayer> key={registration?.id} paginate loading={rosterQ.isLoading} rows={rosterQ.data ?? []} columns={[
+        )} />
+      <DataTable<TeamPlayer> paginate loading={rosterQ.isLoading} rows={rosterQ.data ?? []} columns={[
         { key: "n", header: "Dorsal", render: (r) => <span className="grid h-8 w-8 place-items-center rounded-lg bg-navy-900 font-display font-bold text-gold-400">{r.shirt_number ?? "–"}</span> },
         { key: "p", header: "Jugador", render: (r) => playerCell(r.player_detail) },
         { key: "age", header: "Edad", render: (r) => `${r.player_detail.age} años (${formatDate(r.player_detail.birth_date)})` },
@@ -180,21 +263,21 @@ function RosterTab({ team, canManage, canEditPlayers }: { team: Team; canManage:
           </span>
         ) },
       ]} empty={<EmptyState title="Nómina vacía" message={canManage
-        ? `Cargue la categoría: se proponen los jugadores del equipo de ${registration?.category_name} para revisarlos y confirmarlos.`
-        : "Nadie inscrito todavía en la nómina de este torneo."}
+        ? `Cargue la categoría: se proponen los jugadores del equipo de ${registration.category_name} para revisarlos y confirmarlos.`
+        : "Nadie inscrito todavía en la nómina de esta categoría."}
         action={canManage && <button className="btn-gold btn-sm" onClick={() => setAdding("category")}><ListChecks className="h-4 w-4" /> Cargar categoría</button>} />} />
       <EditPlayerModal playerId={editing} onClose={() => setEditing(null)} />
-      {adding === "category" && registration && (
+      {adding === "category" && (
         <RosterByCategoryModal registration={registration} taken={(rosterQ.data ?? []).flatMap((r) => (r.shirt_number == null ? [] : [r.shirt_number]))}
           onClose={() => setAdding(null)} onDone={() => Promise.all([refresh(), queryClient.invalidateQueries({ queryKey: ["players"] })])} />
       )}
 
       <Modal open={adding === "existing"} onClose={() => setAdding(null)} title="Inscribir jugador registrado" size="sm"
-        subtitle={registration && `${registration.tournament_name} · ${registration.category_name}`}>
+        subtitle={`${registration.tournament_name} · ${registration.category_name}`}>
         <ResourceForm fields={enrollFields} onSubmit={(v) => enroll(v.player as number, v.shirt_number)} onCancel={() => setAdding(null)} submitLabel="Inscribir" />
       </Modal>
       <Modal open={adding === "new"} onClose={() => setAdding(null)} title="Nuevo jugador e inscripción" size="lg"
-        subtitle={registration && `${registration.tournament_name} · ${registration.category_name}`}>
+        subtitle={`${registration.tournament_name} · ${registration.category_name}`}>
         <ResourceForm fields={[...PLAYER_FIELDS, { name: "shirt_number", label: "Dorsal", type: "number", min: 0, max: 99, section: "Nómina" }]}
           onCancel={() => setAdding(null)} submitLabel="Crear e inscribir"
           onSubmit={async (v) => {
