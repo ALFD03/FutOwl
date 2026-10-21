@@ -1,4 +1,5 @@
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db import transaction
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils.text import slugify
@@ -196,6 +197,29 @@ class RosterViewSet(NoDeleteModelViewSet):
         registration = self._registration(serializer.validated_data["registration"])
         result = services.enroll_players(registration, serializer.validated_data["players"], request.user)
         return Response(result, status=status.HTTP_201_CREATED if result["created"] else status.HTTP_200_OK)
+
+    # Sin decorador: ModelActionPermission exige tournaments.change_teamplayer (igual que dar de baja de a uno).
+    @action(detail=False, methods=["post"], url_path="bulk-deactivate")
+    def bulk_deactivate(self, request):
+        """Da de baja de la nómina a varios jugadores a la vez (los registros se conservan)."""
+        ids = request.data.get("ids")
+        if not isinstance(ids, list) or not ids:
+            raise ValidationError({"ids": "Indique los jugadores a dar de baja."})
+        try:
+            ids = [int(i) for i in ids]
+        except (TypeError, ValueError):
+            raise ValidationError({"ids": "Identificadores inválidos."})
+        entries = list(self.get_queryset().filter(pk__in=ids, is_active=True))
+        for entry in entries:
+            self._assert_can_manage(entry.registration)
+            if entry.tournament.status == Tournament.Status.FINISHED:
+                raise ValidationError("El torneo ya finalizó: su nómina no se modifica.")
+        with transaction.atomic():
+            for entry in entries:
+                entry.is_active = False
+                entry.save(update_fields=["is_active", "updated_at"])
+                record("deactivate", entry, user=request.user, changes={"is_active": False})
+        return Response({"deactivated": len(entries)})
 
     def perform_update(self, serializer):
         self._assert_can_manage(serializer.instance.registration)

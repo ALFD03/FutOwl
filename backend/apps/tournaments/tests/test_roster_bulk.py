@@ -66,3 +66,23 @@ class RosterByCategoryTests(TestCase):
         res = client.post("/api/roster/bulk/", {"registration": self.reg12.id, "players": [{"player": self.older.id}]},
                           format="json")
         self.assertEqual(res.status_code, 403)
+
+    def test_bulk_deactivate_and_edit_shirt(self):
+        a = TeamPlayer.objects.create(registration=self.reg12, player=self.older, shirt_number=10)
+        b = TeamPlayer.objects.create(registration=self.reg12, player=self.younger, shirt_number=11)
+        # El dorsal se corrige después de cargar al jugador (sin repetir uno ya asignado)
+        self.assertEqual(self.api().patch(f"/api/roster/{a.id}/", {"shirt_number": 11}, format="json").status_code, 400)
+        res = self.api().patch(f"/api/roster/{a.id}/", {"shirt_number": 7}, format="json")
+        self.assertEqual(res.status_code, 200, res.data)
+        self.assertEqual(res.data["shirt_number"], 7)
+
+        other = f.user("otro", role=roles.TEAM_MANAGER)
+        client = APIClient()
+        client.force_authenticate(other)
+        self.assertEqual(client.post("/api/roster/bulk-deactivate/", {"ids": [a.id]}, format="json").status_code, 403)
+
+        res = self.api().post("/api/roster/bulk-deactivate/", {"ids": [a.id, b.id]}, format="json")
+        self.assertEqual(res.status_code, 200, res.data)
+        self.assertEqual(res.data["deactivated"], 2)
+        self.assertFalse(TeamPlayer.objects.filter(registration=self.reg12, is_active=True).exists())
+        self.assertEqual(TeamPlayer.objects.filter(registration=self.reg12).count(), 2)  # se conservan

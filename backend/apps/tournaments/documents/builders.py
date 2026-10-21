@@ -13,7 +13,8 @@ def _safe(text) -> str:
 def lineup_sheet(tournament, team, category, roster, *, match=None, lineup=None, coaches=()):
     """
     Planilla de alineación. Lista la nómina completa; si existe una alineación
-    cargada, marca convocados/titulares. Esta misma tabla se usa para la importación.
+    cargada, marca convocados/titulares. Si no, todos vienen convocados por defecto.
+    Esta misma tabla se usa para la importación.
     """
     selected = {}
     if lineup is not None:
@@ -28,7 +29,7 @@ def lineup_sheet(tournament, team, category, roster, *, match=None, lineup=None,
             _safe(f"{player.last_name}, {player.first_name}"),
             player.birth_date.strftime("%d/%m/%Y"),
             (chosen.shirt_number if chosen else membership.shirt_number) or "",
-            "X" if chosen else "",
+            "X" if chosen or lineup is None else "",
             "X" if chosen and chosen.is_starter else "",
             "X" if chosen and chosen.is_captain else "",
         ])

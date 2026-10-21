@@ -11,8 +11,7 @@ order: 170
 ## Cargar la alineación
 
 1. Abra el partido → **Alineaciones**. En la tarjeta de su equipo verá la **nómina del torneo**.
-2. Por cada jugador que va al partido:
-   - Encienda **Conv.** (convocado).
+2. Por defecto **toda la nómina viene convocada**. Apague **Conv.** a quien no va al partido y, por cada convocado:
    - Revise el **dorsal** (viene de la nómina; puede cambiarlo para este partido).
    - Encienda **Titular** si sale de inicio.
    - Pulse la **corona** para marcar al **capitán** (solo uno).
@@ -20,7 +19,7 @@ order: 170
 4. Adjunte la **planilla firmada** (PDF o imagen, opcional).
 5. Pulse **Cargar alineación** (o **Actualizar alineación** si ya la había cargado).
 
-Los contadores muestran *convocados / máximo* y *titulares / máximo* según las reglas del torneo; se ponen en rojo si se pasa.
+Los contadores muestran *convocados / máximo* y *titulares / máximo* según las reglas del torneo; se ponen en rojo si se pasa. Si la nómina tiene más jugadores que el máximo de la planilla, FutOwl avisa cuántos hay que desmarcar antes de cargarla.
 
 ### Validaciones
 
@@ -41,7 +40,7 @@ Puede modificarla tantas veces como quiera **hasta que el delegado la verifique*
 
 Para equipos que prefieren llenar la planilla en papel o en Word:
 
-1. Exporte la planilla con **PDF** o **Word** en la tarjeta (sale con la nómina del equipo y la columna *ID*).
+1. Exporte la planilla con **PDF** o **Word** en la tarjeta (sale con la nómina del equipo y la columna *ID*). Si aún no cargó la alineación, todos vienen marcados como **convocados**; si ya la cargó, refleja lo cargado.
 2. Llénela marcando con **X** las columnas *Convocado*, *Titular* y *Capitán*, y ajuste los dorsales.
 3. Pulse **Importar planilla (.docx/.csv)** y elija el archivo.
 4. FutOwl marca los convocados en pantalla. **Revise** y pulse **Cargar alineación** (la importación por sí sola no guarda nada).

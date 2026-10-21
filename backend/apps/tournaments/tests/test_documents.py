@@ -40,9 +40,12 @@ class DocumentTests(TestCase):
                            {"team": self.team.id, "category": self.cat.id, "format_type": "docx"})
         document = Document(io.BytesIO(res.content))
         table = next(t for t in document.tables if t.rows[0].cells[0].text == "ID")
-        # El equipo marca convocados y titulares en la planilla
+        # Sin alineación cargada, toda la nómina viene convocada por defecto
+        self.assertTrue(all(row.cells[5].text == "X" for row in table.rows[1:]))
+        # El equipo deja a dos fuera y marca titulares y capitán
+        for row in table.rows[4:]:
+            row.cells[5].text = ""
         for i, row in enumerate(table.rows[1:4]):
-            row.cells[5].text = "X"
             if i < 2:
                 row.cells[6].text = "X"
         table.rows[1].cells[7].text = "x"

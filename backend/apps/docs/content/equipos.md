@@ -37,7 +37,8 @@ Muestra los **torneos donde está inscrito el equipo**, cada uno con sus **categ
 - **Inscribir jugador**: busca jugadores ya registrados que sean **elegibles** para la categoría y estén **libres** en ese torneo.
 - **Nuevo jugador**: crea la ficha y la inscribe en un solo paso.
 - Ícono de lápiz: **edita la ficha** del jugador (datos, fotos, documento, representante).
-- Ícono de baja: **da de baja** al jugador de la nómina (el registro se conserva).
+- **Dorsal**: se edita en la misma tabla; pulse el número, cámbielo y salga del campo (o Enter). Esc lo deja como estaba. No se puede repetir un dorsal de la nómina.
+- Ícono de baja: **da de baja** al jugador de la nómina (el registro se conserva). Para dar de baja a **varios**, márquelos con las casillas (o *Seleccionar todos*) y pulse **Dar de baja**.
 
 Detalle en [Inscripciones, grupos y nómina](/app/ayuda/inscripciones-grupos-y-nomina).
 

@@ -62,7 +62,11 @@ Al inscribirlo, el equipo pasa a ser el **equipo actual** del jugador.
 
 ### Dar de baja
 
-El ícono de baja en la fila desactiva la inscripción (el registro histórico se conserva). Para **cambiar a un jugador de equipo dentro del mismo torneo**, primero debe darse de baja en el equipo anterior y luego inscribirse en el nuevo. Al reactivar una inscripción, FutOwl verifica de nuevo que el jugador siga libre y que el dorsal esté disponible.
+El ícono de baja en la fila desactiva la inscripción (el registro histórico se conserva). Para dar de baja a **varios a la vez**, márquelos con las casillas de la izquierda (o *Seleccionar todos*) y pulse **Dar de baja**.
+
+### Cambiar el dorsal
+
+Una vez cargado el jugador, su **dorsal se edita en la misma tabla**: pulse el número, escriba el nuevo y salga del campo (o Enter). Si el dorsal ya lo tiene otro jugador de la nómina, se avisa y queda el anterior. Las alineaciones ya cargadas conservan el dorsal con el que se cargaron. Para **cambiar a un jugador de equipo dentro del mismo torneo**, primero debe darse de baja en el equipo anterior y luego inscribirse en el nuevo. Al reactivar una inscripción, FutOwl verifica de nuevo que el jugador siga libre y que el dorsal esté disponible.
 
 > [!WARNING]
 > Cuando el torneo está **Finalizado**, su nómina ya no se puede modificar.

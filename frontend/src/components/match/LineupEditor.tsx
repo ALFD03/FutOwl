@@ -46,7 +46,8 @@ export function LineupEditor({ match, side, lineup, maxPlayers, starters }: {
     const initial: Record<number, Row> = {};
     rosterQ.data.forEach((tp) => {
       const lp = lineup?.players.find((p) => p.team_player === tp.id);
-      initial[tp.id] = { selected: Boolean(lp), shirt_number: lp?.shirt_number ?? tp.shirt_number ?? "", is_starter: lp?.is_starter ?? false, is_captain: lp?.is_captain ?? false };
+      // Sin alineación cargada, toda la nómina viene convocada por defecto: el equipo solo desmarca a quien no va.
+      initial[tp.id] = { selected: lineup ? Boolean(lp) : true, shirt_number: lp?.shirt_number ?? tp.shirt_number ?? "", is_starter: lp?.is_starter ?? false, is_captain: lp?.is_captain ?? false };
     });
     setRows(initial);
   }, [rosterQ.data, lineup]);
@@ -135,6 +136,9 @@ export function LineupEditor({ match, side, lineup, maxPlayers, starters }: {
               <input type="file" accept=".docx,.csv" className="sr-only" onChange={(e) => void importFile(e.target.files?.[0] ?? null)} />
             </label>
           </div>
+          {selected.length > maxPlayers && (
+            <Alert tone="warning">La planilla admite hasta {maxPlayers} convocados y hay {selected.length} marcados: desmarque a {selected.length - maxPlayers} para poder cargarla.</Alert>
+          )}
           {rosterQ.isLoading ? <Spinner /> : (
             <div className="table-wrap rounded-xl border border-slate-100 dark:border-white/5">
               <table className="table">
@@ -176,7 +180,7 @@ export function LineupEditor({ match, side, lineup, maxPlayers, starters }: {
             </div>
           </div>
           <div className="flex justify-end">
-            <button className="btn-primary" onClick={submit} disabled={busy || !selected.length || selected.some(([, r]) => r.shirt_number === "")}>
+            <button className="btn-primary" onClick={submit} disabled={busy || !selected.length || selected.length > maxPlayers || selected.some(([, r]) => r.shirt_number === "")}>
               {busy ? <Spinner className="h-4 w-4" /> : lineup ? <Save className="h-4 w-4" /> : <Upload className="h-4 w-4" />}{lineup ? "Actualizar alineación" : "Cargar alineación"}
             </button>
           </div>

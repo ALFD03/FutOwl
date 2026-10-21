@@ -131,4 +131,7 @@ class TeamPlayerSerializer(CleanModelSerializer):
             "player", "player_detail", "shirt_number",
         ]
         read_only_fields = BASE_READONLY + ["tournament"]
+        # La unicidad (jugador por torneo, dorsal por nómina) la valida TeamPlayer.clean(); los validadores que DRF
+        # genera para esas restricciones condicionales exigen `is_active` en el pedido y fallan al editar el dorsal.
+        validators = []
 

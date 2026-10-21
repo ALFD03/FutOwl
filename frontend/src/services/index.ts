@@ -28,6 +28,8 @@ export const roster = {
   /** Propuesta de nómina de una inscripción: los jugadores del equipo de esa categoría, libres en el torneo. */
   candidates: async (registration: ID) =>
     (await api.get<RosterCandidate[]>("/roster/candidates/", { params: { registration } })).data,
+  /** Da de baja de la nómina a varios jugadores (los registros se conservan). */
+  bulkDeactivate: async (ids: ID[]) => (await api.post<{ deactivated: number }>("/roster/bulk-deactivate/", { ids })).data,
   /** Inscribe varios jugadores; cada uno que falle se informa sin frenar a los demás. */
   bulk: async (data: { registration: ID; players: { player: ID; shirt_number: number | null }[] }) =>
     (await api.post<{ created: number; errors: { player: ID; label: string; message: string }[] }>("/roster/bulk/", data)).data,

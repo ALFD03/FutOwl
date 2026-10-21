@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, ChevronRight, KeyRound, ListChecks, Pencil, Plus, RotateCcw, Save, Trophy, UserMinus, UserPlus, UserX, X } from "lucide-react";
@@ -209,9 +209,15 @@ function CategoryRoster({ team, registration, canManage, canEditPlayers }: {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState<number | null>(null);
   const [adding, setAdding] = useState<"existing" | "new" | "category" | null>(null);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [removing, setRemoving] = useState(false);
   const rosterQ = useQuery({
     queryKey: ["roster", registration.id], queryFn: () => roster.all({ registration: registration.id, is_active: true }),
   });
+  const rows = rosterQ.data ?? [];
+  const chosen = rows.filter((r) => selected.has(r.id));
+  const allChosen = rows.length > 0 && chosen.length === rows.length;
+  const toggle = (id: number) => setSelected((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   // Los contadores de cada categoría salen de las inscripciones: se refrescan junto con la nómina.
   const refresh = () => Promise.all([
     queryClient.invalidateQueries({ queryKey: ["roster"] }), queryClient.invalidateQueries({ queryKey: ["registrations"] }),
@@ -246,8 +252,30 @@ function CategoryRoster({ team, registration, canManage, canEditPlayers }: {
             <button className="btn-outline btn-sm" onClick={() => setAdding("new")}><UserPlus className="h-4 w-4" /> Nuevo jugador</button>
           </div>
         )} />
-      <DataTable<TeamPlayer> paginate loading={rosterQ.isLoading} rows={rosterQ.data ?? []} columns={[
-        { key: "n", header: "Dorsal", render: (r) => <span className="grid h-8 w-8 place-items-center rounded-lg bg-navy-900 font-display font-bold text-gold-400">{r.shirt_number ?? "–"}</span> },
+      {canManage && rows.length > 0 && (
+        <div className={cn("flex flex-wrap items-center gap-3 border-b border-slate-100 px-5 py-2 text-sm dark:border-white/5", chosen.length && "bg-gold-50/80 dark:bg-gold-500/10")}>
+          <label className="flex cursor-pointer items-center gap-2 font-semibold text-navy-700 dark:text-gold-400">
+            <input type="checkbox" className="h-4 w-4 accent-navy-700" checked={allChosen}
+              onChange={() => setSelected(allChosen ? new Set() : new Set(rows.map((r) => r.id)))} />
+            {allChosen ? "Quitar selección" : `Seleccionar todos (${rows.length})`}
+          </label>
+          {chosen.length > 0 && (
+            <>
+              <span className="text-slate-500">{chosen.length} seleccionado(s)</span>
+              <button className="btn-sm btn-outline border-crimson-300 text-crimson-600" onClick={() => setRemoving(true)}><UserX className="h-4 w-4" /> Dar de baja</button>
+              <button className="btn-ghost btn-sm" onClick={() => setSelected(new Set())}><X className="h-4 w-4" /> Limpiar</button>
+            </>
+          )}
+        </div>
+      )}
+      <DataTable<TeamPlayer> paginate loading={rosterQ.isLoading} rows={rows} columns={[
+        ...(canManage ? [{ key: "sel", header: "", className: "w-10", render: (r: TeamPlayer) => (
+          <input type="checkbox" className="h-4 w-4 accent-navy-700" checked={selected.has(r.id)} aria-label={`Seleccionar a ${r.player_detail.full_name}`}
+            onChange={() => toggle(r.id)} />
+        ) }] : []),
+        { key: "n", header: "Dorsal", render: (r) => canManage
+          ? <ShirtInput key={`${r.id}-${r.shirt_number}`} entry={r} onSaved={refresh} />
+          : <span className="grid h-8 w-8 place-items-center rounded-lg bg-navy-900 font-display font-bold text-gold-400">{r.shirt_number ?? "–"}</span> },
         { key: "p", header: "Jugador", render: (r) => playerCell(r.player_detail) },
         { key: "age", header: "Edad", render: (r) => `${r.player_detail.age} años (${formatDate(r.player_detail.birth_date)})` },
         { key: "g", header: "Representante", render: (r) => r.player_detail.guardian_name ?? "—" },
@@ -267,6 +295,17 @@ function CategoryRoster({ team, registration, canManage, canEditPlayers }: {
         : "Nadie inscrito todavía en la nómina de esta categoría."}
         action={canManage && <button className="btn-gold btn-sm" onClick={() => setAdding("category")}><ListChecks className="h-4 w-4" /> Cargar categoría</button>} />} />
       <EditPlayerModal playerId={editing} onClose={() => setEditing(null)} />
+      <ConfirmDialog open={removing} onClose={() => setRemoving(false)} danger confirmLabel="Dar de baja"
+        title={`Dar de baja a ${chosen.length} jugador(es)`}
+        message={`Salen de la nómina de ${registration.category_name} en ${registration.tournament_name}; los registros se conservan y se pueden volver a inscribir.`}
+        onConfirm={async () => {
+          try {
+            const { deactivated } = await roster.bulkDeactivate(chosen.map((r) => r.id));
+            toast.success(`${deactivated} jugador(es) dado(s) de baja de la nómina (registros conservados).`);
+            setSelected(new Set());
+            await refresh();
+          } catch (e) { toast.error(errorMessage(e)); throw e; }
+        }} />
       {adding === "category" && (
         <RosterByCategoryModal registration={registration} taken={(rosterQ.data ?? []).flatMap((r) => (r.shirt_number == null ? [] : [r.shirt_number]))}
           onClose={() => setAdding(null)} onDone={() => Promise.all([refresh(), queryClient.invalidateQueries({ queryKey: ["players"] })])} />
@@ -287,6 +326,34 @@ function CategoryRoster({ team, registration, canManage, canEditPlayers }: {
           }} />
       </Modal>
     </Card>
+  );
+}
+
+/** Dorsal editable en la nómina: se guarda al salir del campo o con Enter (Esc lo deja como estaba). */
+function ShirtInput({ entry, onSaved }: { entry: TeamPlayer; onSaved: () => Promise<unknown> }) {
+  const toast = useToast();
+  const initial = entry.shirt_number?.toString() ?? "";
+  const [value, setValue] = useState(initial);
+  const [busy, setBusy] = useState(false);
+  const cancelled = useRef(false);
+  const save = async () => {
+    if (cancelled.current) { cancelled.current = false; return; }
+    if (value === initial || busy) return;
+    setBusy(true);
+    try {
+      await roster.update(entry.id, { shirt_number: value === "" ? null : Number(value) });
+      toast.success(`Dorsal de ${entry.player_detail.full_name} actualizado.`);
+      await onSaved();
+    } catch (e) { toast.error(errorMessage(e)); setValue(initial); }
+    finally { setBusy(false); }
+  };
+  return (
+    <input className={cn("h-8 w-12 rounded-lg border-0 bg-navy-900 text-center font-display font-bold text-gold-400 placeholder:text-gold-400/50 focus:outline-none focus:ring-2 focus:ring-gold-400",
+      busy && "opacity-60")} inputMode="numeric" placeholder="–" value={value} disabled={busy}
+      aria-label={`Dorsal de ${entry.player_detail.full_name}`} title="Editar dorsal"
+      onChange={(e) => setValue(e.target.value.replace(/\D/g, "").slice(0, 2))}
+      onBlur={() => void save()}
+      onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); if (e.key === "Escape") { cancelled.current = true; setValue(initial); e.currentTarget.blur(); } }} />
   );
 }
 
